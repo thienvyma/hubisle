@@ -164,7 +164,28 @@ export const vi = {
   "firstrun.retry": "Thử lại",
   "firstrun.continue": "Tiếp tục với bản đồ",
 
-  // --- khủng long của bạn (IslePilot) ---
+  // --- kết nối dữ liệu server ---
+  "provider.title": "Kết nối server The Isle",
+  "provider.subtitle": "Đăng nhập một lần để bản đồ tự cập nhật theo nhân vật.",
+  "provider.website": "Website quản lý hoặc live map của server",
+  "provider.detect": "Nhận diện",
+  "provider.supported":
+    "Hiện hỗ trợ Era Gaming VN, The Real Server VN (Titan) và các server IslePilot.",
+  "provider.adapter_required":
+    "Website khác cần có adapter tương thích; ứng dụng không đoán dữ liệu hoặc gửi cookie thử sang domain lạ.",
+  "provider.detected": "Đã nhận diện",
+  "provider.login": "Mở đăng nhập",
+  "provider.login_wait": "Hãy hoàn tất đăng nhập trong cửa sổ vừa mở…",
+  "provider.manual": "Dùng tọa độ thủ công từ Asset Location",
+  "provider.active": "Nguồn dữ liệu",
+  "provider.change": "Đổi kết nối",
+  "provider.temporary": "Mất kết nối tạm thời; ứng dụng sẽ tự thử lại.",
+  "provider.offline_hint": "Đã đăng nhập nhưng hiện chưa thấy nhân vật online trong game.",
+  "provider.capability_missing": "Server này chưa cung cấp các chỉ số chi tiết còn thiếu.",
+  "provider.mutations": "Đột biến",
+  "poi.islepilot_provider_only": "POI trực tiếp của server chỉ có khi đang dùng IslePilot.",
+
+  // --- khủng long của bạn ---
   "dino.title": "Khủng long của bạn",
   "dino.explain":
     "Đọc thông tin khủng long của chính bạn từ trang quản lý IslePilot của server " +

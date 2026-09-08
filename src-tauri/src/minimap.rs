@@ -171,6 +171,9 @@ impl Corner {
 fn snapshot(app: &AppHandle) -> Snapshot {
     let state = app.state::<AppState>();
     let s = state.settings.lock_safe();
+    let provider = crate::providers::orchestrator::current_state();
+    let provider_active = provider.provider.is_some()
+        && crate::providers::orchestrator::allows_main(provider.status);
     Snapshot {
         user_visible: settings::get_bool(&s, &["minimap", "visible"], true),
         require_game: settings::get_bool(&s, &["minimap", "require_game"], true),
@@ -180,12 +183,12 @@ fn snapshot(app: &AppHandle) -> Snapshot {
         corner: Corner::parse(settings::get_str(&s, &["minimap", "corner"], "top-left")),
         game_rect_ms: settings::get_f64(&s, &["poll", "game_rect_ms"], 1000.0) as u64,
         topmost_ms: settings::get_f64(&s, &["poll", "topmost_ms"], 2000.0) as u64,
-        panel_h: if settings::get_bool(&s, &["islepilot", "enabled"], false)
+        panel_h: if provider_active
             && settings::get_bool(&s, &["islepilot", "show_overlay_panel"], true)
         {
             // The 250 ms tick picks up stamina appearing/vanishing via the diff.
             DINO_PANEL_H
-                + if crate::islepilot::last_has_stamina() {
+                + if crate::providers::orchestrator::last_has_stamina() {
                     DINO_PANEL_ROW_H
                 } else {
                     0.0
@@ -193,11 +196,11 @@ fn snapshot(app: &AppHandle) -> Snapshot {
         } else {
             0.0
         },
-        quests_h: if settings::get_bool(&s, &["islepilot", "enabled"], false)
+        quests_h: if provider_active
             && settings::get_bool(&s, &["islepilot", "show_quests_panel"], false)
         {
             // The 250 ms tick picks up quest-count changes via the diff.
-            quests_panel_h(crate::islepilot::last_quest_count())
+            quests_panel_h(crate::providers::orchestrator::last_quest_count())
         } else {
             0.0
         },

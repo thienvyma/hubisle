@@ -1,6 +1,6 @@
 <script lang="ts">
   // Bottom-right credit bar: author + GitHub/Facebook links (opened in the
-  // system browser). Donations moved to their own tab (donate/Donate.svelte).
+  // system browser).
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { t } from "$lib/i18n";
 

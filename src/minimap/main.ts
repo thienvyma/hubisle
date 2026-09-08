@@ -36,6 +36,25 @@ interface PoiLayer {
   kind: string;
   items: { label: string; px: number; py: number; xCm: number; yCm: number }[];
 }
+interface ProviderState {
+  provider: "isle-pilot" | "era" | "titan" | null;
+  status: string;
+}
+interface ProviderStatBar {
+  current?: number | null;
+  max?: number | null;
+  percent: number;
+}
+interface ProviderSnapshot {
+  player: {
+    growthPct: number | null;
+    health: ProviderStatBar | null;
+    hunger: ProviderStatBar | null;
+    thirst: ProviderStatBar | null;
+    stamina: ProviderStatBar | null;
+    primeQuests: QuestRow[];
+  } | null;
+}
 type Settings = Record<string, any>;
 
 const LAYER_COLORS: Record<string, string> = {
@@ -75,6 +94,7 @@ const canvas = document.getElementById("minimap") as HTMLCanvasElement;
 let allPois: PoiDot[] = [];
 let poiLayers: PoiLayer[] = [];
 let settings: Settings = {};
+let providerActive = false;
 
 const state: MinimapState = {
   position: null,
@@ -126,13 +146,11 @@ function applySettings(s: Settings) {
   refreshPoiFilter();
 }
 
-/** Window height for the stats strip is Rust's job (minimap.rs panel_h reads
- * the same stamina flag from the poller); this only has to agree on the
- * formula: base height + one row when stamina is present (token mode). */
+/** Window height for the stats strip is Rust's job; this mirrors its formula. */
 function recomputePanelH() {
   const ip = settings.islepilot ?? {};
   state.panelH =
-    ip.enabled && (ip.show_overlay_panel ?? true)
+    providerActive && (ip.show_overlay_panel ?? true)
       ? PANEL_H + (state.dino?.stamina ? PANEL_ROW_H : 0)
       : 0;
 }
@@ -142,9 +160,48 @@ function recomputePanelH() {
 function recomputeQuestsH() {
   const ip = settings.islepilot ?? {};
   state.questsH =
-    ip.enabled && (ip.show_quests_panel ?? false) && state.quests.length > 0
+    providerActive && (ip.show_quests_panel ?? false) && state.quests.length > 0
       ? QUEST_HEADER_H + state.quests.length * QUEST_ROW_H + QUEST_PAD_H
       : 0;
+}
+
+function clearProviderDisplay() {
+  state.dino = null;
+  state.quests = [];
+  recomputePanelH();
+  recomputeQuestsH();
+}
+
+function applyProviderState(value: ProviderState) {
+  providerActive =
+    value.provider !== null &&
+    ["authenticated-online", "authenticated-offline", "temporary-error"].includes(value.status);
+  if (value.provider === null || value.status === "temporary-error") clearProviderDisplay();
+  recomputePanelH();
+  recomputeQuestsH();
+}
+
+function applyProviderSnapshot(snapshot: ProviderSnapshot | null) {
+  const player = snapshot?.player;
+  if (!player) {
+    clearProviderDisplay();
+    return;
+  }
+  const toBar = (stat: ProviderStatBar | null): DinoBars["hp"] => ({
+    current: stat?.current ?? null,
+    max: stat?.max ?? null,
+    percent: stat?.percent ?? 0,
+  });
+  state.dino = {
+    hp: toBar(player.health),
+    hunger: toBar(player.hunger),
+    thirst: toBar(player.thirst),
+    stamina: player.stamina ? toBar(player.stamina) : null,
+    growthPct: player.growthPct,
+  };
+  state.quests = player.primeQuests ?? [];
+  recomputePanelH();
+  recomputeQuestsH();
 }
 
 function refreshHeadingLabel(lang: keyof typeof STRINGS) {
@@ -348,7 +405,14 @@ async function reloadMapSource() {
 }
 
 async function init() {
-  settings = await invoke<Settings>("get_settings");
+  const [initialSettings, initialProvider, initialSnapshot] = await Promise.all([
+    invoke<Settings>("get_settings"),
+    invoke<ProviderState>("provider_state"),
+    invoke<ProviderSnapshot | null>("provider_snapshot"),
+  ]);
+  settings = initialSettings;
+  applyProviderState(initialProvider);
+  applyProviderSnapshot(initialSnapshot);
   applySettings(settings);
 
   applyMapInfo(await invoke<MapInfoPayload>("get_map_info"));
@@ -363,6 +427,14 @@ async function init() {
     // The rim arrow re-aims from the new position; repaints once more when
     // the answer arrives (still purely event-driven).
     void refreshNearest().then(draw);
+  });
+  await listen("position://cleared", () => {
+    state.position = null;
+    state.nearestWaypoint = null;
+    lastHeadingKey = null;
+    lastHeadingDeg = null;
+    refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
+    draw();
   });
   await listen("waypoints://changed", () => void refreshWaypoints());
   await listen<{ segmentsPx: [number, number][][] }>("trail://changed", (e) => {
@@ -379,51 +451,15 @@ async function init() {
     draw();
   });
 
-  // "Your dino" stats for the strip under the disc.
-  interface DinoStatBar {
-    current: number | null;
-    max: number | null;
-  }
-  interface DinoUpdatePayload {
-    player: {
-      growthPct: number | null;
-      health: DinoStatBar | null;
-      hunger: DinoStatBar | null;
-      thirst: DinoStatBar | null;
-      stamina?: DinoStatBar | null;
-      primeQuests?: QuestRow[];
-    } | null;
-  }
-  const toBars = (u: DinoUpdatePayload): DinoBars | null =>
-    u.player
-      ? {
-          hp: u.player.health ?? { current: null, max: null },
-          hunger: u.player.hunger ?? { current: null, max: null },
-          thirst: u.player.thirst ?? { current: null, max: null },
-          stamina: u.player.stamina ?? null,
-          growthPct: u.player.growthPct,
-        }
-      : null;
-  // Error updates carry player: null — keep the last good quests/bars so a
-  // network hiccup doesn't blank (or resize) the overlay.
-  const applyDino = (u: DinoUpdatePayload) => {
-    state.dino = toBars(u) ?? state.dino;
-    if (u.player) {
-      state.quests = u.player.primeQuests ?? [];
-      recomputeQuestsH();
-      recomputePanelH();
-    }
-  };
-  await listen<DinoUpdatePayload>("dino://update", (e) => {
-    applyDino(e.payload);
+  // Provider-neutral live stats for the strip under the minimap.
+  await listen<ProviderSnapshot>("provider://snapshot", (e) => {
+    applyProviderSnapshot(e.payload);
     draw();
   });
-  try {
-    const st = await invoke<{ lastUpdate: DinoUpdatePayload | null }>("islepilot_state");
-    if (st.lastUpdate) applyDino(st.lastUpdate);
-  } catch {
-    // feature off — strip just shows "…" until data arrives
-  }
+  await listen<ProviderState>("provider://state", (e) => {
+    applyProviderState(e.payload);
+    draw();
+  });
 
   // First-run / re-download / silent top-up completed: pick up the new data
   // live — including overlays that did not exist at init (get_map_info again).

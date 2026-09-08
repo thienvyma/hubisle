@@ -129,6 +129,19 @@ pub fn current_snapshot() -> Option<ProviderSnapshot> {
     RUNTIME.lock_safe().last_snapshot.clone()
 }
 
+pub fn last_has_stamina() -> bool {
+    current_snapshot()
+        .and_then(|snapshot| snapshot.player)
+        .is_some_and(|player| player.stamina.is_some())
+}
+
+pub fn last_quest_count() -> usize {
+    current_snapshot()
+        .and_then(|snapshot| snapshot.player)
+        .map(|player| player.prime_quests.len())
+        .unwrap_or(0)
+}
+
 fn accepts(generation: u64, provider: ProviderId) -> bool {
     RUNTIME.lock_safe().gate.accepts(generation, provider)
 }

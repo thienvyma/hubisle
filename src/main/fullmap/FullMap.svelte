@@ -30,6 +30,8 @@
     onFetchFinished,
     onWaypointsChanged,
     onPositionUpdate,
+    onPositionCleared,
+    providerState,
     onSettingsChanged,
     onTrailChanged,
     renameWaypoint,
@@ -264,6 +266,10 @@
 
   async function loadIslepilotPois() {
     try {
+      if ((await providerState()).provider !== "isle-pilot") {
+        islepilotNote = tNow("poi.islepilot_provider_only");
+        return;
+      }
       const data = await islepilotOverlayMap();
       if (data.available) {
         islepilotData = data;
@@ -705,6 +711,17 @@
           }
           applyPosition(p);
           nearest = await getNearestWaypoint();
+        }),
+      );
+      await bag.add(
+        onPositionCleared(() => {
+          position = null;
+          parkedPosition = null;
+          nearest = null;
+          edgeArrow = null;
+          if (map && playerMarker) map.removeLayer(playerMarker);
+          playerMarker = undefined;
+          playerArrowEl = null;
         }),
       );
       await bag.add(

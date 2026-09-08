@@ -10,25 +10,29 @@
     onFetchFinished,
     onFullmapShow,
     onHotkeyFailed,
+    onProviderState,
     onSettingsChanged,
+    providerState,
     simulatePosition,
     trackFeature,
     type DataStatus,
     type FailedHotkey,
     type Feature,
+    type ProviderState,
   } from "$lib/api";
   import { locale, t, type Locale } from "$lib/i18n";
+  import { providerAllowsMain } from "$lib/provider-ui";
   import FullMap from "./fullmap/FullMap.svelte";
   import Footer from "./Footer.svelte";
   import DinoTab from "./dino/DinoTab.svelte";
   import GarageTab from "./garage/GarageTab.svelte";
   import Settings from "./settings/Settings.svelte";
   import Guide from "./guide/Guide.svelte";
-  import Donate from "./donate/Donate.svelte";
   import FirstRun from "./firstrun/FirstRun.svelte";
+  import ConnectionGate from "./connection/ConnectionGate.svelte";
 
-  type Tab = "map" | "dino" | "garage" | "settings" | "guide" | "donate";
-  const initialTab = ["map", "dino", "garage", "settings", "guide", "donate"].includes(
+  type Tab = "map" | "dino" | "garage" | "settings" | "guide";
+  const initialTab = ["map", "dino", "garage", "settings", "guide"].includes(
     location.hash.slice(1),
   )
     ? (location.hash.slice(1) as Tab)
@@ -45,8 +49,6 @@
       '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
     guide:
       '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
-    donate:
-      '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
   };
   let tab = $state<Tab>(initialTab);
   // Write-back so F5 restores the tab the user was on (the hash was already
@@ -64,7 +66,6 @@
     garage: "islepilot_garage",
     settings: "settings_open",
     guide: "guide_open",
-    donate: "donate_open",
   };
   // The first run of this effect is where the app OPENED — the default tab,
   // or whatever hash a reload restored — not somewhere the user went. It is
@@ -97,41 +98,11 @@
   let exclusiveFullscreen = $state(false);
   let failedHotkeys = $state<FailedHotkey[]>([]);
   let ready = $state(false);
+  let connection = $state<ProviderState | null>(null);
   // Remount FullMap when the basemap changes ({#key} below): the imageOverlay
   // bounds and every layer's px change together, so a rebuild IS the correct
   // "in-place" update. Seeded before ready=true — no spurious first remount.
   let basemapSource = $state("vulnona");
-
-  // Update prompt: silent check on launch, non-blocking banner, only ever in
-  // this window — never over the game.
-  let updateVersion = $state<string | null>(null);
-  let updating = $state(false);
-  let pendingUpdate: import("@tauri-apps/plugin-updater").Update | null = null;
-
-  async function checkForUpdate() {
-    try {
-      const { check } = await import("@tauri-apps/plugin-updater");
-      const update = await check();
-      if (update) {
-        pendingUpdate = update;
-        updateVersion = update.version;
-      }
-    } catch {
-      // Offline or endpoint not set up yet — stay silent.
-    }
-  }
-
-  async function installUpdate() {
-    if (!pendingUpdate) return;
-    updating = true;
-    try {
-      await pendingUpdate.downloadAndInstall();
-      const { relaunch } = await import("@tauri-apps/plugin-process");
-      await relaunch();
-    } catch {
-      updating = false;
-    }
-  }
 
   // POIs are optional (fail-soft: the map works without dots); the basemap
   // images are the hard requirement.
@@ -143,6 +114,7 @@
     const bag = listenerBag();
     (async () => {
       const settings = await getSettings();
+      connection = await providerState();
       locale.set((settings.language as Locale) ?? "vi");
       basemapSource = settings.map?.basemap ?? "vulnona";
       dataStatus = await getDataStatus();
@@ -154,13 +126,13 @@
         }),
       );
       await bag.add(onHotkeyFailed((failed) => (failedHotkeys = failed)));
+      await bag.add(onProviderState((state) => (connection = state)));
       // Full-map hotkey mid-game: land on the map, not the last-open tab.
       await bag.add(onFullmapShow(() => (tab = "map")));
       // The download can finish while the user is on another tab (FirstRun
       // unmounted) — the App itself must notice and unlock the map tab.
       await bag.add(onFetchFinished(() => void getDataStatus().then((d) => (dataStatus = d))));
       ready = true;
-      void checkForUpdate();
     })();
     return () => bag.dispose();
   });
@@ -171,8 +143,20 @@
     simX += 30_000;
     void simulatePosition(simX, 52099.673, 0);
   }
+
+  $effect(() => {
+    if (connection?.provider !== "isle-pilot" && tab === "garage") tab = "dino";
+  });
 </script>
 
+{#if !ready || !connection}
+  <div class="flex h-screen items-center justify-center" style="color: var(--color-muted)">…</div>
+{:else if !providerAllowsMain(connection.status)}
+  <div class="flex h-screen flex-col">
+    <main class="min-h-0 flex-1 overflow-y-auto"><ConnectionGate {connection} /></main>
+    <Footer />
+  </div>
+{:else}
 <div class="flex h-screen flex-col">
   <header
     class="flex shrink-0 items-center gap-1 border-b px-3 py-1.5"
@@ -181,7 +165,8 @@
     <span class="mr-3 font-semibold" style="color: var(--color-accent)">
       {$t("app.title")}
     </span>
-    {#each [["map", $t("tab.map")], ["dino", $t("tab.dino")], ["garage", $t("tab.garage")], ["settings", $t("tab.settings")], ["guide", $t("tab.guide")], ["donate", $t("tab.donate")]] as [key, label] (key)}
+    {#each [["map", $t("tab.map")], ["dino", $t("tab.dino")], ["garage", $t("tab.garage")], ["settings", $t("tab.settings")], ["guide", $t("tab.guide")]] as [key, label] (key)}
+      {#if key !== "garage" || connection.provider === "isle-pilot"}
       <button
         class="flex cursor-pointer items-center gap-1.5 rounded px-3 py-1 text-sm"
         style={tab === key
@@ -203,6 +188,7 @@
         </svg>
         {label}
       </button>
+      {/if}
     {/each}
     {#if import.meta.env.DEV}
       <button
@@ -214,29 +200,6 @@
       </button>
     {/if}
   </header>
-
-  {#if updateVersion}
-    <div
-      class="flex shrink-0 items-center gap-3 px-3 py-2 text-sm"
-      style="background: #1e3a2f; color: #a7f3d0"
-    >
-      {updating
-        ? $t("update.installing")
-        : $t("update.available", { version: updateVersion })}
-      {#if !updating}
-        <button
-          class="cursor-pointer rounded px-2 py-0.5 font-medium"
-          style="background: #34d399; color: #0b2018"
-          onclick={() => void installUpdate()}
-        >
-          {$t("update.install")}
-        </button>
-        <button class="cursor-pointer underline" onclick={() => (updateVersion = null)}>
-          {$t("update.later")}
-        </button>
-      {/if}
-    </div>
-  {/if}
 
   {#if failedHotkeys.length > 0}
     <div
@@ -281,8 +244,6 @@
       <FirstRun oncomplete={() => void getDataStatus().then((d) => (dataStatus = d))} />
     {:else if tab === "settings"}
       <div class="h-full overflow-y-auto"><Settings /></div>
-    {:else if tab === "donate"}
-      <div class="h-full overflow-y-auto"><Donate /></div>
     {:else if tab === "guide"}
       <div class="h-full overflow-y-auto"><Guide /></div>
     {/if}
@@ -353,3 +314,4 @@
 
   <Footer />
 </div>
+{/if}

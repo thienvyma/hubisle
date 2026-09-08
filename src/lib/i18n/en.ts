@@ -151,6 +151,26 @@ export const en: Record<MsgKey, string> = {
   "firstrun.retry": "Retry",
   "firstrun.continue": "Continue with the map",
 
+  "provider.title": "Connect a The Isle server",
+  "provider.subtitle": "Sign in once so the map can follow your character automatically.",
+  "provider.website": "Server panel or live-map website",
+  "provider.detect": "Detect",
+  "provider.supported":
+    "Currently supports Era Gaming VN, The Real Server VN (Titan), and IslePilot servers.",
+  "provider.adapter_required":
+    "Other websites need a compatible adapter; the app does not guess data or try your cookie on unknown domains.",
+  "provider.detected": "Detected",
+  "provider.login": "Open sign-in",
+  "provider.login_wait": "Complete sign-in in the window that just opened…",
+  "provider.manual": "Use manual Asset Location coordinates",
+  "provider.active": "Data source",
+  "provider.change": "Change connection",
+  "provider.temporary": "Connection temporarily unavailable; the app will retry automatically.",
+  "provider.offline_hint": "Signed in, but no online game character is currently visible.",
+  "provider.capability_missing": "This server does not provide the missing detailed stats.",
+  "provider.mutations": "Mutations",
+  "poi.islepilot_provider_only": "Live server POIs are available only with IslePilot.",
+
   "dino.title": "Your dino",
   "dino.explain":
     "Reads your OWN dino's info from the server's IslePilot panel (growth, health, hunger, " +

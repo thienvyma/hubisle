@@ -17,11 +17,11 @@ export interface PoiDot {
 }
 
 export interface DinoBars {
-  hp: { current: number | null; max: number | null };
-  hunger: { current: number | null; max: number | null };
-  thirst: { current: number | null; max: number | null };
+  hp: { current: number | null; max: number | null; percent: number };
+  hunger: { current: number | null; max: number | null; percent: number };
+  thirst: { current: number | null; max: number | null; percent: number };
   /** Only the token-mode JSON API provides this; null in cookie mode. */
-  stamina: { current: number | null; max: number | null } | null;
+  stamina: { current: number | null; max: number | null; percent: number } | null;
   growthPct: number | null;
 }
 
@@ -447,13 +447,20 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
   ctx.fill();
 
   const dino = state.dino;
-  const rows: Array<{ label: string; cur: number | null; max: number | null; color: string }> =
+  const rows: Array<{
+    label: string;
+    cur: number | null;
+    max: number | null;
+    percent: number;
+    color: string;
+  }> =
     dino
       ? [
           {
             label: "HP",
             cur: dino.hp.current,
             max: dino.hp.max,
+            percent: dino.hp.percent,
             color:
               dino.hp.current !== null && dino.hp.max
                 ? dino.hp.current / dino.hp.max > 0.5
@@ -463,8 +470,8 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
                     : "#e2664a"
                 : "#72d653",
           },
-          { label: "\u{1F356}", cur: dino.hunger.current, max: dino.hunger.max, color: "#e8a33d" },
-          { label: "\u{1F4A7}", cur: dino.thirst.current, max: dino.thirst.max, color: "#4aa8d8" },
+          { label: "\u{1F356}", cur: dino.hunger.current, max: dino.hunger.max, percent: dino.hunger.percent, color: "#e8a33d" },
+          { label: "\u{1F4A7}", cur: dino.thirst.current, max: dino.thirst.max, percent: dino.thirst.percent, color: "#4aa8d8" },
           // Stamina (token mode only) — the window is one row taller then.
           ...(dino.stamina
             ? [
@@ -472,6 +479,7 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
                   label: "\u{26A1}",
                   cur: dino.stamina.current,
                   max: dino.stamina.max,
+                  percent: dino.stamina.percent,
                   color: "#a78bfa",
                 },
               ]
@@ -503,20 +511,23 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
     ctx.roundRect(barX, y - 3.5, barW, 7, 3.5);
     ctx.fillStyle = "rgba(255,255,255,0.12)";
     ctx.fill();
-    if (row.cur !== null && row.max) {
-      const frac = Math.max(0, Math.min(1, row.cur / row.max));
-      if (frac > 0) {
-        ctx.beginPath();
-        ctx.roundRect(barX, y - 3.5, Math.max(barW * frac, 3), 7, 3.5);
-        ctx.fillStyle = row.color;
-        ctx.fill();
-      }
+    const frac =
+      row.cur !== null && row.max
+        ? Math.max(0, Math.min(1, row.cur / row.max))
+        : Math.max(0, Math.min(1, row.percent / 100));
+    if (frac > 0) {
+      ctx.beginPath();
+      ctx.roundRect(barX, y - 3.5, Math.max(barW * frac, 3), 7, 3.5);
+      ctx.fillStyle = row.color;
+      ctx.fill();
     }
 
     ctx.textAlign = "right";
     ctx.fillStyle = COLORS.text;
     ctx.fillText(
-      row.cur !== null && row.max !== null ? `${Math.round(row.cur)}/${Math.round(row.max)}` : "—",
+      row.cur !== null && row.max !== null
+        ? `${Math.round(row.cur)}/${Math.round(row.max)}`
+        : `${Math.round(row.percent)}%`,
       size - 12,
       y,
     );
