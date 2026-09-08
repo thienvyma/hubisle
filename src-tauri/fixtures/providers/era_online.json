@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "serverOnline": true,
+  "playerOnline": true,
+  "server": "Synthetic Era Server",
+  "player": {
+    "name": "Synthetic Player",
+    "class": "Stegosaurus",
+    "location": { "x": 45100.0, "y": 317900.0, "z": 20900.0 },
+    "growthPercent": 54.0,
+    "healthPercent": 88.0,
+    "staminaPercent": 96.0,
+    "hungerPercent": 64.0,
+    "thirstPercent": 73.0
+  }
+}
