@@ -6,6 +6,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 pub const POSITION_UPDATE: &str = "position://update";
+pub const POSITION_CLEARED: &str = "position://cleared";
 pub const TRAIL_CHANGED: &str = "trail://changed";
 pub const SETTINGS_CHANGED: &str = "settings://changed";
 

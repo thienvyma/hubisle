@@ -1,8 +1,10 @@
 use reqwest::Url;
+use serde::Serialize;
 
 use super::model::ProviderId;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct DetectedProvider {
     pub id: ProviderId,
     pub origin: String,

@@ -29,6 +29,43 @@ export interface ProviderState {
   lastReceivedAtMs: number | null;
 }
 
+export interface DetectedProvider {
+  id: ProviderId;
+  origin: string;
+}
+
+export interface SharedStatBar {
+  percent: number;
+  current?: number | null;
+  max?: number | null;
+  raw: string;
+}
+
+export interface SharedPlayer {
+  name: string | null;
+  dinoName: string | null;
+  female: boolean | null;
+  growthPct: number | null;
+  health: SharedStatBar | null;
+  stamina: SharedStatBar | null;
+  hunger: SharedStatBar | null;
+  thirst: SharedStatBar | null;
+  mutations: string[];
+  nutrition: DinoNutrition | null;
+  primeQuests: DinoQuest[];
+}
+
+export interface ProviderSnapshot {
+  provider: ProviderId;
+  status: ConnectionStatus;
+  serverId: string | null;
+  serverName: string | null;
+  receivedAtMs: number;
+  sourceTimestampMs: number | null;
+  player: SharedPlayer | null;
+  positionCm: [number, number, number] | null;
+}
+
 export interface PositionUpdate {
   xCm: number;
   yCm: number;
@@ -91,6 +128,9 @@ export type Settings = Record<string, unknown> & {
 export const onPositionUpdate = (
   cb: (p: PositionUpdate) => void,
 ): Promise<UnlistenFn> => listen<PositionUpdate>("position://update", (e) => cb(e.payload));
+
+export const onPositionCleared = (cb: () => void): Promise<UnlistenFn> =>
+  listen("position://cleared", () => cb());
 
 export const onTrailChanged = (
   cb: (t: TrailPayload) => void,
@@ -493,6 +533,25 @@ export const islepilotGarageRename = (id: string, name: string) =>
 export const islepilotLogout = () => invoke("islepilot_logout");
 export const islepilotApply = () => invoke("islepilot_apply");
 export const islepilotState = () => invoke<IslepilotState>("islepilot_state");
+
+export const providerDetect = (website: string) =>
+  invoke<DetectedProvider>("provider_detect", { website });
+export const providerStartLogin = (website: string) =>
+  invoke("provider_start_login", { website });
+export const providerCancelLogin = () => invoke("provider_cancel_login");
+export const providerState = () => invoke<ProviderState>("provider_state");
+export const providerSnapshot = () =>
+  invoke<ProviderSnapshot | null>("provider_snapshot");
+export const providerLogout = () => invoke("provider_logout");
+export const providerSelectManual = () => invoke("provider_select_manual");
+export const onProviderState = (
+  cb: (state: ProviderState) => void,
+): Promise<UnlistenFn> =>
+  listen<ProviderState>("provider://state", (event) => cb(event.payload));
+export const onProviderSnapshot = (
+  cb: (snapshot: ProviderSnapshot) => void,
+): Promise<UnlistenFn> =>
+  listen<ProviderSnapshot>("provider://snapshot", (event) => cb(event.payload));
 
 export const onDinoUpdate = (cb: (u: DinoUpdate) => void): Promise<UnlistenFn> =>
   listen<DinoUpdate>("dino://update", (e) => cb(e.payload));

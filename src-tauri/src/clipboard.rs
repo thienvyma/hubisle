@@ -66,18 +66,25 @@ pub fn spawn(app: AppHandle) {
     std::thread::spawn(move || {
         let mut last_seq = unsafe { GetClipboardSequenceNumber() };
         loop {
-            let (interval_ms, number_format) = {
+            let (interval_ms, number_format, automatic_position) = {
                 let state = app.state::<AppState>();
                 let s = state.settings.lock_safe();
                 (
                     settings::get_f64(&s, &["poll", "clipboard_ms"], 400.0) as u64,
                     NumberFormat::from_setting(settings::get_str(&s, &["number_format"], "auto")),
+                    settings::get_bool(&s, &["provider", "automatic_position"], true),
                 )
             };
             std::thread::sleep(Duration::from_millis(interval_ms.max(100)));
 
             let seq = unsafe { GetClipboardSequenceNumber() };
             if seq == last_seq {
+                continue;
+            }
+            if automatic_position {
+                // Automatic providers own position updates. Consume only
+                // the sequence number and never open the clipboard.
+                last_seq = seq;
                 continue;
             }
             match read_clipboard_text() {

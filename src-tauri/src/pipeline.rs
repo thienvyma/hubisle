@@ -8,7 +8,7 @@ use overlay_core::{bearing_to_compass_key, world_to_pixel, Calibration};
 use tauri::{AppHandle, Manager};
 
 use crate::events::{
-    emit_all, PositionUpdate, TrailPayload, POSITION_UPDATE, SETTINGS_CHANGED,
+    emit_all, PositionUpdate, TrailPayload, POSITION_CLEARED, POSITION_UPDATE, SETTINGS_CHANGED,
     TRAIL_CHANGED,
 };
 use crate::state::{AppState, LockExt};
@@ -59,6 +59,32 @@ pub fn ingest_sample(app: &AppHandle, x: f64, y: f64, z: f64) {
     }
 }
 
+/// Remove the active marker and heading while preserving completed trail
+/// segments. The next accepted sample starts a new segment, so switching
+/// servers can never draw a line across unrelated positions.
+pub fn clear_position(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let cal = state.active_calibration();
+    let (trail, add_break) = {
+        let mut tracker = state.tracker.lock_safe();
+        let add_break = tracker.current.is_some()
+            || tracker.segments.last().is_some_and(|segment| !segment.is_empty());
+        tracker.current = None;
+        tracker.previous = None;
+        if tracker.segments.last().is_some_and(|segment| !segment.is_empty()) {
+            tracker.segments.push(Vec::new());
+        }
+        (trail_payload(&tracker.segments, cal), add_break)
+    };
+    if add_break {
+        if let Some(writer) = state.trail_writer.lock_safe().as_mut() {
+            writer.add_break();
+        }
+    }
+    emit_all(app, POSITION_CLEARED, ());
+    emit_all(app, TRAIL_CHANGED, trail);
+}
+
 /// The current tracker state as a PositionUpdate, or None before the first
 /// sample. Shared by `resync` and the `get_current_position` command so a
 /// freshly (re)loaded webview paints at once instead of waiting for the
@@ -105,6 +131,18 @@ pub fn resync(app: &AppHandle) {
     }
     emit_all(app, "waypoints://changed", ());
     crate::islepilot::emit_last(app);
+    emit_all(
+        app,
+        crate::providers::orchestrator::PROVIDER_STATE,
+        crate::providers::orchestrator::current_state(),
+    );
+    if let Some(snapshot) = crate::providers::orchestrator::current_snapshot() {
+        emit_all(
+            app,
+            crate::providers::orchestrator::PROVIDER_SNAPSHOT,
+            snapshot,
+        );
+    }
 }
 
 pub fn trail_payload(segments_cm: &[Vec<(f64, f64)>], cal: &Calibration) -> TrailPayload {

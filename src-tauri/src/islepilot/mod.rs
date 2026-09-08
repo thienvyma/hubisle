@@ -296,6 +296,7 @@ fn publish(app: &AppHandle, update: DinoUpdate) {
         HAS_STAMINA.store(player.stamina.is_some(), Ordering::SeqCst);
     }
     *LAST_UPDATE.lock_safe() = Some(update.clone());
+    crate::providers::orchestrator::publish_islepilot(app, &update);
     crate::events::emit_all(app, DINO_UPDATE, update);
 }
 
@@ -1497,5 +1498,3 @@ mod tests {
         println!("cookie stored for {domain}");
     }
 }
-
-

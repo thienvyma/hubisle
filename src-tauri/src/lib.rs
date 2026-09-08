@@ -116,6 +116,13 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::islepilot_logout,
             commands::islepilot_apply,
             commands::islepilot_state,
+            commands::provider_detect,
+            commands::provider_start_login,
+            commands::provider_cancel_login,
+            commands::provider_state,
+            commands::provider_snapshot,
+            commands::provider_logout,
+            commands::provider_select_manual,
             telemetry::track_feature,
             telemetry::submit_feedback,
             telemetry::submit_crash,
@@ -197,7 +204,7 @@ pub fn run(replay_file: Option<PathBuf>) {
                 let state = app.state::<AppState>();
                 state.hotkeys.restart(app.handle().clone());
             }
-            islepilot::restart_poller(app.handle());
+            providers::orchestrator::initialize(app.handle());
             // Last, and on its own thread: nothing above may wait on it.
             telemetry::spawn(app.handle());
             if let Some(path) = replay_file {

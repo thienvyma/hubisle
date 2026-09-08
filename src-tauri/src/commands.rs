@@ -838,6 +838,43 @@ pub fn islepilot_state(app: AppHandle) -> crate::islepilot::IslepilotState {
     crate::islepilot::current_state(&app)
 }
 
+#[tauri::command]
+pub fn provider_detect(
+    website: String,
+) -> Result<crate::providers::registry::DetectedProvider, String> {
+    crate::providers::orchestrator::detect(&website)
+}
+
+#[tauri::command]
+pub async fn provider_start_login(app: AppHandle, website: String) -> Result<(), String> {
+    crate::providers::orchestrator::start_login(&app, website)
+}
+
+#[tauri::command]
+pub fn provider_cancel_login(app: AppHandle) {
+    crate::providers::orchestrator::cancel_login(&app);
+}
+
+#[tauri::command]
+pub fn provider_state() -> crate::providers::model::ProviderState {
+    crate::providers::orchestrator::current_state()
+}
+
+#[tauri::command]
+pub fn provider_snapshot() -> Option<crate::providers::model::ProviderSnapshot> {
+    crate::providers::orchestrator::current_snapshot()
+}
+
+#[tauri::command]
+pub fn provider_logout(app: AppHandle) -> Result<(), String> {
+    crate::providers::orchestrator::logout(&app)
+}
+
+#[tauri::command]
+pub fn provider_select_manual(app: AppHandle) {
+    crate::providers::orchestrator::select_manual(&app);
+}
+
 /// Dev-only: feed a fake sample through the real pipeline.
 #[cfg(debug_assertions)]
 #[tauri::command]

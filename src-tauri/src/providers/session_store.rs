@@ -37,9 +37,7 @@ fn save_records(records: &[SessionRecord]) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    let temp = path.with_extension("bin.tmp");
-    std::fs::write(&temp, sealed).map_err(|e| e.to_string())?;
-    std::fs::rename(temp, path).map_err(|e| e.to_string())
+    std::fs::write(path, sealed).map_err(|e| e.to_string())
 }
 
 fn find_cookie<'a>(
