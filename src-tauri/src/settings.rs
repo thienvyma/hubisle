@@ -156,6 +156,14 @@ pub fn default_settings() -> Value {
         },
         "number_format": "auto",         // auto | us | eu
         "language": "vi",                // vi | en
+        // Selected live-data provider. Null keeps existing installations in
+        // the connection gate until a valid provider or legacy IslePilot
+        // session is detected at runtime.
+        "provider": {
+            "id": null,
+            "website": null,
+            "automatic_position": true,
+        },
         // "Your dino" — IslePilot server-panel integration.
         "islepilot": {
             "enabled": false,
@@ -308,6 +316,9 @@ mod tests {
         assert_eq!(merged["number_format"], "eu");
         assert_eq!(merged["language"], "vi", "new key gets its default");
         assert_eq!(merged["map"]["basemap"], "vulnona", "new key gets its default");
+        assert!(merged["provider"]["id"].is_null());
+        assert!(merged["provider"]["website"].is_null());
+        assert_eq!(merged["provider"]["automatic_position"], true);
         assert_eq!(
             active_source(&merged),
             overlay_core::MapSource::Vulnona,

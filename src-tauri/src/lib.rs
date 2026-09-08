@@ -12,6 +12,7 @@ pub mod hotkeys;
 pub mod islepilot;
 pub mod minimap;
 pub mod pipeline;
+pub mod providers;
 pub mod replay;
 pub mod settings;
 pub mod state;

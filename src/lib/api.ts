@@ -9,6 +9,26 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 /** Which basemap imagery is rendered. One key per calibration-frame x style. */
 export type BasemapSource = "vulnona" | "islemaps_light" | "islemaps_dark";
 
+export type ProviderId = "isle-pilot" | "era" | "titan";
+export type ConnectionStatus =
+  | "unconfigured"
+  | "detecting"
+  | "login-required"
+  | "validating"
+  | "authenticated-online"
+  | "authenticated-offline"
+  | "temporary-error"
+  | "unsupported"
+  | "logged-out";
+
+export interface ProviderState {
+  provider: ProviderId | null;
+  website: string | null;
+  status: ConnectionStatus;
+  message: string | null;
+  lastReceivedAtMs: number | null;
+}
+
 export interface PositionUpdate {
   xCm: number;
   yCm: number;
@@ -50,6 +70,11 @@ export type Settings = Record<string, unknown> & {
   number_format: "auto" | "us" | "eu";
   language: "vi" | "en";
   telemetry: { enabled: boolean };
+  provider: {
+    id: ProviderId | null;
+    website: string | null;
+    automatic_position: boolean;
+  };
   islepilot: {
     enabled: boolean;
     /** "token" = one Steam login for every server; "legacy" = per-server cookie. */
