@@ -160,6 +160,12 @@ fn set_status(
         }
         runtime.machine.status = status;
         runtime.message = message;
+        if matches!(
+            status,
+            ConnectionStatus::LoginRequired | ConnectionStatus::TemporaryError
+        ) {
+            runtime.last_snapshot = None;
+        }
         runtime_state(&runtime)
     };
     emit_state(app, state);
@@ -260,6 +266,7 @@ fn interruptible_sleep(generation: u64, provider: ProviderId, seconds: u64) -> b
 fn handle_era_error(app: &AppHandle, generation: u64, error: EraError) -> bool {
     match error {
         EraError::LoginRequired => {
+            pipeline::clear_position(app);
             set_status(
                 app,
                 generation,
@@ -307,6 +314,7 @@ fn run_era(app: AppHandle, generation: u64, cookie: String) {
 fn handle_titan_error(app: &AppHandle, generation: u64, error: TitanError) -> bool {
     match error {
         TitanError::LoginRequired => {
+            pipeline::clear_position(app);
             set_status(
                 app,
                 generation,
@@ -724,6 +732,7 @@ pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
         return;
     }
     if update.error.is_some() {
+        pipeline::clear_position(app);
         set_status(
             app,
             generation,
@@ -738,6 +747,9 @@ pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
     } else {
         ConnectionStatus::AuthenticatedOffline
     };
+    if status == ConnectionStatus::AuthenticatedOffline {
+        pipeline::clear_position(app);
+    }
     let player = update.player.as_ref().map(|player| SharedPlayer {
         name: None,
         dino_name: player.dino_name.clone(),
@@ -765,6 +777,24 @@ pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
         position_cm: None,
     };
     publish_snapshot(app, generation, snapshot, false);
+}
+
+pub fn islepilot_auth_expired(app: &AppHandle) {
+    let generation = {
+        let runtime = RUNTIME.lock_safe();
+        if runtime.machine.provider != Some(ProviderId::IslePilot) {
+            return;
+        }
+        runtime.gate.generation
+    };
+    pipeline::clear_position(app);
+    set_status(
+        app,
+        generation,
+        ProviderId::IslePilot,
+        ConnectionStatus::LoginRequired,
+        Some("Phiên đăng nhập IslePilot đã hết hạn.".to_string()),
+    );
 }
 
 #[cfg(test)]

@@ -13,11 +13,10 @@ export const en: Record<MsgKey, string> = {
   "tab.settings": "Settings",
   "tab.garage": "Garage",
   "tab.guide": "Guide",
-  "tab.donate": "Donate",
 
   "pos.none": "No position yet",
   "pos.hint":
-    "In game press Tab, then click “Asset Location” in the top-right corner to copy your coordinates.",
+    "Waiting for the live server position. Manual mode can still use Asset Location from the Tab screen.",
   "pos.off_map": "Off the map",
 
   "dir.N": "North",
@@ -289,19 +288,9 @@ export const en: Record<MsgKey, string> = {
     "The map hit a display error. Click Retry, or press F5 to reload the whole app.",
   "btn.retry": "Retry",
 
-  "update.available": "Update {version} available",
-  "update.install": "Update now",
-  "update.installing": "Downloading update…",
-  "update.later": "Later",
-
   "footer.developed_by": "Developed by",
-  "footer.donate": "Donate",
+  "footer.custom_build": "Multi-server test build",
   "footer.reload_hint": "If the app breaks, press F5 or Ctrl+Alt+R to reload",
-  "donate.title": "Support the author",
-  "donate.hint": "Scan the VietQR code with your banking app, or transfer manually:",
-  "donate.copy_stk": "Copy account number",
-  "donate.copied": "Copied!",
-  "donate.thanks": "Thank you for your support! ❤",
 
 
   "telemetry.title": "Usage data & feedback",

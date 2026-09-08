@@ -1,5 +1,5 @@
-//! Clipboard watcher — the app's ONLY source of position data. Port of
-//! `app/clipboard.py`.
+//! Clipboard watcher for the explicit manual-position fallback. Port of
+//! `app/clipboard.py`; automatic providers bypass this source entirely.
 //!
 //! In game the player presses Tab and clicks "Asset Location"; the game
 //! itself copies the coordinates to the Windows clipboard. We only read them

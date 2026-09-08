@@ -14,12 +14,11 @@ export const vi = {
   "tab.settings": "Cài đặt",
   "tab.garage": "Garage",
   "tab.guide": "Hướng dẫn",
-  "tab.donate": "Ủng hộ",
 
   // --- trạng thái vị trí ---
   "pos.none": "Chưa có vị trí",
   "pos.hint":
-    "Trong game bấm Tab, rồi bấm chuột vào “Asset Location” ở góc trên bên phải để chép tọa độ.",
+    "Đang chờ vị trí realtime từ server. Chế độ thủ công vẫn có thể dùng Asset Location trong bảng Tab.",
   "pos.off_map": "Ngoài bản đồ",
 
   // --- hướng ---
@@ -306,21 +305,10 @@ export const vi = {
     "Bản đồ gặp lỗi hiển thị. Bấm Thử lại, hoặc nhấn F5 để tải lại toàn bộ ứng dụng.",
   "btn.retry": "Thử lại",
 
-  // --- cập nhật ---
-  "update.available": "Có bản cập nhật {version}",
-  "update.install": "Cập nhật ngay",
-  "update.installing": "Đang tải bản cập nhật…",
-  "update.later": "Để sau",
-
-  // --- footer + donate ---
+  // --- footer ---
   "footer.developed_by": "Được phát triển bởi",
-  "footer.donate": "Ủng hộ",
+  "footer.custom_build": "Bản đa server thử nghiệm",
   "footer.reload_hint": "Nếu ứng dụng bị lỗi, nhấn F5 hoặc Ctrl+Alt+R để tải lại",
-  "donate.title": "Ủng hộ tác giả",
-  "donate.hint": "Quét mã VietQR bằng app ngân hàng, hoặc chuyển khoản thủ công:",
-  "donate.copy_stk": "Copy số tài khoản",
-  "donate.copied": "Đã copy!",
-  "donate.thanks": "Cảm ơn bạn đã ủng hộ! ❤",
 
 
   // --- số liệu sử dụng & phản hồi ---

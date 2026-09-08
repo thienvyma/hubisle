@@ -54,8 +54,6 @@ pub fn run(replay_file: Option<PathBuf>) {
         )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .on_window_event(|window, event| match event {
             // X hides to the tray, Steam/Discord-style. Quit lives in the
             // tray menu; app.exit bypasses CloseRequested so it cannot be

@@ -12,7 +12,7 @@
   class="flex shrink-0 items-center justify-between gap-3 border-t px-3 py-1 text-xs"
   style="border-color: var(--color-border); background: var(--color-panel); color: var(--color-muted)"
 >
-  <span>v{__APP_VERSION__} · {$t("footer.reload_hint")}</span>
+  <span>v{__APP_VERSION__} · {$t("footer.custom_build")} · {$t("footer.reload_hint")}</span>
   <div class="flex items-center gap-3">
     <span>{$t("footer.developed_by")} <span style="color: var(--color-text)">Trần Quốc Toản</span></span>
     <button

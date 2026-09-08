@@ -2,17 +2,14 @@
 
 [Tiếng Việt](README.md) · **English**
 
-Map overlay for **The Isle: Evrima** (Gateway). Circular minimap pinned to the
-game window · full map with POIs, place names, waypoints and travel trails ·
-dino stats + Garage (Gacha) with **3D preview** · a **skin editor** for all ten
-colour zones, applied straight to the dino you are playing — all three from the
-IslePilot system, one Steam login **for every server** · bilingual VI/EN
-interface · one-click install with auto-update.
+This is custom build **1.6.0-eratitan.1**, based on the open-source 1.5.2 code. Its in-game
+minimap reads the player's coordinates automatically from the server's account
+website. Adapters currently support **Era Gaming VN**, **The Real Server VN
+(Titan)**, and **IslePilot**.
 
-**2.0.0** adds a realtime set behind the **paid Pro tier**: proximity **voice**
-over IsleVOIP, **friend positions** on the map, and your own position updating
-about twice a second (no more pressing Tab). See the "Pro / Support" tab in the
-app.
+On first launch, enter the server website and sign in in the separate window.
+The session is encrypted on this computer. Unsupported sites require a specific
+adapter; the app never guesses an API or sends cookies to an unknown domain.
 
 ▶️ **Install & usage video guide** (Vietnamese):
 
@@ -50,32 +47,21 @@ app.
 - **Search & navigation**: search places/waypoints, paste coordinates to jump
   there, follow mode with an edge arrow leading back to your position.
 - **Travel trail** recorded per session, with the previous session's path restored.
-- **Your dino**: growth, health, hunger, thirst, stamina, Carb/Protein/Lipid
-  nutrition and Prime progress (with Vietnamese translation) from the IslePilot
-  system; compact stats strip + Prime quest card under the minimap. One Steam
-  login works on **every IslePilot server** — switch servers and the data follows.
-- **Garage (Gacha) with 3D preview**: each parked dino is a card with an
+- **Realtime position and stats**: coordinates, growth, health, hunger, thirst,
+  and stamina are normalized from the selected provider and rendered by the same
+  minimap. Missing provider fields remain empty rather than being fabricated.
+- **IslePilot Garage (Gacha) with 3D preview**: each parked dino is a card with an
   orbitable **3D model in its own skin colours** + growth + Park/Restore/
   Rename/Sell; models download once and open instantly (and offline) after.
 - **Skin editor**: ten colour zones, a 3D preview of the species you are actually
   playing, colour sets saved **on your own machine**, applied straight to the dino
   in game (the server must have live skins enabled).
-- **Voice (IsleVOIP)** *(Pro)*: proximity voice, private channels by name,
-  push-to-talk, per-person volume — nothing else to install.
-- **Friend positions** *(Pro)*: pair both ways with an invite code and see each
-  other on the map while on the same voice server — any species.
-- **Global hotkeys** rebindable in-app, bilingual UI, automatic updates.
+- **Global hotkeys** rebindable in-app and a bilingual Vietnamese/English UI.
 
 ## Install
 
-Download `TheIsle Overlay_x.x.x_x64-setup.exe` from
-[Releases](https://github.com/toantranct/theisle-overlay/releases) and run it.
+Run the NSIS installer built from this custom branch.
 On first launch the app downloads the map data (~3 MB) to your machine.
-
-> As of **2.0.0** the source is no longer published here — this repository keeps
-> the code of earlier versions and remains the place releases are published.
-> Installers and automatic updates still come from
-> [Releases](https://github.com/toantranct/theisle-overlay/releases) as before.
 
 Requires **Windows 10/11 64-bit**. WebView2 is already present on most Windows 11
 installs; the installer fetches it if missing.
@@ -244,20 +230,10 @@ your machine, not a redistribution.
 
 Unaffiliated with Afterthought LLC.
 
-## Contact & Support
+## Credits
 
 Developed by **Trần Quốc Toản**.
 
 - 📧 Email: toantranct1@gmail.com
 - 💬 Facebook: https://www.facebook.com/satann247/
-- 🐛 Bugs / suggestions: [GitHub Issues](https://github.com/toantranct/theisle-overlay/issues)
-
-The core map features are free; the realtime set (live position, friend
-position sharing, the Voice tab) is part of the paid Pro tier — the position
-relay and realtime infrastructure are paid for by the author. See the
-"Pro / Support" tab in the app. If you find it useful, you can also buy the
-author a coffee:
-
-<img src="docs/qr_donate.png" alt="VietQR — Techcombank 8866886767 TRAN QUOC TOAN" width="280">
-
-**Techcombank · 8866886767 · TRAN QUOC TOAN**
+- 🐛 Original source: [toantranct/theisle-overlay](https://github.com/toantranct/theisle-overlay)

@@ -2,16 +2,14 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-Bản đồ hiện đè lên màn hình khi chơi **The Isle: Evrima** (map Gateway).
-Minimap tròn bám theo cửa sổ game · bản đồ lớn với POI, tên địa danh, waypoint,
-vết đường đi · chỉ số khủng long + Garage (Gacha) với **xem 3D** · **Skin
-editor** 10 vùng màu áp thẳng lên dino đang chơi — cả ba lấy từ hệ thống
-IslePilot, đăng nhập Steam **một lần dùng cho mọi server** · giao diện song ngữ
-Việt/Anh · cài một lần, tự cập nhật.
+Đây là bản tùy chỉnh **1.6.0-eratitan.1** dựa trên mã nguồn mở 1.5.2. Minimap hiện đè lên
+game và tự lấy tọa độ nhân vật từ website quản lý của server. Hiện có adapter
+cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
-Từ **2.0.0** có thêm nhóm tính năng realtime thuộc **gói Pro trả phí**: **Thoại**
-theo khoảng cách qua IsleVOIP, **vị trí bạn bè** trên bản đồ, và vị trí của chính
-bạn cập nhật ~2 lần/giây (khỏi bấm Tab). Chi tiết ở tab «Pro / Ủng hộ» trong app.
+Lần đầu mở app, nhập website server và đăng nhập trong cửa sổ riêng. Phiên đăng
+nhập được mã hóa trên máy; app tiếp tục cập nhật vị trí, hướng đi và chỉ số trên
+minimap khi chơi. Website chưa được hỗ trợ cần thêm adapter xác định — app không
+gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 
 ▶️ **Video hướng dẫn cài đặt & sử dụng:**
 
@@ -49,30 +47,20 @@ bạn cập nhật ~2 lần/giây (khỏi bấm Tab). Chi tiết ở tab «Pro /
 - **Tìm kiếm & điều hướng**: ô tìm địa danh/waypoint, dán tọa độ để nhảy tới,
   chế độ bám vị trí với mũi tên mép màn hình dẫn về chỗ đứng.
 - **Đường đã đi**: tự ghi theo phiên, khôi phục lại đường đi của phiên trước.
-- **Khủng long của bạn**: growth, máu, đói, khát, thể lực, dinh dưỡng
-  Carb/Đạm/Béo và Prime progress (có dịch tiếng Việt) từ hệ thống IslePilot;
-  thanh chỉ số + bảng nhiệm vụ Prime gọn ngay dưới minimap. Đăng nhập Steam
-  **một lần dùng cho mọi server IslePilot** — đổi server là dữ liệu tự đổi theo.
-- **Garage (Gacha) với xem 3D**: mỗi dino đã park là một card có **model 3D
+- **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
+  chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
+  cung cấp sẽ để trống, không dựng dữ liệu giả.
+- **Garage IslePilot (Gacha) với xem 3D**: mỗi dino đã park là một card có **model 3D
   xoay/phóng được, đúng màu skin** + growth + nút Park/Restore/Đổi tên/Bán;
   model tải một lần rồi cache, mở lại tức thì và offline được.
 - **Skin editor**: 10 vùng màu, xem trước 3D đúng loài đang chơi, lưu bộ màu
   **ngay trên máy bạn** và áp thẳng lên dino trong game (server phải bật skin live).
-- **Thoại (IsleVOIP)** *(gói Pro)*: nói theo khoảng cách, kênh riêng theo tên,
-  bấm-để-nói, chỉnh âm lượng từng người — không cần cài thêm app nào.
-- **Vị trí bạn bè** *(gói Pro)*: kết bạn hai chiều bằng mã mời, thấy nhau trên
-  bản đồ khi cùng một server thoại — khác loài vẫn được.
-- **Phím tắt toàn cục** đổi được trong app, song ngữ Việt/Anh, tự cập nhật phiên bản mới.
+- **Phím tắt toàn cục** đổi được trong app, giao diện song ngữ Việt/Anh.
 
 ## Cài đặt
 
-Tải file `TheIsle Overlay_x.x.x_x64-setup.exe` từ
-[Releases](https://github.com/toantranct/theisle-overlay/releases) và chạy.
+Chạy file cài đặt NSIS được tạo từ nhánh tùy chỉnh này.
 Lần đầu mở app sẽ tải dữ liệu bản đồ (~3 MB) về máy.
-
-> Từ bản **2.0.0**, mã nguồn không còn được công bố tại đây — kho này giữ lại mã
-> của các bản trước và tiếp tục là nơi phát hành. Bản cài và cập nhật tự động vẫn
-> ra ở mục [Releases](https://github.com/toantranct/theisle-overlay/releases) như cũ.
 
 Yêu cầu: **Windows 10/11 64-bit**. WebView2 (thường đã có sẵn trên Windows 11;
 nếu thiếu, installer tự tải về).
@@ -237,20 +225,10 @@ cá nhân trên máy bạn, không phải bản phát hành lại.
 
 Không liên kết với Afterthought LLC.
 
-## Liên hệ & Ủng hộ
+## Ghi công
 
 Được phát triển bởi **Trần Quốc Toản**.
 
 - 📧 Email: toantranct1@gmail.com
 - 💬 Facebook: https://www.facebook.com/satann247/
-- 🐛 Báo lỗi / góp ý: [GitHub Issues](https://github.com/toantranct/theisle-overlay/issues)
-
-App miễn phí cho các tính năng bản đồ cốt lõi; riêng nhóm tính năng realtime
-(vị trí trực tiếp, chia sẻ vị trí bạn bè, tab Thoại) thuộc gói Pro trả phí —
-vì máy chủ relay và hạ tầng realtime do tác giả tự chi trả. Xem tab
-«Pro / Ủng hộ» trong app. Nếu thấy hữu ích, bạn cũng có thể mời tác giả một ly
-cà phê:
-
-<img src="docs/qr_donate.png" alt="VietQR — Techcombank 8866886767 TRAN QUOC TOAN" width="280">
-
-**Techcombank · 8866886767 · TRAN QUOC TOAN**
+- 🐛 Kho mã nguồn gốc: [toantranct/theisle-overlay](https://github.com/toantranct/theisle-overlay)

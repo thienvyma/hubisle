@@ -17,8 +17,6 @@
         { "url": "https://www.facebook.com/*" }
       ]
     },
-    "log:default",
-    "updater:default",
-    "process:allow-restart"
+    "log:default"
   ]
 }

@@ -94,7 +94,7 @@ fn now_ms() -> u64 {
 
 pub(crate) fn http_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
-        .user_agent("theisle-overlay/2.0 (your-dino panel reader; personal use)")
+        .user_agent(concat!("theisle-overlay/", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())
@@ -336,7 +336,6 @@ fn ingest_map_position(app: &AppHandle, map: &MapPosition) {
     let px = pct_x / 100.0 * cal.image_width_px as f64;
     let py = pct_y / 100.0 * cal.image_height_px as f64;
     let (x_cm, y_cm) = pixel_to_world(px, py, cal);
-    log::debug!("islepilot position: {pct_x:.2}%,{pct_y:.2}% -> {x_cm:.0},{y_cm:.0} cm");
     pipeline::ingest_sample(app, x_cm, y_cm, 0.0);
 }
 
@@ -453,6 +452,7 @@ pub fn restart_poller(app: &AppHandle) {
                         if !auth_warned {
                             auth_warned = true;
                             let _ = app.emit(DINO_AUTH_EXPIRED, config.domain.clone());
+                            crate::providers::orchestrator::islepilot_auth_expired(&app);
                         }
                         failures = failures.saturating_add(1);
                     } else {
@@ -492,9 +492,6 @@ pub fn restart_poller(app: &AppHandle) {
                                             live_map = Some(true);
                                             sync_map_pref(&app, true);
                                         }
-                                        log::debug!(
-                                            "islepilot markers api: {x_cm:.0},{y_cm:.0} cm"
-                                        );
                                         pipeline::ingest_sample(&app, x_cm, y_cm, 0.0);
                                     }
                                     // ok:false / no own marker: map may be
@@ -636,7 +633,6 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                     // Never move the marker from cached (offline) data.
                     if config.use_map_position && me.online == Some(true) {
                         if let Some((x_cm, y_cm)) = position {
-                            log::debug!("islepilot overlay api: {x_cm:.0},{y_cm:.0} cm");
                             pipeline::ingest_sample(&app, x_cm, y_cm, 0.0);
                         }
                     }
@@ -676,6 +672,7 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                     if !auth_warned {
                         auth_warned = true;
                         let _ = app.emit(DINO_AUTH_EXPIRED, api::API_ORIGIN.to_string());
+                        crate::providers::orchestrator::islepilot_auth_expired(&app);
                     }
                 }
                 Err(api::ApiError::Http(e)) => {

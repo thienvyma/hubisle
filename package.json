@@ -1,7 +1,7 @@
 {
   "name": "theisle-overlay",
   "private": true,
-  "version": "1.5.2",
+  "version": "1.6.0-eratitan.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,8 +14,6 @@
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-log": "^2",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-updater": "^2.10.1",
     "leaflet": "^1.9",
     "three": "^0.185.1"
   },

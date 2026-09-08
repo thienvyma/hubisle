@@ -71,7 +71,7 @@ const LAYER_COLORS: Record<string, string> = {
 const STRINGS = {
   vi: {
     letters: ["B", "Đ", "N", "T"] as [string, string, string, string],
-    hint: "Trong game bấm Tab, rồi bấm “Asset Location” để chép tọa độ.",
+    hint: "Đang chờ vị trí realtime từ server…",
     unknown: "Chưa rõ hướng",
     dirs: {
       "dir.N": "Bắc", "dir.NE": "Đông Bắc", "dir.E": "Đông", "dir.SE": "Đông Nam",
@@ -80,7 +80,7 @@ const STRINGS = {
   },
   en: {
     letters: ["N", "E", "S", "W"] as [string, string, string, string],
-    hint: "In game press Tab, then click “Asset Location” to copy your coordinates.",
+    hint: "Waiting for the live server position…",
     unknown: "Heading unknown",
     dirs: {
       "dir.N": "N", "dir.NE": "NE", "dir.E": "E", "dir.SE": "SE",
@@ -412,7 +412,7 @@ async function init() {
   ]);
   settings = initialSettings;
   applyProviderState(initialProvider);
-  applyProviderSnapshot(initialSnapshot);
+  if (initialProvider.status !== "temporary-error") applyProviderSnapshot(initialSnapshot);
   applySettings(settings);
 
   applyMapInfo(await invoke<MapInfoPayload>("get_map_info"));
