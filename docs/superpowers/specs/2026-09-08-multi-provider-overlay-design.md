@@ -18,7 +18,7 @@ The supplied `TheRealServerVN-Overlay.exe` is a small .NET Framework WebView2 sh
 
 The authenticated Titan page was observed using `/api/nguoi-choi/dino?sv=<opaque-server-id>` and refreshing every 20 seconds. Its current page exposes the active server identifier in `#dino[data-sv]`. It displays species, sex, growth, stamina, hunger, thirst, mutations, health percentage/current/max, position, and ten Prime conditions. Authentication is a Titan website account linked to Steam, not the IslePilot token and not the Era website session.
 
-Era's public frontend uses authenticated `GET /api/theisle/map`, normally polls around 12 seconds, and exposes `success`, `serverOnline`, `playerOnline`, and `player`. Previously observed live data proved that position changes without manually copying Asset Location. The frontend contract includes class, location, growth/health/stamina/hunger/thirst percentages and optional exact vitals. Complete live Prime and nutrition contracts have not been verified.
+Era's public frontend uses authenticated `GET /api/theisle/map`, normally polls around 12 seconds, and exposes `success`, `serverOnline`, `playerOnline`, and `player`. Live testing proved that position changes without manually copying Asset Location. The response includes class, location, growth/health/stamina/hunger/thirst percentages, optional exact vitals, and ten Prime condition flags. Nutrition remains unavailable in the verified response.
 
 IslePilot already has working token and legacy-cookie implementations in the public overlay. One central overlay token follows a player across servers integrated with IslePilot.
 
@@ -108,9 +108,9 @@ After connection, the Dino tab displays player data and provider status. Login c
 ### Era
 
 - Use only `https://eragamingvn.net` and its verified login/API paths.
-- Map position, species, growth and available vitals into the shared snapshot.
-- Show Prime and nutrition as unavailable until an authenticated live contract is verified.
-- Respect the provider cadence; the known website cadence is about 12 seconds, not sub-second realtime.
+- Map position, species, growth, available vitals, and the ten verified Prime flags into the shared snapshot.
+- Show nutrition as unavailable until an authenticated live contract is verified.
+- Poll every five seconds so a newly published server sample is picked up promptly. The Era game bridge itself currently publishes about every 12–20 seconds, so the map follows those authoritative samples rather than inventing intermediate positions.
 
 ### Titan / The Real Server VN
 

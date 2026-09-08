@@ -1,6 +1,7 @@
-//! TheIsle Overlay v2 — tauri application shell.
+//! TheIsle Overlay custom multi-provider Tauri application shell.
 //!
-//! Position flows ONE way: clipboard.rs -> tracker -> both windows.
+//! Position flows ONE way: selected provider (or the manual clipboard
+//! fallback) -> tracker -> both windows.
 //! See win/mod.rs for the anti-cheat safety boundary this app must never
 //! cross.
 

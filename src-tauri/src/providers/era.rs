@@ -8,9 +8,35 @@ use reqwest::{
 };
 use serde_json::Value;
 
+use crate::islepilot::parser::QuestStatus;
+
 use super::model::{ConnectionStatus, ProviderId, ProviderSnapshot, SharedPlayer, SharedStatBar};
 
 const ENDPOINT: &str = "https://eragamingvn.net/api/theisle/map";
+const PRIME_EN: [&str; 10] = [
+    "Visit a Sanctuary while juvenile",
+    "Be born from a nest",
+    "Achieve a perfect diet (at least 1% of each nutrient)",
+    "Visit a Mass Migration zone",
+    "Visit 2 Migration zones",
+    "Visit 4 Patrol zones",
+    "Never become Infertile",
+    "Never get Muscle Spasms",
+    "Raise offspring to Subadult",
+    "Play as Hypsi, Troodon, Beipi, Dryo, or Deino",
+];
+const PRIME_VI: [&str; 10] = [
+    "Ghé Khu bảo tồn (Sanctuary) khi còn non",
+    "Được sinh ra từ tổ (nest)",
+    "Đạt chế độ ăn hoàn hảo (mỗi loại ít nhất 1%)",
+    "Ghé khu Bãi di cư (Mass Migration)",
+    "Ghé 2 khu Di cư (Migration)",
+    "Ghé 4 khu Tuần tra (Patrol)",
+    "Không bao giờ bị Vô sinh (Infertile)",
+    "Không bao giờ bị Co thắt cơ (Muscle Spasms)",
+    "Nuôi con đến Subadult",
+    "Chơi Hypsi, Troodon, Beipi, Dryo hoặc Deino",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EraError {
@@ -77,6 +103,53 @@ fn optional_string(value: Option<&Value>) -> Option<String> {
         .map(str::to_string)
 }
 
+fn source_timestamp_ms(value: Option<&Value>) -> Option<i64> {
+    match value? {
+        Value::Number(number) => number.as_i64(),
+        Value::String(value) => chrono::DateTime::parse_from_rfc3339(value)
+            .ok()
+            .map(|timestamp| timestamp.timestamp_millis()),
+        _ => None,
+    }
+}
+
+fn prime_quests(player: &Value) -> Vec<QuestStatus> {
+    let Some(prime) = player.get("prime").and_then(Value::as_object) else {
+        return Vec::new();
+    };
+    if prime.get("available").and_then(Value::as_bool) != Some(true) {
+        return Vec::new();
+    }
+
+    let conditions = prime.get("conditions").and_then(Value::as_array);
+    let completed = (1..=10)
+        .map(|id| {
+            conditions
+                .and_then(|items| {
+                    items
+                        .iter()
+                        .find(|item| item.get("id").and_then(Value::as_u64) == Some(id as u64))
+                })
+                .and_then(|item| item.get("complete"))
+                .and_then(Value::as_bool)
+                .or_else(|| prime.get(&format!("cond{id}")).and_then(Value::as_bool))
+        })
+        .collect::<Option<Vec<_>>>();
+    let Some(completed) = completed else {
+        return Vec::new();
+    };
+
+    completed
+        .into_iter()
+        .enumerate()
+        .map(|(index, completed)| QuestStatus {
+            text: PRIME_EN[index].to_string(),
+            text_vi: Some(PRIME_VI[index].to_string()),
+            completed,
+        })
+        .collect()
+}
+
 pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot, EraError> {
     if value.get("success").and_then(Value::as_bool) != Some(true) {
         return Err(EraError::InvalidResponse);
@@ -118,7 +191,7 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
             thirst: stat(&source, "thirst", "thirstPercent"),
             mutations: Vec::new(),
             nutrition: None,
-            prime_quests: Vec::new(),
+            prime_quests: prime_quests(&source),
         };
         (Some(player), position)
     } else {
@@ -137,7 +210,9 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
         server_id: optional_string(value.get("serverId")),
         server_name,
         received_at_ms,
-        source_timestamp_ms: number(value.get("timestamp")).map(|value| value as i64),
+        source_timestamp_ms: source_timestamp_ms(
+            value.get("updatedAt").or_else(|| value.get("timestamp")),
+        ),
         player,
         position_cm,
     })
@@ -258,5 +333,65 @@ mod tests {
             "player": {"location": {"x": null, "y": 20.0, "z": 30.0}}
         });
         assert!(normalize(&value, 1).unwrap().position_cm.is_none());
+    }
+
+    #[test]
+    fn era_maps_live_prime_conditions_and_source_timestamp() {
+        let value = json!({
+            "success": true,
+            "serverOnline": true,
+            "playerOnline": true,
+            "updatedAt": "2026-09-08T15:03:55.1860905+00:00",
+            "player": {
+                "class": "Stegosaurus",
+                "location": {"x": 45100.0, "y": 317900.0, "z": 20900.0},
+                "prime": {
+                    "available": true,
+                    "completed": 6,
+                    "total": 10,
+                    "conditions": [
+                        {"id": 1, "complete": true},
+                        {"id": 2, "complete": true},
+                        {"id": 3, "complete": true},
+                        {"id": 4, "complete": false},
+                        {"id": 5, "complete": true},
+                        {"id": 6, "complete": false},
+                        {"id": 7, "complete": true},
+                        {"id": 8, "complete": true},
+                        {"id": 9, "complete": false},
+                        {"id": 10, "complete": false}
+                    ]
+                }
+            }
+        });
+
+        let snapshot = normalize(&value, 1).unwrap();
+        assert_eq!(snapshot.source_timestamp_ms, Some(1_788_879_835_186));
+        let quests = snapshot.player.unwrap().prime_quests;
+        assert_eq!(quests.len(), 10);
+        assert_eq!(quests.iter().filter(|quest| quest.completed).count(), 6);
+        assert!(quests[0].text.contains("Sanctuary"));
+        assert!(quests[0]
+            .text_vi
+            .as_deref()
+            .unwrap()
+            .contains("Khu bảo tồn"));
+    }
+
+    #[test]
+    fn era_does_not_fabricate_prime_when_provider_marks_it_unavailable() {
+        let value = json!({
+            "success": true,
+            "serverOnline": true,
+            "playerOnline": true,
+            "player": {"prime": {"available": false, "conditions": []}}
+        });
+
+        assert!(normalize(&value, 1)
+            .unwrap()
+            .player
+            .unwrap()
+            .prime_quests
+            .is_empty());
     }
 }

@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-Đây là bản tùy chỉnh **1.6.0-eratitan.1** dựa trên mã nguồn mở 1.5.2. Minimap hiện đè lên
+Đây là bản tùy chỉnh **1.6.0-eratitan.2** dựa trên mã nguồn mở 1.5.2. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Hiện có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 

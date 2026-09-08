@@ -305,7 +305,10 @@ fn run_era(app: AppHandle, generation: u64, cookie: String) {
                 }
             }
         }
-        if !interruptible_sleep(generation, ProviderId::Era, 12) {
+        // Era's game bridge currently publishes a fresh sample roughly every
+        // 12–20 seconds. Poll at five seconds so the overlay picks it up soon
+        // after publication without pretending that the source is frame-live.
+        if !interruptible_sleep(generation, ProviderId::Era, 5) {
             return;
         }
     });

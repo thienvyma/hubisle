@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-This is custom build **1.6.0-eratitan.1**, based on the open-source 1.5.2 code. Its in-game
+This is custom build **1.6.0-eratitan.2**, based on the open-source 1.5.2 code. Its in-game
 minimap reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
