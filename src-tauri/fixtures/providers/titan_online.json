@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "online": true,
+  "server": "Synthetic TRS",
+  "dino": {
+    "name": "Synthetic Player",
+    "species": "Tyrannosaurus",
+    "gender": "male",
+    "growth": 0.27,
+    "stamina": 1.0,
+    "hunger": 0.66,
+    "thirst": 0.89,
+    "health": 0.74,
+    "hp": [44.0, 59.0],
+    "hp_that": true,
+    "mutations": ["SyntheticMutation"],
+    "loc": [-238000.0, 85000.0],
+    "prime_dk": [false, false, false, false, false, false, true, true, true, true]
+  }
+}
