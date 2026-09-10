@@ -82,12 +82,13 @@ pub fn get_current_position(state: State<AppState>) -> Option<PositionUpdate> {
 /// Settings-screen probe: is this key combination valid AND currently free?
 /// Registering on a scratch id and immediately unregistering answers both.
 #[tauri::command]
-pub fn check_hotkey_available(spec: String) -> bool {
+pub fn check_hotkey_available(spec: String, action: Option<String>) -> bool {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         RegisterHotKey, UnregisterHotKey, HOT_KEY_MODIFIERS,
     };
     const PROBE_ID: i32 = 0x3FFF;
-    let Some((mods, vk)) = crate::hotkeys::parse_hotkey(&spec) else {
+    let Some((mods, vk)) = crate::hotkeys::parse_binding(action.as_deref().unwrap_or(""), &spec)
+    else {
         return false;
     };
     unsafe {
@@ -161,6 +162,41 @@ pub fn add_waypoint_at_pixel(
     let wp = store::new_waypoint(&name, x, y, 0.0, None);
     let mut waypoints = state.waypoints.lock_safe();
     waypoints.push(wp.clone());
+    persist_waypoints(&app, &waypoints);
+    wp
+}
+
+/// Left-click on the full map sets the single active navigation destination.
+/// Normal saved waypoints are preserved; only an older destination flag is
+/// replaced. Coordinates remain raw UE centimetres on disk.
+#[tauri::command]
+pub fn set_destination_at_pixel(
+    app: AppHandle,
+    state: State<AppState>,
+    px: f64,
+    py: f64,
+    name: String,
+) -> Waypoint {
+    telemetry::counters::track("waypoint_add");
+    let (x, y) = pixel_to_world(px, py, state.active_calibration());
+    let clean_name = name
+        .trim()
+        .trim_start_matches(store::DESTINATION_PREFIX)
+        .trim();
+    let clean_name = if clean_name.is_empty() {
+        "Destination"
+    } else {
+        clean_name
+    };
+    let wp = store::new_waypoint(
+        &format!("{} {clean_name}", store::DESTINATION_PREFIX),
+        x,
+        y,
+        0.0,
+        None,
+    );
+    let mut waypoints = state.waypoints.lock_safe();
+    store::replace_destination(&mut waypoints, wp.clone());
     persist_waypoints(&app, &waypoints);
     wp
 }
@@ -242,7 +278,11 @@ pub fn clear_trail(app: AppHandle, state: State<AppState>) {
         writer.add_break();
     }
     let cal = state.active_calibration();
-    crate::events::emit_all(&app, crate::events::TRAIL_CHANGED, pipeline::trail_payload(&[], cal));
+    crate::events::emit_all(
+        &app,
+        crate::events::TRAIL_CHANGED,
+        pipeline::trail_payload(&[], cal),
+    );
 }
 
 /// The current session's trail so far — for a window opening mid-session.
@@ -440,8 +480,11 @@ fn poi_render_item(item: &Value, kind: &str, cal: &Calibration) -> Option<PoiIte
         .flatten()
         .map(|r_m| r_m * 100.0 / 1000.0 / cal.span_y() * cal.image_width_px as f64)
         .filter(|r| *r > 0.0);
-    let points_px = points_cm
-        .map(|pts| pts.iter().map(|p| world_to_pixel(p.0, p.1, cal)).collect::<Vec<_>>());
+    let points_px = points_cm.map(|pts| {
+        pts.iter()
+            .map(|p| world_to_pixel(p.0, p.1, cal))
+            .collect::<Vec<_>>()
+    });
 
     let (label_px, label_py) = if kind == "zone" {
         match &points_px {
@@ -556,7 +599,7 @@ pub fn nearest_waypoint(state: State<AppState>) -> Option<NearestWaypoint> {
     let tracker = state.tracker.lock_safe();
     let waypoints = state.waypoints.lock_safe();
     let mut best: Option<NearestWaypoint> = None;
-    for wp in waypoints.iter() {
+    for wp in store::navigation_targets(&waypoints) {
         let Some((bearing, dist)) = tracker.bearing_to(wp.x, wp.y) else {
             return None; // no current position yet
         };
@@ -734,11 +777,9 @@ pub async fn islepilot_token_login(app: AppHandle) -> Result<(), String> {
 /// (or a whole isle-overlay:// redirect URL).
 #[tauri::command]
 pub async fn islepilot_set_token(app: AppHandle, token: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::islepilot::manual_token(&app, token)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || crate::islepilot::manual_token(&app, token))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// IslePilot POIs (sanctuaries, migration/patrol zones, ...) as render
@@ -764,8 +805,7 @@ pub async fn islepilot_cdn_asset(app: AppHandle, url: String) -> Result<String, 
 
 /// Garage (gacha) listing: parked dinos + server flags. Token mode only.
 #[tauri::command]
-pub async fn islepilot_garage(
-) -> Result<crate::islepilot::api::GarageState, String> {
+pub async fn islepilot_garage() -> Result<crate::islepilot::api::GarageState, String> {
     tauri::async_runtime::spawn_blocking(crate::islepilot::garage_fetch)
         .await
         .map_err(|e| e.to_string())?
@@ -863,6 +903,46 @@ pub fn provider_state() -> crate::providers::model::ProviderState {
 #[tauri::command]
 pub fn provider_snapshot() -> Option<crate::providers::model::ProviderSnapshot> {
     crate::providers::orchestrator::current_snapshot()
+}
+
+#[tauri::command]
+pub async fn provider_garage() -> Result<crate::providers::model::ProviderFeaturePayload, String> {
+    tauri::async_runtime::spawn_blocking(crate::providers::orchestrator::garage_fetch)
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn provider_garage_action(
+    action: String,
+    slot: Option<usize>,
+    state_hash: Option<String>,
+) -> Result<crate::providers::model::ProviderFeaturePayload, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::providers::orchestrator::garage_action(&action, slot, state_hash.as_deref())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn provider_skin_state() -> Result<crate::providers::model::ProviderFeaturePayload, String>
+{
+    tauri::async_runtime::spawn_blocking(crate::providers::orchestrator::skin_state)
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn provider_skin_apply(
+    colors: Vec<String>,
+    variation: f64,
+) -> Result<crate::providers::model::ProviderFeaturePayload, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::providers::orchestrator::skin_apply(&colors, variation)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

@@ -7,18 +7,17 @@
 
 use std::collections::HashSet;
 
+use windows::core::BOOL;
+use windows::Win32::Foundation::POINT;
 use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::ClientToScreen;
 use windows::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
-    TH32CS_SNAPPROCESS,
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClientRect, GetForegroundWindow, GetWindow, GetWindowRect,
     GetWindowThreadProcessId, IsIconic, IsWindowVisible, GW_OWNER,
 };
-use windows::core::BOOL;
-use windows::Win32::Foundation::POINT;
 
 fn wide_to_string(buf: &[u16]) -> String {
     let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());

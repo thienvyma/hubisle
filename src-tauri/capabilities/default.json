@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capabilities for the main and minimap windows",
-  "windows": ["main", "minimap"],
+  "windows": ["main", "minimap", "minimap-*"],
   "permissions": [
     "core:default",
     "core:window:allow-show",
@@ -13,10 +13,12 @@
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "https://github.com/toantranct/*" },
-        { "url": "https://www.facebook.com/*" }
+        { "url": "https://www.facebook.com/thienvyma*" },
+        { "url": "https://github.com/thienvyma/hubisle*" }
       ]
     },
-    "log:default"
+    "log:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

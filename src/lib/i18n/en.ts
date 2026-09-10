@@ -12,7 +12,37 @@ export const en: Record<MsgKey, string> = {
   "tab.dino": "Your Dino",
   "tab.settings": "Settings",
   "tab.garage": "Garage",
-  "tab.guide": "Guide",
+  "tab.skin": "Skin",
+  "tab.history": "History",
+
+  "history.title": "Combat history",
+  "history.subtitle":
+    "Tracks health loss and attack events supplied by ERAGAMING. The three newest events also appear temporarily on the minimap.",
+  "history.live": "LIVE MONITORING",
+  "history.identity_title": "Identity data",
+  "history.identity_hint":
+    "Era's current API does not send the opponent name or species. The hub fills them in when the server adds combatEvents; health-loss observations always remain Unknown.",
+  "history.filter": "Filter history",
+  "history.filter_all": "All",
+  "history.filter_incoming": "Damage received",
+  "history.filter_outgoing": "Attacked",
+  "history.filter_death": "Deaths",
+  "history.events": "events",
+  "history.loading": "Loading history…",
+  "history.error": "Could not read combat history.",
+  "history.empty": "No combat events yet",
+  "history.empty_hint": "Keep the hub running while playing on ERAGAMING to record health changes.",
+  "history.health_drop": "Health loss detected",
+  "history.incoming": "A player attacked you",
+  "history.outgoing": "You attacked a player",
+  "history.death": "Your dinosaur died",
+  "history.player": "Player",
+  "history.species": "Opponent species",
+  "history.your_species": "Your species",
+  "history.damage": "Damage",
+  "history.unknown": "Unknown",
+  "history.estimated": "Inferred from health",
+  "history.verified": "Verified by Era",
 
   "pos.none": "No position yet",
   "pos.hint":
@@ -52,7 +82,10 @@ export const en: Record<MsgKey, string> = {
   "wp.remove": "Delete",
   "wp.rename": "Rename",
   "wp.name_prompt": "Waypoint name:",
-  "wp.empty": "No waypoints yet. Right-click the map to add one.",
+  "wp.destination": "Destination",
+  "wp.destination_hint":
+    "Left-click: set or replace the destination flag. Right-click: add a normal waypoint.",
+  "wp.empty": "No waypoints yet. Left-click the map to set a destination.",
   "wp.distance": "{dir} · {dist}",
   "wp.here": "My position",
   "wp.confirm_delete": "Delete waypoint “{name}”?",
@@ -92,6 +125,7 @@ export const en: Record<MsgKey, string> = {
   "hotkey.reload_ui": "Reload the UI (if it freezes)",
   "hotkey.zoom_out": "Zoom view out",
   "hotkey.toggle_quests": "Show/hide the Prime quests panel",
+  "hotkey.unstuck": "Open chat and send /unstuck",
 
   "settings.language": "Ngôn ngữ · Language",
   "settings.minimap": "Minimap",
@@ -111,7 +145,7 @@ export const en: Record<MsgKey, string> = {
   "settings.radius": "View radius",
   "settings.hotkeys": "Hotkeys",
   "settings.hotkeys_hint":
-    "Click a key field, then press the new combination. At least one modifier (Ctrl/Alt/Shift/Win) is required.",
+    "Click a key field, then press the new combination. Normal shortcuts need Ctrl/Alt/Shift/Win; /unstuck may use the bare ` key.",
   "settings.press_keys": "Press keys… (Esc to cancel)",
   "settings.hotkey_in_use": "This combination is held by another application",
   "settings.hotkey_duplicate": "Duplicates another hotkey in this app",
@@ -183,8 +217,7 @@ export const en: Record<MsgKey, string> = {
   "dino.logout": "Sign out",
   "dino.auth_expired": "Your session expired — please sign in again.",
   "dino.supported_servers":
-    "Works with any IslePilot-powered server — xxx.islepilot.eu or islepilot.eu/p/server-name. " +
-    "See the Guide tab for examples and a step-by-step walkthrough.",
+    "Works with any IslePilot-powered server — xxx.islepilot.eu or islepilot.eu/p/server-name.",
   "dino.manual_cookie": "Paste your session cookie",
   "dino.manual_cookie_hint":
     "Open the server page in your browser and sign in with Steam. Press F12 → " +
@@ -237,6 +270,8 @@ export const en: Record<MsgKey, string> = {
   "dino.sex_female": "Female",
   "dino.sex_male": "Male",
   "dino.prime": "Prime progress",
+  "dino.prime_done": "Completed",
+  "dino.prime_pending": "Not completed",
   "dino.online": "Online",
   "dino.offline": "Offline",
   "dino.updated": "Updated {time}",
@@ -274,6 +309,54 @@ export const en: Record<MsgKey, string> = {
   "garage.updated":
     "Updated {time} · auto-refreshes every 10 minutes — press Refresh for now.",
 
+  "server_garage.title": "Dino Garage",
+  "server_garage.subtitle": "Live dinosaur storage from {provider}.",
+  "server_garage.standard": "STANDARD",
+  "server_garage.uncertain": "STATUS UNKNOWN",
+  "server_garage.pending": "The server is processing a Garage action.",
+  "server_garage.countdown": "{seconds} seconds remain before the dino is stored.",
+  "server_garage.locked": "LOCKED",
+  "server_garage.restoring": "RESTORING",
+  "server_garage.stored": "STORED",
+  "server_garage.empty": "EMPTY",
+  "server_garage.empty_hint": "Empty slot · ready for the current dino",
+  "server_garage.park": "Store dino",
+  "server_garage.restore": "Restore dino",
+  "server_garage.delete": "Delete forever",
+  "server_garage.failed": "The server rejected the Garage action.",
+  "server_garage.confirm_park_titan":
+    "Store the dino in slot {slot}? Titan will count down, save it, then end the current dino.",
+  "server_garage.confirm_park_era":
+    "Store the dino in slot {slot}? Era will save it safely, then end the current dino.",
+  "server_garage.confirm_restore":
+    "Restore {name}? First spawn a juvenile of the same species and sex, away from nearby players.",
+  "server_garage.confirm_delete": "Delete {name} from the Garage forever? This cannot be undone.",
+  "server_garage.titan_note":
+    "Titan requires the dino online and its server bridge connected. A store countdown can be cancelled.",
+  "server_garage.era_note":
+    "Era restore requires you online as the same juvenile species and sex, outside the player safety radius.",
+
+  "skin.title": "Live skin editor",
+  "skin.subtitle": "A color palette governed by your account permissions on {provider}.",
+  "skin.not_supported": "IslePilot has not published an overlay skin API",
+  "skin.not_supported_hint":
+    "The IslePilot Garage still works. Skin editing will unlock when an official endpoint is available.",
+  "skin.failed": "The skin could not be read or applied right now.",
+  "skin.done": "The palette was applied to your current dino.",
+  "skin.cooldown": "Available again in {time}",
+  "skin.preview": "PALETTE PREVIEW",
+  "skin.presets": "QUICK PALETTES",
+  "skin.preset_forest": "Forest",
+  "skin.preset_desert": "Desert",
+  "skin.preset_shadow": "Shadow",
+  "skin.preset_snow": "Snow",
+  "skin.choose_for": "Choose one of 16 colors for: {zone}",
+  "skin.variation": "Pattern variation",
+  "skin.online_only":
+    "Your dino must be online on the selected server. Each server enforces its color access and cooldown.",
+  "skin.applying": "Applying…",
+  "skin.apply": "Apply in game",
+
   "dino3d.loading": "Loading 3D model…",
   "dino3d.no_model": "No 3D model for this species yet.",
   "dino3d.error": "Could not load the 3D model — check your connection and retry.",
@@ -291,6 +374,24 @@ export const en: Record<MsgKey, string> = {
   "footer.developed_by": "Developed by",
   "footer.custom_build": "Multi-server test build",
   "footer.reload_hint": "If the app breaks, press F5 or Ctrl+Alt+R to reload",
+
+  "update.available": "Update {version} is available",
+  "update.body": "Official update channel: thienvyma/hubisle.",
+  "update.title": "Isle Pulse Overlay updates",
+  "update.check": "Check for updates",
+  "update.checking": "Checking for updates…",
+  "update.current": "You are on the latest version available on this update channel.",
+  "update.check_failed": "Unable to check for updates",
+  "update.check_failed_body": "Check your connection or try again later. The release channel may not be available yet.",
+  "update.notes": "Release notes",
+  "update.releases": "View on GitHub",
+  "update.downloading_unknown": "Downloading update…",
+  "update.link_failed": "Could not open the browser. Visit github.com/thienvyma/hubisle/releases.",
+  "update.install": "Download and install",
+  "update.downloading": "Downloading {percent}%",
+  "update.installing": "Opening installer…",
+  "update.later": "Later",
+  "update.failed": "The update could not be installed. Please try again later.",
 
 
   "telemetry.title": "Usage data & feedback",

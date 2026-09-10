@@ -16,7 +16,7 @@
 //! controller-hidden again, and it logs loudly if that assumption breaks.
 
 use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{atomic::{AtomicBool, Ordering}, LazyLock, Mutex};
 use std::time::Duration;
 
 use tauri::WebviewWindow;
@@ -111,6 +111,35 @@ pub fn on_shown(window: &WebviewWindow) {
     }
 }
 
+/// Only the visible HUD calls this. Keep at most one task queued if the UI
+/// thread is busy; do not accumulate compositor nudges behind a hung renderer.
+pub fn refresh_overlay(window: &WebviewWindow) {
+    static PENDING: AtomicBool = AtomicBool::new(false);
+    if PENDING.swap(true, Ordering::AcqRel) { return; }
+    let result = window.with_webview(move |webview| unsafe {
+        if crate::win::vis::is_visible("minimap") != Some(true) {
+            PENDING.store(false, Ordering::Release);
+            return;
+        }
+        let controller = webview.controller();
+        let _ = controller.SetIsVisible(true);
+        if let Ok(core) = controller.CoreWebView2() {
+            if let Ok(wv3) = core.cast::<ICoreWebView2_3>() {
+                let mut suspended = windows_core::BOOL::default();
+                if wv3.IsSuspended(&mut suspended).is_ok() && suspended.as_bool() {
+                    let _ = wv3.Resume();
+                }
+            }
+        }
+        let _ = controller.NotifyParentWindowPositionChanged();
+        if let Some(hwnd) = crate::win::vis::hwnd("minimap") {
+            crate::win::overlay::request_redraw(hwnd);
+        }
+        PENDING.store(false, Ordering::Release);
+    });
+    if result.is_err() { PENDING.store(false, Ordering::Release); }
+}
+
 /// Sentinel: no webview should ever be suspended or controller-hidden while
 /// its window is on screen. If one is found anyway, heal it and log loudly —
 /// that log line means an assumption above has broken.
@@ -118,13 +147,13 @@ pub fn spawn_watchdog(app: tauri::AppHandle) {
     use tauri::Manager;
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_millis(500));
-        for label in ["main", "minimap"] {
-            if crate::win::vis::is_visible(label) != Some(true) {
+        for (label, window) in app.webview_windows() {
+            let registry_label = if label == "minimap" || label.starts_with("minimap-") {
+                "minimap"
+            } else if label == "main" { "main" } else { continue };
+            if crate::win::vis::is_visible(registry_label) != Some(true) {
                 continue;
             }
-            let Some(window) = app.get_webview_window(label) else {
-                continue;
-            };
             let owned = label.to_string();
             let _ = window.with_webview(move |webview| unsafe {
                 let controller = webview.controller();

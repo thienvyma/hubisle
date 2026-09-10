@@ -1,5 +1,6 @@
-// Prevents an extra console window on Windows in release builds.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// The packaged app is always a GUI program. Diagnostics are written through
+// the Tauri log plugin, so debug installers must not allocate a console either.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 use std::path::PathBuf;
 

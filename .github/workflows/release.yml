@@ -1,0 +1,120 @@
+name: Release Isle Pulse Overlay
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: isle-pulse-release
+  cancel-in-progress: false
+
+jobs:
+  release-windows:
+    if: github.repository == 'thienvyma/hubisle'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check matching versions
+        shell: pwsh
+        run: ./scripts/check-versions.ps1
+
+      - name: Check updater channel
+        run: npm run check:updater
+
+      - name: Test updater
+        run: npm run test:updater
+
+      - name: Check frontend
+        run: npm run check
+
+      - name: Check permitted APIs
+        shell: pwsh
+        run: ./scripts/check-forbidden-apis.ps1
+
+      - name: Test Rust workspace
+        working-directory: src-tauri
+        run: cargo test --workspace --locked
+
+      - name: Check signing configuration
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          if ($env:REPOSITORY_PRIVATE -eq "true") {
+            throw "The public updater channel requires thienvyma/hubisle to be public."
+          }
+          if (-not $env:UPDATE_SIGNING_KEY) {
+            throw "Set TAURI_SIGNING_PRIVATE_KEY in thienvyma/hubisle Actions secrets before releasing."
+          }
+
+      - name: Build signed release and updater manifest
+        id: release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          tagName: v__VERSION__
+          releaseName: Isle Pulse Overlay v__VERSION__
+          releaseBody: |
+            Bản phát hành chính thức của Isle Pulse Overlay.
+            Kênh cập nhật: https://github.com/thienvyma/hubisle/releases
+            Xem CHANGELOG.md trong repository để biết chi tiết thay đổi.
+          generateReleaseNotes: true
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --target x86_64-pc-windows-msvc
+
+      - name: Validate updater manifest before publishing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          $manifestDir = Join-Path $env:RUNNER_TEMP "isle-pulse-updater"
+          gh release download "v$version" --repo thienvyma/hubisle --pattern latest.json --dir $manifestDir --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Missing latest.json in draft release." }
+          node scripts/check-updater.mjs (Join-Path $manifestDir "latest.json")
+          if ($LASTEXITCODE -ne 0) { throw "Invalid updater manifest." }
+          $manifest = Get-Content -Raw (Join-Path $manifestDir "latest.json") | ConvertFrom-Json
+          $assetName = [Uri]::UnescapeDataString(([Uri]$manifest.platforms.'windows-x86_64'.url).Segments[-1])
+          $release = gh release view "v$version" --repo thienvyma/hubisle --json assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect release assets." }
+          if ($assetName -notin $release.assets.name -or "$assetName.sig" -notin $release.assets.name) {
+            throw "Installer or signature asset is missing."
+          }
+          $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/theisle-overlay.exe"
+          ./scripts/check-windows-gui-subsystem.ps1 -Executable $exe
+
+      - name: Publish complete release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          gh release edit "v$version" --repo thienvyma/hubisle --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw "Could not publish release." }

@@ -26,6 +26,9 @@
     connection?.status === "temporary-error" ? null : (snapshot?.player ?? null),
   );
   const online = $derived(connection?.status === "authenticated-online");
+  const primeDone = $derived(
+    player?.primeQuests.filter((quest) => quest.completed).length ?? 0,
+  );
 
   onMount(() => {
     const bag = listenerBag();
@@ -60,7 +63,7 @@
 
   function statColor(stat: SharedStatBar | null) {
     if (!stat) return "#4a4f43";
-    return stat.percent > 50 ? "#72d653" : stat.percent > 25 ? "#e8a33d" : "#e2664a";
+    return stat.percent > 50 ? "#45f5a2" : stat.percent > 25 ? "#ffc857" : "#ff5678";
   }
 </script>
 
@@ -90,7 +93,7 @@
   </section>
 
   {#if connection?.status === "temporary-error"}
-    <section class="rounded border p-3 text-sm" style="border-color: #7a5d2b; color: #ffd591">
+    <section class="rounded border p-3 text-sm" style="border-color: #65472a; color: #ffd277">
       {$t("provider.temporary")}{#if connection.message} · {connection.message}{/if}
     </section>
   {/if}
@@ -130,8 +133,8 @@
       <span
         class="rounded-full px-2 py-0.5 text-xs font-medium"
         style={online
-          ? "background: #1e3a2f; color: #72d653"
-          : "background: #3a3022; color: #ffd591"}
+          ? "background: #0d3028; color: #45f5a2"
+          : "background: #352814; color: #ffd277"}
       >
         {online ? $t("dino.online") : $t("dino.offline")}
       </span>
@@ -155,7 +158,7 @@
               <span>{$t(key as never)}</span>
               <span class="font-mono">{formatStat(value as SharedStatBar | null)}</span>
             </div>
-            <div class="h-2 overflow-hidden rounded" style="background: #252a22">
+            <div class="h-2 overflow-hidden rounded" style="background: #101d2c">
               <div
                 class="h-full rounded"
                 style={`width: ${Math.max(0, Math.min(100, (value as SharedStatBar | null)?.percent ?? 0))}%; background: ${statColor(value as SharedStatBar | null)}`}
@@ -179,13 +182,38 @@
 
       {#if player.primeQuests.length > 0}
         <div class="mt-4 border-t pt-3" style="border-color: var(--color-border)">
-          <div class="mb-2 text-sm font-semibold" style="color: var(--color-accent)">
-            {$t("dino.prime")}
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div class="text-sm font-semibold" style="color: var(--color-accent)">
+              {$t("dino.prime")}
+            </div>
+            <span
+              class="rounded border px-2 py-0.5 font-mono text-xs"
+              style="border-color: rgba(53, 242, 255, 0.35); color: var(--color-accent); background: rgba(53, 242, 255, 0.07)"
+            >
+              {primeDone}/{player.primeQuests.length}
+            </span>
           </div>
-          <div class="grid gap-1 sm:grid-cols-2">
-            {#each player.primeQuests as quest}
-              <div class="text-xs" style="color: {quest.completed ? '#72d653' : 'var(--color-muted)'}">
-                {quest.completed ? "✓" : "○"} {$locale === "vi" ? (quest.textVi ?? quest.text) : quest.text}
+          <div class="grid gap-2">
+            {#each player.primeQuests as quest, index}
+              <div
+                class="grid grid-cols-[28px_1fr_auto] items-center gap-3 rounded border px-3 py-2"
+                style={`border-color: ${quest.completed ? 'rgba(69, 245, 162, 0.32)' : 'var(--color-border)'}; background: ${quest.completed ? 'rgba(69, 245, 162, 0.055)' : 'rgba(7, 16, 29, 0.62)'}`}
+              >
+                <span
+                  class="flex h-7 w-7 items-center justify-center rounded font-mono text-xs font-semibold"
+                  style={`background: ${quest.completed ? '#45f5a2' : '#112337'}; color: ${quest.completed ? '#03110c' : '#7890aa'}`}
+                >
+                  {quest.completed ? "✓" : String(index + 1).padStart(2, "0")}
+                </span>
+                <span class="text-sm leading-snug" style="color: {quest.completed ? '#d9fff0' : 'var(--color-text)'}">
+                  {$locale === "vi" ? (quest.textVi ?? quest.text) : quest.text}
+                </span>
+                <span
+                  class="hidden whitespace-nowrap font-mono text-[9px] uppercase tracking-wider sm:block"
+                  style="color: {quest.completed ? '#45f5a2' : '#617890'}"
+                >
+                  {quest.completed ? $t("dino.prime_done") : $t("dino.prime_pending")}
+                </span>
               </div>
             {/each}
           </div>

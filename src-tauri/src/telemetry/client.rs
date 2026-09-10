@@ -6,27 +6,15 @@
 //! (which would double the request count), and no new capability in
 //! `capabilities/default.json`.
 
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use super::attest;
 
-/// Embedded endpoint list, tried in order.
-///
-/// This URL is baked into every shipped binary, so it can never really be
-/// retired — old installs would simply stop reporting. Adding a second entry
-/// only helps builds that ship with it, which is the argument for putting a
-/// custom domain in this list before the user base grows, not after: today a
-/// move off workers.dev would strand every copy already installed.
-///
-/// The release workflow greps this file for the placeholder subdomain marker
-/// and refuses to build a telemetry-enabled binary if it finds one — shipping
-/// a key with an unset endpoint would mean every ping fails silently, which is
-/// the one failure mode this whole design exists to avoid. Do not write that
-/// marker anywhere in this file, including in a comment: the grep cannot tell
-/// prose from code, and a false hit blocks every release.
-const API_BASES: [&str; 1] = ["https://theisle-overlay-api.toantranct1.workers.dev"];
+/// No analytics backend is configured for this independent build. Debug
+/// builds can still target an explicitly supplied `OV_API_BASE` while testing.
+const API_BASES: [&str; 0] = [];
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -75,7 +63,7 @@ fn bases() -> Vec<String> {
 }
 
 pub fn is_configured() -> bool {
-    attest::key_hex().is_some()
+    attest::key_hex().is_some() && !bases().is_empty()
 }
 
 /// POST a signed JSON body. Returns true on a 2xx.
@@ -83,6 +71,10 @@ pub fn is_configured() -> bool {
 /// Never returns an error to the caller's UI path: telemetry failing is not
 /// something a user should ever see or wait on.
 pub fn post(path: &str, body: &serde_json::Value) -> bool {
+    let bases = bases();
+    if bases.is_empty() {
+        return false;
+    }
     let Some(key) = attest::key_hex() else {
         return false;
     };
@@ -107,7 +99,7 @@ pub fn post(path: &str, body: &serde_json::Value) -> bool {
         return false;
     };
 
-    for base in bases() {
+    for base in bases {
         let res = client()
             .post(format!("{base}{path}"))
             .header("content-type", "application/json")
@@ -174,10 +166,7 @@ mod tests {
             scrub(r"at C:\Users\NguyenVanA\AppData\Local\TheIsleOverlay\x.json"),
             r"at %USERPROFILE%\AppData\Local\TheIsleOverlay\x.json"
         );
-        assert_eq!(
-            scrub("D:/Users/bob/game.log"),
-            "%USERPROFILE%/game.log"
-        );
+        assert_eq!(scrub("D:/Users/bob/game.log"), "%USERPROFILE%/game.log");
         assert_eq!(
             scrub(r"c:\users\Tester\a and C:\Users\Tester\b"),
             r"%USERPROFILE%\a and %USERPROFILE%\b"
@@ -188,6 +177,9 @@ mod tests {
     fn scrub_leaves_ordinary_text_alone() {
         let s = "panic: index out of bounds at overlay::minimap::draw";
         assert_eq!(scrub(s), s);
-        assert_eq!(scrub(r"C:\Program Files\TheIsle"), r"C:\Program Files\TheIsle");
+        assert_eq!(
+            scrub(r"C:\Program Files\TheIsle"),
+            r"C:\Program Files\TheIsle"
+        );
     }
 }

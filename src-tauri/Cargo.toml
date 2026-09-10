@@ -1,7 +1,10 @@
 [package]
 name = "theisle-overlay"
-version = "1.6.0-eratitan.2"
+version = "2.1.0"
 description = "Map overlay for The Isle: Evrima (Gateway)"
+authors = ["Huỳnh Vỹ"]
+homepage = "https://github.com/thienvyma/hubisle"
+repository = "https://github.com/thienvyma/hubisle.git"
 edition = "2021"
 default-run = "theisle-overlay"
 
@@ -36,6 +39,7 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-log = "2"
+tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 reqwest = { version = "0.12", features = ["blocking", "gzip"] }
 regex = "1"

@@ -278,6 +278,7 @@
       {/if}
       {#if position.headingDeg !== null}
         <div>
+          {position.headingSource === "movement" ? "≈ " : ""}
           {compassLabel($locale, position.compassKey)}
           {Math.round(position.headingDeg)}°
         </div>
@@ -305,6 +306,9 @@
     <h2 class="mb-1 text-sm font-semibold" style="color: var(--color-accent)">
       {$t("wp.title")}
     </h2>
+    <p class="mb-2 text-xs leading-snug" style="color: var(--color-muted)">
+      {$t("wp.destination_hint")}
+    </p>
     {#if waypoints.length === 0}
       <p class="text-xs" style="color: var(--color-muted)">{$t("wp.empty")}</p>
     {/if}

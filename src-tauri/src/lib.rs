@@ -1,4 +1,4 @@
-//! TheIsle Overlay custom multi-provider Tauri application shell.
+//! Isle Pulse Overlay multi-provider Tauri application shell.
 //!
 //! Position flows ONE way: selected provider (or the manual clipboard
 //! fallback) -> tracker -> both windows.
@@ -6,6 +6,7 @@
 //! cross.
 
 pub mod clipboard;
+pub mod combat;
 pub mod commands;
 pub mod events;
 pub mod fetch;
@@ -55,6 +56,7 @@ pub fn run(replay_file: Option<PathBuf>) {
         )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .on_window_event(|window, event| match event {
             // X hides to the tray, Steam/Discord-style. Quit lives in the
             // tray menu; app.exit bypasses CloseRequested so it cannot be
@@ -80,6 +82,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::list_waypoints,
             commands::list_waypoints_px,
             commands::add_waypoint_at_pixel,
+            commands::set_destination_at_pixel,
             commands::add_waypoint_here,
             commands::rename_waypoint,
             commands::set_waypoint_color,
@@ -120,8 +123,13 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::provider_cancel_login,
             commands::provider_state,
             commands::provider_snapshot,
+            commands::provider_garage,
+            commands::provider_garage_action,
+            commands::provider_skin_state,
+            commands::provider_skin_apply,
             commands::provider_logout,
             commands::provider_select_manual,
+            combat::combat_history,
             telemetry::track_feature,
             telemetry::submit_feedback,
             telemetry::submit_crash,

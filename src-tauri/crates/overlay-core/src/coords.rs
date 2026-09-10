@@ -61,6 +61,16 @@ pub fn bearing_deg(x1_cm: f64, y1_cm: f64, x2_cm: f64, y2_cm: f64, cal: &Calibra
     (east.atan2(north).to_degrees() + cal.north_offset_deg).rem_euclid(360.0)
 }
 
+/// Convert the yaw convention used by the companion map APIs into the
+/// north-up compass convention used by our player dart.
+///
+/// IslePilot and Titan define yaw 0 as screen-right/east and increase it
+/// clockwise. Their own current web clients use this same `yaw + 90`
+/// conversion before drawing the compass label and rotating the map.
+pub fn map_yaw_to_bearing_deg(yaw: f64) -> Option<f64> {
+    yaw.is_finite().then(|| (yaw + 90.0).rem_euclid(360.0))
+}
+
 const COMPASS_KEYS: [&str; 8] = [
     "dir.N", "dir.NE", "dir.E", "dir.SE", "dir.S", "dir.SW", "dir.W", "dir.NW",
 ];

@@ -26,12 +26,16 @@
     listWaypointsPx,
     patchSettings,
     resolveCoordinates,
+    setDestinationAtPixel,
     setWaypointColor,
     onFetchFinished,
     onWaypointsChanged,
     onPositionUpdate,
     onPositionCleared,
+    onProviderSnapshot,
+    onProviderState,
     providerState,
+    providerSnapshot,
     onSettingsChanged,
     onTrailChanged,
     renameWaypoint,
@@ -39,6 +43,8 @@
     type OverlayRender,
     type PoiLayer,
     type PositionUpdate,
+    type ProviderSnapshot,
+    type SharedFriend,
     type Settings,
     type TrailPayload,
     type Waypoint,
@@ -101,6 +107,7 @@
   let previousTrail: L.LayerGroup | undefined;
   let playerMarker: L.Marker | undefined;
   let playerArrowEl: HTMLElement | null = null;
+  let friendGroup: L.LayerGroup | undefined;
 
   let settings = $state<Settings | null>(null);
   let position = $state<PositionUpdate | null>(null);
@@ -115,6 +122,7 @@
   let availableLayers = $state<string[]>([]);
   let promptOpen = $state(false);
   let pendingPixel: { px: number; py: number } | null = null;
+  let destinationBusy = false;
 
   // Follow mode: the map auto-centres on each position update until the user
   // drags away; then the edge arrow points back and a click resumes follow.
@@ -498,6 +506,47 @@
     await refreshWaypoints();
   }
 
+  function renderFriends(friends: SharedFriend[]) {
+    if (!friendGroup) return;
+    friendGroup.clearLayers();
+    let fallbackSlot = 1;
+    for (const friend of friends) {
+      if (!friend.online || !friend.positionPx) continue;
+      const slot = friend.slot ?? fallbackSlot++;
+      const details = [friend.name, friend.dinoName].filter(Boolean).join(" · ");
+      L.marker(toLatLng(friend.positionPx[0], friend.positionPx[1]), {
+        icon: L.divIcon({
+          className: "friend-pin",
+          html: `<span class="friend-pin__badge">${slot}</span><span class="friend-pin__name">${escapeHtml(friend.name)}</span>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        }),
+        keyboard: false,
+      })
+        .bindTooltip(details || friend.name)
+        .addTo(friendGroup);
+    }
+  }
+
+  function applyProviderFriends(snapshot: ProviderSnapshot | null) {
+    renderFriends(snapshot?.friends ?? []);
+  }
+
+  async function setDestination(e: L.LeafletMouseEvent) {
+    if (destinationBusy) return;
+    destinationBusy = true;
+    try {
+      await setDestinationAtPixel(
+        e.latlng.lng,
+        -e.latlng.lat,
+        tNow("wp.destination"),
+      );
+      await refreshWaypoints();
+    } finally {
+      destinationBusy = false;
+    }
+  }
+
   async function onRename(id: string, name: string) {
     await renameWaypoint(id, name);
     await refreshWaypoints();
@@ -679,6 +728,7 @@
       previousTrail = L.layerGroup().addTo(map);
       currentTrail = L.layerGroup().addTo(map);
       waypointGroup = L.layerGroup().addTo(map);
+      friendGroup = L.layerGroup().addTo(map);
 
       try {
         buildPoiLayers(await getPoisRender());
@@ -690,6 +740,7 @@
       drawTrail(previousTrail, await getPreviousTrail(), true);
       drawTrail(currentTrail, await getCurrentTrail(), false);
       await refreshWaypoints();
+      applyProviderFriends(await providerSnapshot());
       // The helpers above all guard `map` themselves; the handlers below do
       // not, and this is the point the field crash resumed at.
       if (destroyed || !map) return;
@@ -698,6 +749,7 @@
         pendingPixel = { px: e.latlng.lng, py: -e.latlng.lat };
         promptOpen = true;
       });
+      map.on("click", (e: L.LeafletMouseEvent) => void setDestination(e));
       // A manual drag pauses follow; the edge arrow / recenter button resume
       // it. Zoom alone does NOT pause (you zoom around your own position).
       map.on("dragstart", () => (follow = false));
@@ -722,6 +774,19 @@
           if (map && playerMarker) map.removeLayer(playerMarker);
           playerMarker = undefined;
           playerArrowEl = null;
+        }),
+      );
+      await bag.add(onProviderSnapshot((snapshot) => applyProviderFriends(snapshot)));
+      await bag.add(
+        onProviderState((provider) => {
+          if (
+            provider.provider === null ||
+            ["login-required", "logged-out", "unconfigured", "unsupported", "temporary-error"].includes(
+              provider.status,
+            )
+          ) {
+            renderFriends([]);
+          }
         }),
       );
       await bag.add(
@@ -859,6 +924,34 @@
   :global(.leaflet-tooltip-left:before),
   :global(.leaflet-tooltip-right:before) {
     border-top-color: var(--color-border);
+  }
+
+  :global(.friend-pin) {
+    width: max-content !important;
+    height: 22px !important;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.92));
+  }
+  :global(.friend-pin__badge) {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border: 2px solid rgba(255, 255, 255, 0.92);
+    border-radius: 50%;
+    background: #72ffd2;
+    color: #02110d;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  :global(.friend-pin__name) {
+    white-space: nowrap;
+    color: #caffef;
+    font-size: 11px;
+    font-weight: 700;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.95);
   }
   :global(.leaflet-bar a) {
     background: var(--color-panel);

@@ -1,6 +1,10 @@
 // Minimap overlay entry. Deliberately tiny: no Skeleton, no Leaflet, no
 // framework — this webview runs beside the game for hours. Rendering is
 // event-driven only (zero idle CPU: no rAF loop, no animations, no timers).
+// Draw synchronously on every position packet. WebView2 can suspend animation
+// frames when a fullscreen game occludes this window, even though Tauri events
+// are still delivered; relying on rAF made the heading appear frozen until the
+// user Alt-Tabbed back out of the game.
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
@@ -14,6 +18,7 @@ import {
   QUEST_PAD_H,
   QUEST_ROW_H,
   render,
+  type CombatAlert,
   type DinoBars,
   type MinimapState,
   type PoiDot,
@@ -29,6 +34,7 @@ interface PositionUpdate {
   px: number;
   py: number;
   headingDeg: number | null;
+  headingSource: "local-camera" | "provider-camera" | "movement" | null;
   compassKey: string | null;
 }
 interface PoiLayer {
@@ -54,17 +60,33 @@ interface ProviderSnapshot {
     stamina: ProviderStatBar | null;
     primeQuests: QuestRow[];
   } | null;
+  friends: {
+    slot: number | null;
+    name: string;
+    dinoName: string | null;
+    online: boolean;
+    positionCm: [number, number, number] | null;
+    positionPx: [number, number] | null;
+  }[];
+}
+interface CombatEvent {
+  id: string;
+  direction: "incoming" | "outgoing" | "death";
+  opponentName: string | null;
+  opponentSpecies: string | null;
+  damage: number | null;
+  source: string;
 }
 type Settings = Record<string, any>;
 
 const LAYER_COLORS: Record<string, string> = {
-  water: "#4aa8d8",
-  saltlick: "#d9a441",
+  water: "#35bdf2",
+  saltlick: "#ffc857",
   mudwallow: "#9c7b4f",
   sanctuary: "#a855f7",
-  migration: "#72d653",
-  food: "#e2664a",
-  animal: "#d66ba0",
+  migration: "#45f5a2",
+  food: "#ff5678",
+  animal: "#ff62bc",
 };
 
 // Compass letters + strings per language (kept inline: no i18n bundle here).
@@ -73,6 +95,13 @@ const STRINGS = {
     letters: ["B", "Đ", "N", "T"] as [string, string, string, string],
     hint: "Đang chờ vị trí realtime từ server…",
     unknown: "Chưa rõ hướng",
+    combat: {
+      health: "Mất máu",
+      incoming: "Bị tấn công",
+      outgoing: "Đã tấn công",
+      death: "Đã chết",
+      unknown: "không rõ đối thủ",
+    },
     dirs: {
       "dir.N": "Bắc", "dir.NE": "Đông Bắc", "dir.E": "Đông", "dir.SE": "Đông Nam",
       "dir.S": "Nam", "dir.SW": "Tây Nam", "dir.W": "Tây", "dir.NW": "Tây Bắc",
@@ -82,6 +111,13 @@ const STRINGS = {
     letters: ["N", "E", "S", "W"] as [string, string, string, string],
     hint: "Waiting for the live server position…",
     unknown: "Heading unknown",
+    combat: {
+      health: "Health lost",
+      incoming: "Attacked",
+      outgoing: "You attacked",
+      death: "Died",
+      unknown: "unknown opponent",
+    },
     dirs: {
       "dir.N": "N", "dir.NE": "NE", "dir.E": "E", "dir.SE": "SE",
       "dir.S": "S", "dir.SW": "SW", "dir.W": "W", "dir.NW": "NW",
@@ -100,6 +136,7 @@ const state: MinimapState = {
   position: null,
   trailPx: [],
   pois: [],
+  friends: [],
   waypoints: [],
   nearestWaypoint: null,
   basemap: null,
@@ -121,10 +158,12 @@ const state: MinimapState = {
   hintText: STRINGS.vi.hint,
   headingLabel: "",
   headingUnknown: STRINGS.vi.unknown,
+  combatAlerts: [],
 };
 
 let lastHeadingKey: string | null = null;
 let lastHeadingDeg: number | null = null;
+let lastHeadingSource: PositionUpdate["headingSource"] = null;
 
 function applySettings(s: Settings) {
   settings = s;
@@ -168,6 +207,7 @@ function recomputeQuestsH() {
 function clearProviderDisplay() {
   state.dino = null;
   state.quests = [];
+  state.friends = [];
   recomputePanelH();
   recomputeQuestsH();
 }
@@ -182,9 +222,24 @@ function applyProviderState(value: ProviderState) {
 }
 
 function applyProviderSnapshot(snapshot: ProviderSnapshot | null) {
+  state.friends = (snapshot?.friends ?? []).flatMap((friend) => {
+    if (!friend.online || !friend.positionCm || !friend.positionPx) return [];
+    return [{
+      slot: friend.slot,
+      name: friend.name,
+      dinoName: friend.dinoName,
+      xCm: friend.positionCm[0],
+      yCm: friend.positionCm[1],
+      px: friend.positionPx[0],
+      py: friend.positionPx[1],
+    }];
+  });
   const player = snapshot?.player;
   if (!player) {
-    clearProviderDisplay();
+    state.dino = null;
+    state.quests = [];
+    recomputePanelH();
+    recomputeQuestsH();
     return;
   }
   const toBar = (stat: ProviderStatBar | null): DinoBars["hp"] => ({
@@ -205,10 +260,44 @@ function applyProviderSnapshot(snapshot: ProviderSnapshot | null) {
 }
 
 function refreshHeadingLabel(lang: keyof typeof STRINGS) {
+  const estimate = lastHeadingSource === "movement" ? "≈ " : "";
   state.headingLabel =
     lastHeadingKey && lastHeadingDeg !== null
-      ? `${STRINGS[lang].dirs[lastHeadingKey] ?? ""} ${Math.round(lastHeadingDeg)}°`
+      ? `${estimate}${STRINGS[lang].dirs[lastHeadingKey] ?? ""} ${Math.round(lastHeadingDeg)}°`
       : "";
+}
+
+function combatAlert(event: CombatEvent): CombatAlert {
+  const lang = settings.language === "en" ? "en" : "vi";
+  const strings = STRINGS[lang].combat;
+  const action =
+    event.source === "health-delta"
+      ? strings.health
+      : event.direction === "outgoing"
+        ? strings.outgoing
+        : event.direction === "death"
+          ? strings.death
+          : strings.incoming;
+  const identity = [event.opponentName, event.opponentSpecies].filter(Boolean).join(" · ");
+  const amount = event.damage === null ? "" : ` −${Math.round(event.damage * 10) / 10}%`;
+  return {
+    id: event.id,
+    text: `${action}${amount} · ${identity || strings.unknown}`,
+    tone: event.source === "health-delta" ? "estimated" : event.direction,
+  };
+}
+
+function showCombatEvent(event: CombatEvent) {
+  const alert = combatAlert(event);
+  state.combatAlerts = [
+    alert,
+    ...state.combatAlerts.filter((item) => item.id !== alert.id),
+  ].slice(0, 3);
+  draw();
+  window.setTimeout(() => {
+    state.combatAlerts = state.combatAlerts.filter((item) => item.id !== alert.id);
+    draw();
+  }, 15_000);
 }
 
 function refreshPoiFilter() {
@@ -220,7 +309,7 @@ function flattenPois() {
   allPois = [];
   for (const layer of poiLayers) {
     if (layer.kind !== "point") continue; // zones are full-map only
-    const color = LAYER_COLORS[layer.key] ?? "#e8a33d";
+    const color = LAYER_COLORS[layer.key] ?? "#35f2ff";
     for (const item of layer.items) {
       allPois.push({
         xCm: item.xCm,
@@ -379,6 +468,15 @@ async function refreshNearest() {
   }
 }
 
+let nearestRefreshTimer: number | null = null;
+function scheduleNearestRefresh() {
+  if (nearestRefreshTimer !== null) return;
+  nearestRefreshTimer = window.setTimeout(() => {
+    nearestRefreshTimer = null;
+    void refreshNearest().then(draw);
+  }, 250);
+}
+
 /// Full reload after a basemap switch: new geometry, new bitmap, and a
 /// defensive position/trail re-fetch (resync events also arrive; this closes
 /// the one-stale-frame window in between).
@@ -393,6 +491,10 @@ async function reloadMapSource() {
     const p = await invoke<PositionUpdate | null>("get_current_position");
     if (p) {
       state.position = { xCm: p.xCm, yCm: p.yCm, px: p.px, py: p.py, headingDeg: p.headingDeg };
+      lastHeadingKey = p.compassKey;
+      lastHeadingDeg = p.headingDeg;
+      lastHeadingSource = p.headingSource;
+      refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
     }
     const trail = await invoke<{ segmentsPx: [number, number][][] }>("get_current_trail");
     state.trailPx = trail.segmentsPx;
@@ -419,20 +521,29 @@ async function init() {
 
   await listen<PositionUpdate>("position://update", (e) => {
     const p = e.payload;
-    state.position = { xCm: p.xCm, yCm: p.yCm, px: p.px, py: p.py, headingDeg: p.headingDeg };
+    state.position = {
+      xCm: p.xCm,
+      yCm: p.yCm,
+      px: p.px,
+      py: p.py,
+      headingDeg: p.headingDeg,
+    };
     lastHeadingKey = p.compassKey;
     lastHeadingDeg = p.headingDeg;
+    lastHeadingSource = p.headingSource;
     refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
     draw();
-    // The rim arrow re-aims from the new position; repaints once more when
-    // the answer arrives (still purely event-driven).
-    void refreshNearest().then(draw);
+    // Limit the waypoint IPC calculation while Titan is sending 20 position
+    // samples per second. The player marker and camera arrow still repaint on
+    // every sample.
+    scheduleNearestRefresh();
   });
   await listen("position://cleared", () => {
     state.position = null;
     state.nearestWaypoint = null;
     lastHeadingKey = null;
     lastHeadingDeg = null;
+    lastHeadingSource = null;
     refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
     draw();
   });
@@ -460,6 +571,7 @@ async function init() {
     applyProviderState(e.payload);
     draw();
   });
+  await listen<CombatEvent>("combat://new", (e) => showCombatEvent(e.payload));
 
   // First-run / re-download / silent top-up completed: pick up the new data
   // live — including overlays that did not exist at init (get_map_info again).
@@ -474,6 +586,7 @@ async function init() {
       state.position = { xCm: p.xCm, yCm: p.yCm, px: p.px, py: p.py, headingDeg: p.headingDeg };
       lastHeadingKey = p.compassKey;
       lastHeadingDeg = p.headingDeg;
+      lastHeadingSource = p.headingSource;
       refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
     }
     const trail = await invoke<{ segmentsPx: [number, number][][] }>("get_current_trail");

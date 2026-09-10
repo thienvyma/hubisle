@@ -55,6 +55,15 @@ export interface SharedPlayer {
   primeQuests: DinoQuest[];
 }
 
+export interface SharedFriend {
+  slot: number | null;
+  name: string;
+  dinoName: string | null;
+  online: boolean;
+  positionCm: [number, number, number] | null;
+  positionPx: [number, number] | null;
+}
+
 export interface ProviderSnapshot {
   provider: ProviderId;
   status: ConnectionStatus;
@@ -63,7 +72,23 @@ export interface ProviderSnapshot {
   receivedAtMs: number;
   sourceTimestampMs: number | null;
   player: SharedPlayer | null;
+  friends: SharedFriend[];
   positionCm: [number, number, number] | null;
+  headingDeg: number | null;
+}
+
+export type CombatDirection = "incoming" | "outgoing" | "death";
+
+export interface CombatEvent {
+  id: string;
+  timestampMs: number;
+  direction: CombatDirection;
+  selfSpecies: string | null;
+  opponentName: string | null;
+  opponentSpecies: string | null;
+  damage: number | null;
+  source: "era-server" | "health-delta" | string;
+  serverName: string | null;
 }
 
 export interface PositionUpdate {
@@ -73,6 +98,7 @@ export interface PositionUpdate {
   px: number;
   py: number;
   headingDeg: number | null;
+  headingSource: "local-camera" | "provider-camera" | "movement" | null;
   compassKey: string | null;
   inBounds: boolean;
 }
@@ -210,6 +236,8 @@ export const listWaypoints = () => invoke<Waypoint[]>("list_waypoints");
 export const listWaypointsPx = () => invoke<WaypointPx[]>("list_waypoints_px");
 export const addWaypointAtPixel = (px: number, py: number, name: string) =>
   invoke<Waypoint>("add_waypoint_at_pixel", { px, py, name });
+export const setDestinationAtPixel = (px: number, py: number, name: string) =>
+  invoke<Waypoint>("set_destination_at_pixel", { px, py, name });
 export const addWaypointHere = (name: string) =>
   invoke<Waypoint | null>("add_waypoint_here", { name });
 export const renameWaypoint = (id: string, name: string) =>
@@ -310,8 +338,8 @@ export const getNearestWaypoint = () =>
   invoke<NearestWaypoint | null>("nearest_waypoint");
 
 /** True when the spec parses AND the combination is currently free. */
-export const checkHotkeyAvailable = (spec: string) =>
-  invoke<boolean>("check_hotkey_available", { spec });
+export const checkHotkeyAvailable = (spec: string, action?: string) =>
+  invoke<boolean>("check_hotkey_available", { spec, action });
 
 /** Re-register all hotkeys from the current settings (after a rebind). */
 export const applyHotkeys = () => invoke("apply_hotkeys");
@@ -542,6 +570,26 @@ export const providerCancelLogin = () => invoke("provider_cancel_login");
 export const providerState = () => invoke<ProviderState>("provider_state");
 export const providerSnapshot = () =>
   invoke<ProviderSnapshot | null>("provider_snapshot");
+export interface ProviderFeaturePayload {
+  provider: ProviderId;
+  data: Record<string, unknown>;
+}
+export const providerGarage = () =>
+  invoke<ProviderFeaturePayload>("provider_garage");
+export const providerGarageAction = (
+  action: "park" | "restore" | "delete" | "cancel",
+  slot: number | null = null,
+  stateHash: string | null = null,
+) =>
+  invoke<ProviderFeaturePayload>("provider_garage_action", {
+    action,
+    slot,
+    stateHash,
+  });
+export const providerSkinState = () =>
+  invoke<ProviderFeaturePayload>("provider_skin_state");
+export const providerSkinApply = (colors: string[], variation = 0) =>
+  invoke<ProviderFeaturePayload>("provider_skin_apply", { colors, variation });
 export const providerLogout = () => invoke("provider_logout");
 export const providerSelectManual = () => invoke("provider_select_manual");
 export const onProviderState = (
@@ -552,6 +600,11 @@ export const onProviderSnapshot = (
   cb: (snapshot: ProviderSnapshot) => void,
 ): Promise<UnlistenFn> =>
   listen<ProviderSnapshot>("provider://snapshot", (event) => cb(event.payload));
+export const combatHistory = () => invoke<CombatEvent[]>("combat_history");
+export const onCombatEvent = (
+  cb: (event: CombatEvent) => void,
+): Promise<UnlistenFn> =>
+  listen<CombatEvent>("combat://new", (event) => cb(event.payload));
 
 export const onDinoUpdate = (cb: (u: DinoUpdate) => void): Promise<UnlistenFn> =>
   listen<DinoUpdate>("dino://update", (e) => cb(e.payload));

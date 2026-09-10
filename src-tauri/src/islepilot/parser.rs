@@ -36,12 +36,9 @@ impl StatBar {
     fn parse(raw: String) -> Self {
         // "96 / 96" -> (96, 96); "874 / 1000" etc. Tolerates thousands
         // separators just in case.
-        let mut parts = raw.split('/').map(|p| {
-            p.trim()
-                .replace(',', "")
-                .parse::<f64>()
-                .ok()
-        });
+        let mut parts = raw
+            .split('/')
+            .map(|p| p.trim().replace(',', "").parse::<f64>().ok());
         let current = parts.next().flatten();
         let max = parts.next().flatten();
         Self { raw, current, max }
@@ -160,7 +157,11 @@ pub fn parse_me(html: &str) -> PlayerStats {
     let doc = Html::parse_document(html);
 
     let h1_sel = Selector::parse("h1").unwrap();
-    let dino_name = doc.select(&h1_sel).next().map(text_of).filter(|s| !s.is_empty());
+    let dino_name = doc
+        .select(&h1_sel)
+        .next()
+        .map(text_of)
+        .filter(|s| !s.is_empty());
 
     let span_sel = Selector::parse("span").unwrap();
     let mut online: Option<bool> = None;
@@ -230,10 +231,8 @@ pub fn parse_me(html: &str) -> PlayerStats {
 }
 
 static TRANSFORM_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s*\)(?:\s*rotate\(\s*(-?[\d.]+)\s*\))?",
-    )
-    .unwrap()
+    Regex::new(r"translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s*\)(?:\s*rotate\(\s*(-?[\d.]+)\s*\))?")
+        .unwrap()
 });
 
 pub fn parse_map(html: &str) -> MapPosition {
@@ -281,8 +280,10 @@ pub fn parse_map(html: &str) -> MapPosition {
         if let Some(el) = ElementRef::wrap(n) {
             if svg_sel.matches(&el) {
                 if let Some(vb) = el.value().attr("viewBox") {
-                    let parts: Vec<f64> =
-                        vb.split_whitespace().filter_map(|p| p.parse().ok()).collect();
+                    let parts: Vec<f64> = vb
+                        .split_whitespace()
+                        .filter_map(|p| p.parse().ok())
+                        .collect();
                     if parts.len() == 4 {
                         result.view_box = Some([parts[0], parts[1], parts[2], parts[3]]);
                     }

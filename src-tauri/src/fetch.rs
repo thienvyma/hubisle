@@ -29,7 +29,7 @@ use tauri::{AppHandle, Emitter};
 use crate::settings;
 
 pub const MAP_VERSION: &str = "Gateway_v0.21.7";
-const UA: &str = "theisle-overlay/2.0 (personal use; contact via github)";
+const UA: &str = "isle-pulse-overlay/1.7 (personal use)";
 
 fn vulnona_base() -> String {
     format!("https://vulnona.com/game/map/map/{MAP_VERSION}")
@@ -197,14 +197,15 @@ fn parse_ai_zones(js: &str) -> Result<Vec<Value>, String> {
             .and_then(|p| p.as_array())
             .map(|pts| {
                 pts.iter()
-                    .filter_map(|p| {
-                        Some(json!([p.get("y")?.as_f64()?, p.get("x")?.as_f64()?]))
-                    })
+                    .filter_map(|p| Some(json!([p.get("y")?.as_f64()?, p.get("x")?.as_f64()?])))
                     .collect()
             })
             .unwrap_or_default();
         let label = if species.is_empty() {
-            z.get("label").and_then(|l| l.as_str()).unwrap_or("").to_string()
+            z.get("label")
+                .and_then(|l| l.as_str())
+                .unwrap_or("")
+                .to_string()
         } else {
             species.join(", ")
         };
@@ -443,7 +444,12 @@ fn emit_progress(app: &AppHandle, p: FetchProgress) {
     let _ = app.emit("fetch://progress", p);
 }
 
-fn download(client: &reqwest::blocking::Client, url: &str, dest: &Path, force: bool) -> Result<bool, String> {
+fn download(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    dest: &Path,
+    force: bool,
+) -> Result<bool, String> {
     if dest.exists() && !force {
         return Ok(false);
     }
@@ -631,7 +637,10 @@ pub fn freshwater_dest() -> std::path::PathBuf {
 /// homepage -> enumerate /_nuxt/*.js -> first chunk with >= 20 sighting
 /// records wins. Like every scraper here it WILL break some day — callers
 /// treat failure as "no animal layer this time", nothing else.
-fn fetch_islemaps_sightings(client: &reqwest::blocking::Client, force: bool) -> Result<bool, String> {
+fn fetch_islemaps_sightings(
+    client: &reqwest::blocking::Client,
+    force: bool,
+) -> Result<bool, String> {
     let dest = settings::cache_dir().join("islemaps-sightings.js");
     if dest.exists() && !force {
         return Ok(false);
@@ -742,15 +751,26 @@ pub fn run(app: &AppHandle, force: bool) -> FetchFinished {
             ));
         }
         for (name, url) in [
-            ("map-data.js", "https://myislemap.com/map-data.js".to_string()),
+            (
+                "map-data.js",
+                "https://myislemap.com/map-data.js".to_string(),
+            ),
             (
                 "map-ai-spawn-zones.js",
                 "https://myislemap.com/map-ai-spawn-zones.js".to_string(),
             ),
             ("data_1.txt", format!("{base}/data_1.txt")),
-            ("dat.txt", "https://vulnona.com/game/map/dat.txt".to_string()),
+            (
+                "dat.txt",
+                "https://vulnona.com/game/map/dat.txt".to_string(),
+            ),
         ] {
-            v.push((name.to_string(), url, settings::cache_dir().join(name), true));
+            v.push((
+                name.to_string(),
+                url,
+                settings::cache_dir().join(name),
+                true,
+            ));
         }
         v
     };
@@ -880,11 +900,7 @@ pub fn ensure_pois_current() {
 
 /// One fail-soft OPTIONAL fetch with progress events — used for sources whose
 /// absence only hides a single layer (never flips the ok flags).
-fn optional_step(
-    app: &AppHandle,
-    file: &str,
-    fetch: impl FnOnce() -> Result<bool, String>,
-) {
+fn optional_step(app: &AppHandle, file: &str, fetch: impl FnOnce() -> Result<bool, String>) {
     let progress = |status, error| FetchProgress {
         file: file.to_string(),
         index: 0,
@@ -1215,11 +1231,19 @@ mod tests {
     #[test]
     fn png_dimensions_rejects_non_png_and_truncated() {
         assert_eq!(png_dimensions(b"RIFF....WEBP"), None, "webp is not png");
-        assert_eq!(png_dimensions(&png_header(2500, 2500)[..20]), None, "truncated");
+        assert_eq!(
+            png_dimensions(&png_header(2500, 2500)[..20]),
+            None,
+            "truncated"
+        );
         assert_eq!(png_dimensions(b""), None);
         let mut wrong_chunk = png_header(2500, 2500);
         wrong_chunk[12..16].copy_from_slice(b"IDAT");
-        assert_eq!(png_dimensions(&wrong_chunk), None, "first chunk must be IHDR");
+        assert_eq!(
+            png_dimensions(&wrong_chunk),
+            None,
+            "first chunk must be IHDR"
+        );
     }
 
     #[test]

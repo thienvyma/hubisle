@@ -23,7 +23,8 @@ pub trait LockExt<T> {
 
 impl<T> LockExt<T> for std::sync::Mutex<T> {
     fn lock_safe(&self) -> std::sync::MutexGuard<'_, T> {
-        self.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 

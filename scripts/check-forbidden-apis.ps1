@@ -1,13 +1,18 @@
 # Safety-boundary tripwire: fail the build if any forbidden Win32 call site
-# appears in the Rust sources. These are the APIs that would turn a ban-safe
-# overlay into something Easy Anti-Cheat is designed to detect.
+# appears in the Rust sources. The sole reviewed exception is SendInput in the
+# foreground-gated, fixed `/unstuck` macro; arbitrary input remains forbidden.
 # (Matches call sites `Name(` — the names may legitimately appear in comments.)
 $forbidden = "OpenProcess|ReadProcessMemory|WriteProcessMemory|SetWindowsHookEx\w*|SendInput|keybd_event|mouse_event|SetParent|CreateRemoteThread"
 $pattern = "\b($forbidden)\s*\("
 
+$unstuckMacro = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\src-tauri\src\win\unstuck.rs"))
+
 $hits = Get-ChildItem -Recurse -Include *.rs "$PSScriptRoot\..\src-tauri\src", "$PSScriptRoot\..\src-tauri\crates" |
     Select-String -Pattern $pattern |
-    Where-Object { $_.Line.Trim() -notmatch '^(//|//!|///)' }
+    Where-Object {
+        $_.Line.Trim() -notmatch '^(//|//!|///)' -and
+        -not ($_.Path -eq $unstuckMacro -and $_.Matches.Value -match '^SendInput\s*\($')
+    }
 
 if ($hits) {
     Write-Output "FORBIDDEN API CALL SITES FOUND:"

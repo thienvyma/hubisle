@@ -2,14 +2,23 @@
 //! own-window half of `app/winapi.py`.
 
 use windows::Win32::Foundation::HWND;
+use windows::Win32::Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST,
-    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
+    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TOPMOST, WS_EX_TRANSPARENT,
 };
 
 fn hwnd(raw: isize) -> HWND {
     HWND(raw as *mut std::ffi::c_void)
+}
+
+/// Invalidate only our HUD and its WebView children, without erasing its
+/// transparent background or sending synchronous paint messages to the game.
+pub fn request_redraw(raw: isize) {
+    unsafe {
+        let _ = RedrawWindow(Some(hwnd(raw)), None, None, RDW_INVALIDATE | RDW_ALLCHILDREN);
+    }
 }
 
 /// Toggle letting the mouse pass through the overlay to the game underneath.

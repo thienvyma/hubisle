@@ -32,10 +32,12 @@ pub fn key_hex() -> Option<String> {
 
 fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
-    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
-        let _ = write!(s, "{b:02x}");
-        s
-    })
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
 }
 
 fn unhex(s: &str) -> Option<Vec<u8>> {
@@ -72,7 +74,10 @@ mod tests {
 
     #[test]
     fn canonical_format_is_pinned() {
-        assert_eq!(canonical(1700000000, "/v1/ping", "abc"), "1700000000\n/v1/ping\nabc");
+        assert_eq!(
+            canonical(1700000000, "/v1/ping", "abc"),
+            "1700000000\n/v1/ping\nabc"
+        );
     }
 
     #[test]

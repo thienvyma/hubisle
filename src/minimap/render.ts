@@ -33,7 +33,7 @@ export const PANEL_ROW_H = 16;
 /** Quest-panel geometry. Must match QUEST_HEADER_H / QUEST_ROW_H /
  * QUEST_PAD_H in src-tauri/src/minimap.rs. */
 export const QUEST_HEADER_H = 18;
-export const QUEST_ROW_H = 14;
+export const QUEST_ROW_H = 24;
 export const QUEST_PAD_H = 8;
 
 export interface QuestRow {
@@ -43,6 +43,12 @@ export interface QuestRow {
   completed: boolean;
 }
 
+export interface CombatAlert {
+  id: string;
+  text: string;
+  tone: "incoming" | "outgoing" | "death" | "estimated";
+}
+
 export interface MinimapState {
   /** Player position (cm + basemap px) and heading, or null before first sample. */
   position: { xCm: number; yCm: number; px: number; py: number; headingDeg: number | null } | null;
@@ -50,6 +56,16 @@ export interface MinimapState {
   trailPx: [number, number][][];
   /** Point POIs already filtered by layer visibility (not by distance). */
   pois: PoiDot[];
+  /** Accepted friends supplied by the current server, with calibrated px. */
+  friends: {
+    slot: number | null;
+    name: string;
+    dinoName: string | null;
+    xCm: number;
+    yCm: number;
+    px: number;
+    py: number;
+  }[];
   /** Saved waypoints (cm + basemap px + user colour; glyph = icon pins). */
   waypoints: {
     xCm: number;
@@ -95,23 +111,24 @@ export interface MinimapState {
   hintText: string;
   headingLabel: string; // "" when unknown -> shows headingUnknown
   headingUnknown: string;
+  /** Up to three short-lived Era combat notifications drawn over the map. */
+  combatAlerts: CombatAlert[];
 }
 
 const LABEL_MARGIN = 15;
 const POI_MARGIN = 1.6; // filter wider than the view so dots don't pop in at the rim
 
 const COLORS = {
-  bg: "#11150e",
-  text: "#eae6d6",
-  textMuted: "#a3aa8c",
-  accent: "#e8a33d",
-  // Electric yellow + double outline (dark under, white over): the
-  // self-marker must never be confused with POI dots or the softer trail.
-  playerArrow: "#ffe600",
-  playerArrowOutline: "#10130c",
-  playerHalo: "rgba(255, 230, 0, 0.20)",
-  trail: "#ffcc55",
-  waypoint: "#4fc3f7", // matches theme.ts COLORS.waypoint
+  bg: "#030711",
+  text: "#edf6ff",
+  textMuted: "#7890aa",
+  accent: "#35f2ff",
+  playerArrow: "#35f2ff",
+  playerArrowOutline: "#020711",
+  playerHalo: "rgba(53, 242, 255, 0.24)",
+  trail: "#c65cff",
+  waypoint: "#45f5a2",
+  friend: "#72ffd2",
 };
 
 export function render(canvas: HTMLCanvasElement, state: MinimapState): void {
@@ -146,7 +163,7 @@ export function render(canvas: HTMLCanvasElement, state: MinimapState): void {
     // No position yet: a dim disc so the hint text is readable.
     ctx.beginPath();
     ctx.arc(c, c, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(17, 21, 14, 0.88)";
+    ctx.fillStyle = "rgba(3, 7, 17, 0.91)";
     ctx.fill();
     drawHint(ctx, c, radius, state.hintText);
     return;
@@ -159,12 +176,80 @@ export function render(canvas: HTMLCanvasElement, state: MinimapState): void {
   drawMap(ctx, state, c, radius);
   ctx.restore();
 
+  drawRadarFrame(ctx, c, radius, state.opacity);
   drawCompass(ctx, state, c, radius);
   drawWaypointArrow(ctx, state, c, radius);
   drawHeadingPill(ctx, state, c, radius);
   // Player marker LAST and always fully opaque: however faded the map is,
   // you must still see where you are or the whole map is pointless.
   drawPlayer(ctx, state, c);
+  drawCombatAlerts(ctx, state, c, radius);
+}
+
+function drawCombatAlerts(
+  ctx: CanvasRenderingContext2D,
+  state: MinimapState,
+  c: number,
+  radius: number,
+): void {
+  if (state.combatAlerts.length === 0) return;
+  const width = Math.min(radius * 1.72, state.sizePx - 44);
+  const rowH = 20;
+  const x = c - width / 2;
+  const y = c - radius + 27;
+  ctx.save();
+  ctx.font = "600 10px 'Segoe UI', sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  state.combatAlerts.slice(0, 3).forEach((alert, index) => {
+    const top = y + index * (rowH + 3);
+    const accent =
+      alert.tone === "outgoing"
+        ? "#ffc857"
+        : alert.tone === "death"
+          ? "#c65cff"
+          : alert.tone === "estimated"
+            ? "#ff9f43"
+            : "#ff5678";
+    ctx.fillStyle = "rgba(3, 7, 17, 0.91)";
+    ctx.fillRect(x, top, width, rowH);
+    ctx.fillStyle = accent;
+    ctx.fillRect(x, top, 3, rowH);
+    ctx.fillStyle = "#edf6ff";
+    ctx.fillText(truncate(ctx, alert.text, width - 17), x + 10, top + rowH / 2);
+  });
+  ctx.restore();
+}
+
+function drawRadarFrame(
+  ctx: CanvasRenderingContext2D,
+  c: number,
+  radius: number,
+  opacity: number,
+): void {
+  ctx.save();
+  ctx.globalAlpha = Math.max(0.38, opacity * 0.72);
+  ctx.strokeStyle = "rgba(53, 242, 255, 0.62)";
+  ctx.lineWidth = 1.2;
+  ctx.shadowColor = "rgba(53, 242, 255, 0.5)";
+  ctx.shadowBlur = 5;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = -Math.PI / 2 + Math.PI / 8 + (i * Math.PI) / 4;
+    const x = c + radius * Math.cos(a);
+    const y = c + radius * Math.sin(a);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.setLineDash([2, 6]);
+  ctx.strokeStyle = "rgba(53, 242, 255, 0.18)";
+  ctx.beginPath();
+  ctx.arc(c, c, radius * 0.58, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawMap(
@@ -276,6 +361,35 @@ function drawMap(
       ctx.fill();
       ctx.stroke();
     }
+  }
+
+  // Accepted friends from the selected server. Keep distant friends pinned
+  // to the rim so the badge remains a useful direction finder, matching the
+  // behaviour of the Titan HUD. Positions are never persisted locally.
+  for (let index = 0; index < state.friends.length; index++) {
+    const friend = state.friends[index];
+    let [x, y] = toWidget(friend.px, friend.py);
+    const dx = x - c;
+    const dy = y - c;
+    const distancePx = Math.hypot(dx, dy);
+    const rim = radius - 9;
+    if (distancePx > rim && distancePx > 0) {
+      x = c + (dx / distancePx) * rim;
+      y = c + (dy / distancePx) * rim;
+    }
+    const label = String(friend.slot ?? index + 1);
+    ctx.beginPath();
+    ctx.arc(x, y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = COLORS.friend;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.86)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "#02110d";
+    ctx.font = "bold 9px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, x, y + 0.5);
   }
 }
 
@@ -443,7 +557,7 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
   // Backing card.
   ctx.beginPath();
   ctx.roundRect(4, top, size - 8, h, 8);
-  ctx.fillStyle = "rgba(10, 13, 9, 0.78)";
+  ctx.fillStyle = "rgba(3, 9, 19, 0.88)";
   ctx.fill();
 
   const dino = state.dino;
@@ -464,14 +578,14 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
             color:
               dino.hp.current !== null && dino.hp.max
                 ? dino.hp.current / dino.hp.max > 0.5
-                  ? "#72d653"
+                  ? "#45f5a2"
                   : dino.hp.current / dino.hp.max > 0.25
-                    ? "#e8a33d"
-                    : "#e2664a"
-                : "#72d653",
+                    ? "#ffc857"
+                    : "#ff5678"
+                : "#45f5a2",
           },
-          { label: "\u{1F356}", cur: dino.hunger.current, max: dino.hunger.max, percent: dino.hunger.percent, color: "#e8a33d" },
-          { label: "\u{1F4A7}", cur: dino.thirst.current, max: dino.thirst.max, percent: dino.thirst.percent, color: "#4aa8d8" },
+          { label: "\u{1F356}", cur: dino.hunger.current, max: dino.hunger.max, percent: dino.hunger.percent, color: "#ffc857" },
+          { label: "\u{1F4A7}", cur: dino.thirst.current, max: dino.thirst.max, percent: dino.thirst.percent, color: "#35f2ff" },
           // Stamina (token mode only) — the window is one row taller then.
           ...(dino.stamina
             ? [
@@ -480,7 +594,7 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
                   cur: dino.stamina.current,
                   max: dino.stamina.max,
                   percent: dino.stamina.percent,
-                  color: "#a78bfa",
+                  color: "#c65cff",
                 },
               ]
             : []),
@@ -546,8 +660,8 @@ function drawDinoPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size:
 }
 
 /// Prime-quests card under the stats strip (or directly under the disc when
-/// the strip is off). Same backing-card language as drawDinoPanel; one line
-/// per quest, ellipsised — 10 rows must stay glanceable, not a wall of text.
+/// the strip is off). Each condition gets up to two lines so its meaning is
+/// preserved even on the compact 260 px minimap.
 function drawQuestPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size: number): void {
   const top = size + state.panelH + 2;
   const h = state.questsH - 4;
@@ -556,7 +670,7 @@ function drawQuestPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size
 
   ctx.beginPath();
   ctx.roundRect(4, top, size - 8, h, 8);
-  ctx.fillStyle = "rgba(10, 13, 9, 0.78)";
+  ctx.fillStyle = "rgba(3, 9, 19, 0.88)";
   ctx.fill();
 
   const done = state.quests.filter((q) => q.completed).length;
@@ -569,14 +683,44 @@ function drawQuestPanel(ctx: CanvasRenderingContext2D, state: MinimapState, size
   const maxW = size - 8 - 24 - 8; // card minus glyph column minus right pad
   state.quests.forEach((quest, i) => {
     const y = top + 4 + QUEST_HEADER_H + i * QUEST_ROW_H + QUEST_ROW_H / 2;
-    ctx.font = "10px 'Segoe UI', sans-serif";
-    ctx.fillStyle = quest.completed ? "#72d653" : COLORS.textMuted;
+    ctx.font = "9.5px 'Segoe UI', sans-serif";
+    ctx.fillStyle = quest.completed ? "#45f5a2" : COLORS.textMuted;
     ctx.fillText(quest.completed ? "✓" : "○", 10, y);
     const text = state.questLang === "vi" ? (quest.textVi ?? quest.text) : quest.text;
-    ctx.fillStyle = quest.completed ? "#72d653" : COLORS.text;
-    ctx.fillText(truncate(ctx, text, maxW), 24, y);
+    ctx.fillStyle = quest.completed ? "#45f5a2" : COLORS.text;
+    const lines = wrapText(ctx, text, maxW, 2);
+    const lineH = 10.5;
+    const firstY = y - ((lines.length - 1) * lineH) / 2;
+    lines.forEach((line, lineIndex) => ctx.fillText(line, 24, firstY + lineIndex * lineH));
   });
   ctx.restore();
+}
+
+/** Greedy canvas word-wrap with a bounded number of lines. */
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxW: number,
+  maxLines: number,
+): string[] {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const probe = line ? `${line} ${word}` : word;
+    if (!line || ctx.measureText(probe).width <= maxW) {
+      line = probe;
+    } else {
+      lines.push(truncate(ctx, line, maxW));
+      line = word;
+    }
+  }
+  if (line) lines.push(truncate(ctx, line, maxW));
+  if (lines.length > maxLines) {
+    lines[maxLines - 1] = truncate(ctx, lines.slice(maxLines - 1).join(" "), maxW);
+    lines.length = maxLines;
+  }
+  return lines.length > 0 ? lines : [""];
 }
 
 /** Single-line ellipsis via measureText — canvas has no text-overflow. */

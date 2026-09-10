@@ -118,6 +118,7 @@ pub fn default_settings() -> Value {
             "zoom_in": "Ctrl+Alt+Right",
             "zoom_out": "Ctrl+Alt+Left",
             "toggle_quests": "Ctrl+Alt+Q",
+            "unstuck": "`",             // game foreground only: Enter, /unstuck, Enter
             "reload_ui": "Ctrl+Alt+R",   // rescue: works even when clicks are dead
         },
         // The map starts CLEAN: only the big region-name labels are on, so a
@@ -271,15 +272,21 @@ pub fn get_path<'a>(settings: &'a Value, path: &[&str]) -> Option<&'a Value> {
 }
 
 pub fn get_f64(settings: &Value, path: &[&str], default: f64) -> f64 {
-    get_path(settings, path).and_then(Value::as_f64).unwrap_or(default)
+    get_path(settings, path)
+        .and_then(Value::as_f64)
+        .unwrap_or(default)
 }
 
 pub fn get_bool(settings: &Value, path: &[&str], default: bool) -> bool {
-    get_path(settings, path).and_then(Value::as_bool).unwrap_or(default)
+    get_path(settings, path)
+        .and_then(Value::as_bool)
+        .unwrap_or(default)
 }
 
 pub fn get_str<'a>(settings: &'a Value, path: &[&str], default: &'a str) -> &'a str {
-    get_path(settings, path).and_then(Value::as_str).unwrap_or(default)
+    get_path(settings, path)
+        .and_then(Value::as_str)
+        .unwrap_or(default)
 }
 
 #[cfg(test)]
@@ -309,13 +316,19 @@ mod tests {
         assert_eq!(merged["minimap"]["corner"], "bottom-right");
         assert_eq!(merged["minimap"]["opacity"], 0.5);
         assert_eq!(merged["minimap"]["size_px"], 260, "defaults still present");
-        assert_eq!(merged["minimap"]["require_game"], true, "new key gets its default");
+        assert_eq!(
+            merged["minimap"]["require_game"], true,
+            "new key gets its default"
+        );
         assert_eq!(merged["hotkeys"]["toggle_minimap"], "Ctrl+Shift+M");
         assert_eq!(merged["hotkeys"]["toggle_fullmap"], "Ctrl+Alt+F");
         assert_eq!(merged["layers"]["food"], true);
         assert_eq!(merged["number_format"], "eu");
         assert_eq!(merged["language"], "vi", "new key gets its default");
-        assert_eq!(merged["map"]["basemap"], "vulnona", "new key gets its default");
+        assert_eq!(
+            merged["map"]["basemap"], "vulnona",
+            "new key gets its default"
+        );
         assert!(merged["provider"]["id"].is_null());
         assert!(merged["provider"]["website"].is_null());
         assert_eq!(merged["provider"]["automatic_position"], true);

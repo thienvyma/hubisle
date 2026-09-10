@@ -5,3 +5,16 @@ src-tauri/gen/schemas/
 *.log
 .wrangler/
 .dev.vars
+
+# Local sessions, credentials, tooling and alternate build caches.
+.run-profile*/
+.tmp-*/
+.superpowers/
+src-tauri/target*/
+work/
+outputs/
+*.key
+*.key.pub
+.env
+.env.*
+!.env.example

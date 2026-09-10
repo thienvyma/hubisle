@@ -21,6 +21,8 @@ pub struct PositionUpdate {
     pub px: f64,
     pub py: f64,
     pub heading_deg: Option<f64>,
+    /// "local-camera", "provider-camera", or movement-derived estimate.
+    pub heading_source: Option<&'static str>,
     /// Compass key ("dir.N".."dir.NW") for the heading, when known.
     pub compass_key: Option<&'static str>,
     pub in_bounds: bool,

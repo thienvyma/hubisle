@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
-/* Survival-HUD palette carried over from the original theme.py:
-   dark ground, amber accent, hot-pink player marker. */
 :root {
-  --color-bg: #11150e;
-  --color-panel: #191f14;
-  --color-border: #333c26;
-  --color-text: #eae6d6;
-  --color-muted: #a3aa8c;
-  --color-accent: #e8a33d;
-  --color-player: #ff3b8b;
+  --color-bg: #030711;
+  --color-panel: #08111f;
+  --color-panel-raised: #0b1728;
+  --color-border: #1a3852;
+  --color-border-hot: #2bc8e3;
+  --color-text: #edf6ff;
+  --color-muted: #7890aa;
+  --color-accent: #35f2ff;
+  --color-accent-2: #a855f7;
+  --color-player: #35f2ff;
+  --color-success: #45f5a2;
+  --color-warning: #ffc857;
+  --color-danger: #ff5678;
 }
 
 html,
@@ -18,5 +22,70 @@ body {
   height: 100%;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: "Bahnschrift", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  background-image:
+    linear-gradient(rgba(53, 242, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(53, 242, 255, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at 12% 0%, rgba(48, 114, 255, 0.14), transparent 35%),
+    radial-gradient(circle at 94% 100%, rgba(168, 85, 247, 0.09), transparent 35%);
+  background-size: 34px 34px, 34px 34px, auto, auto;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease,
+    box-shadow 150ms ease, transform 150ms ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 16px rgba(53, 242, 255, 0.1);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 2px rgba(53, 242, 255, 0.12);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050b15;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #17334b;
+  border: 2px solid #050b15;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #23526d;
+}
+
+::selection {
+  color: #02060d;
+  background: var(--color-accent);
+}
+
+[class~="rounded"],
+[class~="rounded-lg"],
+[class~="rounded-xl"] {
+  border-radius: 2px;
 }

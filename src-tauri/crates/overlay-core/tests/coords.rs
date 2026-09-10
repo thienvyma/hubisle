@@ -4,9 +4,19 @@
 
 use overlay_core::calibration::{Calibration, SelfTest};
 use overlay_core::coords::{
-    bearing_deg, bearing_to_compass_key, distance_m, is_in_bounds, pixel_to_world,
-    world_to_pixel,
+    bearing_deg, bearing_to_compass_key, distance_m, is_in_bounds, map_yaw_to_bearing_deg,
+    pixel_to_world, world_to_pixel,
 };
+
+#[test]
+fn server_map_yaw_converts_to_north_up_compass_bearing() {
+    // Both IslePilot and Titan draw yaw=0 toward screen-right (east). Our
+    // player dart uses 0=north, so the verified server formula is yaw + 90.
+    assert_close(map_yaw_to_bearing_deg(0.0).unwrap(), 90.0, 1e-9, "east");
+    assert_close(map_yaw_to_bearing_deg(-90.0).unwrap(), 0.0, 1e-9, "north");
+    assert_close(map_yaw_to_bearing_deg(450.0).unwrap(), 180.0, 1e-9, "south");
+    assert_eq!(map_yaw_to_bearing_deg(f64::NAN), None);
+}
 use overlay_core::parse::{parse_coordinates, NumberFormat};
 
 fn cal() -> &'static Calibration {
@@ -114,7 +124,10 @@ struct Lcg(u64);
 impl Lcg {
     fn next_unit(&mut self) -> f64 {
         // Numerical Recipes LCG constants.
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 11) as f64 / (1u64 << 53) as f64
     }
     fn uniform(&mut self, lo: f64, hi: f64) -> f64 {
@@ -210,8 +223,18 @@ fn all_five_anchors_parse_and_map() {
         let text = format!("{}, {}, 20,000.0", fmt_us(a.raw[0]), fmt_us(a.raw[1]));
         let (x, y, _) = parse(&text).unwrap_or_else(|| panic!("{text:?} must parse"));
         let (px, py) = world_to_pixel(x, y, cal());
-        assert_close(px, a.px, st.tolerance_px, &format!("{} via {text:?}", a.name));
-        assert_close(py, a.py, st.tolerance_px, &format!("{} via {text:?}", a.name));
+        assert_close(
+            px,
+            a.px,
+            st.tolerance_px,
+            &format!("{} via {text:?}", a.name),
+        );
+        assert_close(
+            py,
+            a.py,
+            st.tolerance_px,
+            &format!("{} via {text:?}", a.name),
+        );
     }
 }
 
@@ -258,16 +281,41 @@ fn rejects_absurd_magnitudes() {
 
 #[test]
 fn distance_is_metres() {
-    assert_close(distance_m(0.0, 0.0, 30_000.0, 40_000.0), 500.0, 1e-6, "3-4-5");
+    assert_close(
+        distance_m(0.0, 0.0, 30_000.0, 40_000.0),
+        500.0,
+        1e-6,
+        "3-4-5",
+    );
 }
 
 #[test]
 fn bearing_cardinals() {
     // gameX INCREASES = going SOUTH ; gameY INCREASES = going EAST
-    assert_close(bearing_deg(0.0, 0.0, -1000.0, 0.0, cal()), 0.0, 1e-6, "north");
-    assert_close(bearing_deg(0.0, 0.0, 0.0, 1000.0, cal()), 90.0, 1e-6, "east");
-    assert_close(bearing_deg(0.0, 0.0, 1000.0, 0.0, cal()), 180.0, 1e-6, "south");
-    assert_close(bearing_deg(0.0, 0.0, 0.0, -1000.0, cal()), 270.0, 1e-6, "west");
+    assert_close(
+        bearing_deg(0.0, 0.0, -1000.0, 0.0, cal()),
+        0.0,
+        1e-6,
+        "north",
+    );
+    assert_close(
+        bearing_deg(0.0, 0.0, 0.0, 1000.0, cal()),
+        90.0,
+        1e-6,
+        "east",
+    );
+    assert_close(
+        bearing_deg(0.0, 0.0, 1000.0, 0.0, cal()),
+        180.0,
+        1e-6,
+        "south",
+    );
+    assert_close(
+        bearing_deg(0.0, 0.0, 0.0, -1000.0, cal()),
+        270.0,
+        1e-6,
+        "west",
+    );
 }
 
 /// The compass must agree with movement on the map image.
@@ -278,7 +326,12 @@ fn bearing_cardinals() {
 #[test]
 fn bearing_matches_map_screen_directions() {
     /// (expected bearing, name, world delta, screen-movement check).
-    type ScreenCase = (f64, &'static str, (f64, f64), fn((f64, f64), (f64, f64)) -> bool);
+    type ScreenCase = (
+        f64,
+        &'static str,
+        (f64, f64),
+        fn((f64, f64), (f64, f64)) -> bool,
+    );
     let cases: &[ScreenCase] = &[
         (0.0, "north", (-1000.0, 0.0), |p0, p1| p1.1 < p0.1), // north -> py down
         (90.0, "east", (0.0, 1000.0), |p0, p1| p1.0 > p0.0),  // east  -> px up
@@ -323,7 +376,13 @@ fn named_landmarks_confirm_axis_orientation() {
     // And the compass must agree with those same landmarks. The two lake
     // halves are offset by exactly 43 km on both axes, so the bearing must be
     // 45 degrees — north-east.
-    let bearing = bearing_deg(south_lake.0, south_lake.1, north_lake.0, north_lake.1, cal());
+    let bearing = bearing_deg(
+        south_lake.0,
+        south_lake.1,
+        north_lake.0,
+        north_lake.1,
+        cal(),
+    );
     assert_close(bearing, 45.0, 1e-6, "south lake -> north lake");
     assert_eq!(bearing_to_compass_key(bearing), "dir.NE");
     // The northward component must be positive: south lake -> north lake goes north.

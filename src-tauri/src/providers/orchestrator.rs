@@ -1,6 +1,6 @@
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicI64, Ordering},
         Arc, LazyLock, Mutex,
     },
     time::Duration,
@@ -17,7 +17,8 @@ use crate::{
 use super::{
     era::{self, EraError},
     model::{
-        ConnectionStatus, ProviderId, ProviderSnapshot, ProviderState, SharedPlayer, SharedStatBar,
+        ConnectionStatus, ProviderFeaturePayload, ProviderId, ProviderSnapshot, ProviderState,
+        SharedPlayer, SharedStatBar,
     },
     registry::{detect_provider, DetectedProvider},
     session_store::ProviderSessionStore,
@@ -129,6 +130,93 @@ pub fn current_snapshot() -> Option<ProviderSnapshot> {
     RUNTIME.lock_safe().last_snapshot.clone()
 }
 
+fn active_server_session() -> Result<(ProviderId, String, String, Option<String>), String> {
+    let (provider, origin, server_id) = {
+        let runtime = RUNTIME.lock_safe();
+        let provider = runtime
+            .machine
+            .provider
+            .ok_or_else(|| "Chưa chọn server.".to_string())?;
+        let origin = runtime
+            .website
+            .clone()
+            .ok_or_else(|| "Chưa có website server.".to_string())?;
+        let server_id = runtime
+            .last_snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.server_id.clone());
+        (provider, origin, server_id)
+    };
+    let cookie = ProviderSessionStore::get(provider, &origin)
+        .ok_or_else(|| "Phiên đăng nhập server đã hết hạn.".to_string())?;
+    Ok((provider, origin, cookie, server_id))
+}
+
+pub fn garage_fetch() -> Result<ProviderFeaturePayload, String> {
+    let (provider, origin, cookie, _) = active_server_session()?;
+    let data = match provider {
+        ProviderId::Era => era::garage_fetch(&cookie)?,
+        ProviderId::Titan => titan::garage_fetch(&cookie, &origin)?,
+        ProviderId::IslePilot => {
+            return Err("Garage IslePilot dùng kết nối riêng của IslePilot.".to_string())
+        }
+    };
+    Ok(ProviderFeaturePayload { provider, data })
+}
+
+pub fn garage_action(
+    action: &str,
+    slot: Option<usize>,
+    state_hash: Option<&str>,
+) -> Result<ProviderFeaturePayload, String> {
+    let (provider, origin, cookie, _) = active_server_session()?;
+    let data = match provider {
+        ProviderId::Era => era::garage_action(
+            &cookie,
+            action,
+            slot.ok_or_else(|| "Chưa chọn slot Era.".to_string())?,
+            state_hash,
+        )?,
+        ProviderId::Titan => titan::garage_action(&cookie, &origin, action, slot)?,
+        ProviderId::IslePilot => {
+            return Err("Garage IslePilot dùng kết nối riêng của IslePilot.".to_string())
+        }
+    };
+    Ok(ProviderFeaturePayload { provider, data })
+}
+
+pub fn skin_state() -> Result<ProviderFeaturePayload, String> {
+    let (provider, origin, cookie, _) = active_server_session()?;
+    let data = match provider {
+        ProviderId::Era => era::skin_state(&cookie)?,
+        ProviderId::Titan => titan::skin_state(&cookie, &origin)?,
+        ProviderId::IslePilot => {
+            return Err("Server IslePilot này chưa công bố API đổi skin cho overlay.".to_string())
+        }
+    };
+    Ok(ProviderFeaturePayload { provider, data })
+}
+
+pub fn skin_apply(colors: &[String], variation: f64) -> Result<ProviderFeaturePayload, String> {
+    let (provider, origin, cookie, server_id) = active_server_session()?;
+    let data = match provider {
+        ProviderId::Era => era::skin_apply(&cookie, colors)?,
+        ProviderId::Titan => titan::skin_apply(
+            &cookie,
+            &origin,
+            server_id
+                .as_deref()
+                .ok_or_else(|| "Chưa nhận diện được server Titan đang chơi.".to_string())?,
+            colors,
+            variation,
+        )?,
+        ProviderId::IslePilot => {
+            return Err("Server IslePilot này chưa công bố API đổi skin cho overlay.".to_string())
+        }
+    };
+    Ok(ProviderFeaturePayload { provider, data })
+}
+
 pub fn last_has_stamina() -> bool {
     current_snapshot()
         .and_then(|snapshot| snapshot.player)
@@ -175,9 +263,15 @@ fn set_status(
 fn publish_snapshot(
     app: &AppHandle,
     generation: u64,
-    snapshot: ProviderSnapshot,
+    mut snapshot: ProviderSnapshot,
     clear_when_position_missing: bool,
 ) -> bool {
+    let calibration = app.state::<crate::state::AppState>().active_calibration();
+    for friend in &mut snapshot.friends {
+        friend.position_px = friend
+            .position_cm
+            .map(|(x, y, _)| overlay_core::world_to_pixel(x, y, calibration));
+    }
     let state = {
         let mut runtime = RUNTIME.lock_safe();
         if !runtime.gate.accepts(generation, snapshot.provider) {
@@ -190,7 +284,7 @@ fn publish_snapshot(
         runtime_state(&runtime)
     };
     if let Some((x, y, z)) = snapshot.position_cm {
-        pipeline::ingest_sample(app, x, y, z);
+        pipeline::ingest_sample_with_heading(app, x, y, z, snapshot.heading_deg);
     } else if snapshot.status == ConnectionStatus::AuthenticatedOffline
         || clear_when_position_missing
     {
@@ -291,25 +385,42 @@ fn handle_era_error(app: &AppHandle, generation: u64, error: EraError) -> bool {
 }
 
 fn run_era(app: AppHandle, generation: u64, cookie: String) {
-    std::thread::spawn(move || loop {
-        if !accepts(generation, ProviderId::Era) {
-            return;
-        }
-        match era::poll(&cookie) {
-            Ok(snapshot) => {
-                publish_snapshot(&app, generation, snapshot, true);
+    std::thread::spawn(move || {
+        let mut previous_snapshot: Option<ProviderSnapshot> = None;
+        loop {
+            if !accepts(generation, ProviderId::Era) {
+                return;
             }
-            Err(error) => {
-                if !handle_era_error(&app, generation, error) {
-                    return;
+            match era::poll_with_events(&cookie) {
+                Ok((snapshot, mut events)) => {
+                    if let Some(previous) = previous_snapshot.as_ref() {
+                        if let Some(event) = crate::combat::infer_era_health_drop(previous, &snapshot)
+                        {
+                            events.push(event);
+                        }
+                    }
+                    if snapshot.status == ConnectionStatus::AuthenticatedOnline {
+                        previous_snapshot = Some(snapshot.clone());
+                    } else {
+                        previous_snapshot = None;
+                    }
+                    if publish_snapshot(&app, generation, snapshot, true) {
+                        crate::combat::ingest(&app, events);
+                    }
+                }
+                Err(error) => {
+                    previous_snapshot = None;
+                    if !handle_era_error(&app, generation, error) {
+                        return;
+                    }
                 }
             }
-        }
-        // Era's game bridge currently publishes a fresh sample roughly every
-        // 12–20 seconds. Poll at five seconds so the overlay picks it up soon
-        // after publication without pretending that the source is frame-live.
-        if !interruptible_sleep(generation, ProviderId::Era, 5) {
-            return;
+            // Era's game bridge currently publishes a fresh sample roughly every
+            // 12–20 seconds. Poll at five seconds so the overlay picks it up soon
+            // after publication without pretending that the source is frame-live.
+            if !interruptible_sleep(generation, ProviderId::Era, 5) {
+                return;
+            }
         }
     });
 }
@@ -342,6 +453,58 @@ fn handle_titan_error(app: &AppHandle, generation: u64, error: TitanError) -> bo
     }
 }
 
+fn run_titan_stream(
+    app: AppHandle,
+    generation: u64,
+    origin: String,
+    cookie: String,
+    last_stream_sample_ms: Arc<AtomicI64>,
+) {
+    std::thread::spawn(move || {
+        loop {
+            if !accepts(generation, ProviderId::Titan) {
+                return;
+            }
+            // Polling keeps running while offline and discovers the new pawn.
+            // Never replay samples from a stream opened for the previous life.
+            if current_state().status == ConnectionStatus::AuthenticatedOffline {
+                if !interruptible_sleep(generation, ProviderId::Titan, 1) { return; }
+                continue;
+            }
+            let mut last_camera_heading = None;
+            let result = titan::stream(&cookie, &origin, |sample| {
+                if !accepts(generation, ProviderId::Titan)
+                    || current_state().status == ConnectionStatus::AuthenticatedOffline {
+                    return false;
+                }
+                let Some(sample) = sample else { return true; };
+                let (x, y, z) = sample.position_cm;
+                // Match Titan's camera-follow mode: once a camera sample exists,
+                // keep it across sparse packets instead of jumping back to body
+                // yaw. Body yaw is only the initial fallback.
+                let heading = titan::preferred_live_heading(
+                    &mut last_camera_heading, &sample, chrono::Utc::now().timestamp_millis());
+                last_stream_sample_ms
+                    .store(chrono::Utc::now().timestamp_millis(), Ordering::SeqCst);
+                pipeline::ingest_sample_with_heading(&app, x, y, z, heading);
+                true
+            });
+            if !accepts(generation, ProviderId::Titan) {
+                return;
+            }
+            last_stream_sample_ms.store(0, Ordering::SeqCst);
+            match result {
+                Err(TitanError::LoginRequired) => return,
+                Err(error) => log::debug!("titan live stream reconnecting: {error}"),
+                Ok(()) => {}
+            }
+            if !interruptible_sleep(generation, ProviderId::Titan, 2) {
+                return;
+            }
+        }
+    });
+}
+
 fn run_titan(
     app: AppHandle,
     generation: u64,
@@ -350,6 +513,16 @@ fn run_titan(
     initial_server_id: Option<String>,
 ) {
     std::thread::spawn(move || {
+        // Titan's own downloadable HUD gets camera direction from this SSE
+        // stream (~20 Hz). Keep the JSON poll as the stats/offline fallback.
+        let last_stream_sample_ms = Arc::new(AtomicI64::new(0));
+        run_titan_stream(
+            app.clone(),
+            generation,
+            origin.clone(),
+            cookie.clone(),
+            last_stream_sample_ms.clone(),
+        );
         let mut server_id = initial_server_id;
         loop {
             if !accepts(generation, ProviderId::Titan) {
@@ -367,7 +540,9 @@ fn run_titan(
                             received_at_ms: chrono::Utc::now().timestamp_millis(),
                             source_timestamp_ms: None,
                             player: None,
+                            friends: Vec::new(),
                             position_cm: None,
+                            heading_deg: None,
                         };
                         publish_snapshot(&app, generation, snapshot, true);
                     }
@@ -380,8 +555,21 @@ fn run_titan(
             }
             if let Some(id) = server_id.as_deref() {
                 match titan::poll(&cookie, &origin, id) {
-                    Ok(snapshot) => {
-                        publish_snapshot(&app, generation, snapshot, true);
+                    Ok(mut snapshot) => {
+                        let stream_is_fresh = chrono::Utc::now().timestamp_millis()
+                            - last_stream_sample_ms.load(Ordering::SeqCst)
+                            < 1_500;
+                        if stream_is_fresh
+                            && snapshot.status == ConnectionStatus::AuthenticatedOnline
+                        {
+                            // The poll still refreshes stats, but must not
+                            // overwrite the 20 Hz camera stream every 2 s.
+                            snapshot.position_cm = None;
+                            snapshot.heading_deg = None;
+                        }
+                        let publish_position = !stream_is_fresh
+                            || snapshot.status != ConnectionStatus::AuthenticatedOnline;
+                        publish_snapshot(&app, generation, snapshot, publish_position);
                     }
                     Err(TitanError::MissingServer | TitanError::InvalidResponse) => {
                         server_id = None;
@@ -393,7 +581,7 @@ fn run_titan(
                     }
                 }
             }
-            if !interruptible_sleep(generation, ProviderId::Titan, 20) {
+            if !interruptible_sleep(generation, ProviderId::Titan, 2) {
                 return;
             }
         }
@@ -777,7 +965,9 @@ pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
         received_at_ms: update.fetched_at_ms as i64,
         source_timestamp_ms: None,
         player,
+        friends: Vec::new(),
         position_cm: None,
+        heading_deg: None,
     };
     publish_snapshot(app, generation, snapshot, false);
 }

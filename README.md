@@ -1,19 +1,15 @@
-# TheIsle Overlay
+# Isle Pulse Overlay
 
 **Tiếng Việt** · [English](README.en.md)
 
-Đây là bản tùy chỉnh **1.6.0-eratitan.2** dựa trên mã nguồn mở 1.5.2. Minimap hiện đè lên
-game và tự lấy tọa độ nhân vật từ website quản lý của server. Hiện có adapter
+**Isle Pulse Overlay 2.1.0** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
 Lần đầu mở app, nhập website server và đăng nhập trong cửa sổ riêng. Phiên đăng
 nhập được mã hóa trên máy; app tiếp tục cập nhật vị trí, hướng đi và chỉ số trên
 minimap khi chơi. Website chưa được hỗ trợ cần thêm adapter xác định — app không
 gửi cookie sang domain lạ hoặc đoán cấu trúc API.
-
-▶️ **Video hướng dẫn cài đặt & sử dụng:**
-
-[![Video hướng dẫn TheIsle Overlay](https://img.youtube.com/vi/R2IzwqHapuw/hqdefault.jpg)](https://y2u.be/R2IzwqHapuw)
 
 ![Minimap có chấm bạn bè, thanh chỉ số, nhiệm vụ Prime và thanh Thoại đè lên game — con dino đang mang skin vừa đổi trong app](docs/screenshot-ingame.jpg)
 
@@ -23,7 +19,7 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 
 ![Tab Garage (Gacha): dino đã gửi kho, xem 3D, growth và chỉ số, nút Restore](docs/screenshot-garage.png)
 
-![Skin editor: 10 vùng màu, xem trước 3D đúng loài đang chơi, áp trực tiếp lên dino](docs/screenshot-skin.png)
+![Bảng phối màu skin theo từng vùng và áp trực tiếp lên dino](docs/screenshot-skin.png)
 
 ![Tab Thoại: nói theo khoảng cách qua IsleVOIP, chọn micro và người trong tầm nghe](docs/screenshot-voip.png)
 
@@ -47,14 +43,17 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 - **Tìm kiếm & điều hướng**: ô tìm địa danh/waypoint, dán tọa độ để nhảy tới,
   chế độ bám vị trí với mũi tên mép màn hình dẫn về chỗ đứng.
 - **Đường đã đi**: tự ghi theo phiên, khôi phục lại đường đi của phiên trước.
+- **Bạn bè cùng server**: tự hiển thị những người đã chấp nhận kết bạn và đang
+  online khi Era hoặc Titan cấp vị trí; minimap giữ số bạn ở mép vòng khi ở xa.
 - **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
   chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
   cung cấp sẽ để trống, không dựng dữ liệu giả.
-- **Garage IslePilot (Gacha) với xem 3D**: mỗi dino đã park là một card có **model 3D
-  xoay/phóng được, đúng màu skin** + growth + nút Park/Restore/Đổi tên/Bán;
-  model tải một lần rồi cache, mở lại tức thì và offline được.
-- **Skin editor**: 10 vùng màu, xem trước 3D đúng loài đang chơi, lưu bộ màu
-  **ngay trên máy bạn** và áp thẳng lên dino trong game (server phải bật skin live).
+- **Garage đa server**: IslePilot giữ card/model 3D cùng Park/Restore/Đổi tên/Bán;
+  Era và Titan có 5 slot cất/lấy/xóa theo API chính thức, khóa thao tác theo
+  trạng thái online/cầu nối và theo dõi tiến trình xử lý của server.
+- **Đổi skin trong hub**: 7 vùng màu theo giao thức hiện hành của Era/Titan,
+  preset, lưu bản nháp trên máy, quyền 16 màu/đủ màu của Era, biến thể Titan và
+  cooldown do server xác nhận. IslePilot chưa có API overlay chính thức cho mục này.
 - **Phím tắt toàn cục** đổi được trong app, giao diện song ngữ Việt/Anh.
 
 ## Cài đặt
@@ -67,6 +66,17 @@ nếu thiếu, installer tự tải về).
 
 > Windows có thể hiện cảnh báo SmartScreen vì installer chưa ký số.
 > Bấm **More info → Run anyway**.
+
+### Cập nhật tự động
+
+Ứng dụng kiểm tra bản phát hành tại [github.com/thienvyma/hubisle](https://github.com/thienvyma/hubisle).
+Khi có phiên bản cao hơn, một bảng thông báo sẽ cho phép tải và cài ngay trong
+ứng dụng. Mỗi gói cập nhật phải có chữ ký của Huỳnh Vỹ; gói bị sửa hoặc phát
+hành từ nguồn khác sẽ bị từ chối.
+
+App kiểm tra khi mở, mỗi giờ và khi mạng kết nối lại. Bạn cũng có thể bấm
+**Kiểm tra cập nhật** ở chân cửa sổ để xem trạng thái hoặc thử lại khi có lỗi.
+Thông báo có nội dung bản phát hành, tiến trình tải và nút **Để sau**.
 
 ## Kết nối "Khủng long của bạn" (IslePilot)
 
@@ -172,15 +182,15 @@ RTX 3060 Ti, Windows 11 Pro build 26200, độ phân giải 100%** — bản rel
 Game chạy Easy Anti-Cheat cấp kernel. App này an toàn vì **không bao giờ đụng
 vào tiến trình game**:
 
-- Vị trí chỉ lấy từ **clipboard** khi bạn tự bấm Tab → "Asset Location" trong
-  game — app chỉ đọc lại thứ game tự đưa ra.
+- Vị trí realtime lấy qua **HTTPS từ website quản lý đã đăng nhập của server**;
+  clipboard chỉ còn là cách dự phòng thủ công khi provider không cấp vị trí.
 - Phím tắt dùng `RegisterHotKey` (API hợp tác của Windows), **không phải**
   keyboard hook.
-- Chỉ số khủng long / Garage / model 3D lấy qua **HTTPS tới hệ thống IslePilot**
-  (API islepilot.eu hoặc website của server) — cũng không liên quan gì tới tiến
-  trình game.
-- Không bao giờ: đọc bộ nhớ game, inject DLL, hook DirectX, giả lập phím,
-  bắt gói mạng, tự chép tọa độ theo timer, chia sẻ vị trí giữa người chơi.
+- Chỉ số, vị trí, bạn bè, Garage và skin lấy qua **HTTPS tới đúng provider đã
+  xác minh** (Era, Titan hoặc IslePilot), không đọc bộ nhớ tiến trình game.
+- Phím `` ` `` chỉ dùng `SendInput` để gửi chuỗi cố định `/unstuck` sau khi xác
+  nhận The Isle đang là cửa sổ foreground. App không inject DLL, hook DirectX
+  hay bắt gói mạng.
 
 CI có bước grep chặn mọi call site API cấm (`scripts/check-forbidden-apis.ps1`).
 Danh sách API được phép nằm ở đầu `src-tauri/src/win/mod.rs`.
@@ -227,8 +237,7 @@ Không liên kết với Afterthought LLC.
 
 ## Ghi công
 
-Được phát triển bởi **Trần Quốc Toản**.
+Được phát triển bởi **Huỳnh Vỹ**.
 
-- 📧 Email: toantranct1@gmail.com
-- 💬 Facebook: https://www.facebook.com/satann247/
-- 🐛 Kho mã nguồn gốc: [toantranct/theisle-overlay](https://github.com/toantranct/theisle-overlay)
+- 💬 Facebook: https://www.facebook.com/thienvyma
+- 💻 GitHub: https://github.com/thienvyma/hubisle

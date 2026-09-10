@@ -12,28 +12,61 @@
 //! — the `visible` setting stays pure user intent; game presence (polled
 //! every game_rect_ms even while hidden) plus a debounced foreground check
 //! gate it. Anchoring and topmost run only while shown. There are still no
-//! repaint timers anywhere — the webview draws only on events.
+//! JS repaint timers: the visible HUD is refreshed by the native supervisor.
 
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
 use tauri::{
-    AppHandle, Listener, LogicalSize, Manager, PhysicalPosition, WebviewUrl,
-    WebviewWindowBuilder,
+    AppHandle, Listener, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder,
 };
 
 use crate::settings::{self, GAME_PROCESS_NAME};
 use crate::state::{AppState, LockExt};
 use crate::win::{game_window, overlay, vis};
 
+const WEBVIEW_ARGS: &str = "--disable-background-timer-throttling \
+                            --disable-backgrounding-occluded-windows \
+                            --disable-renderer-backgrounding \
+                            --disable-features=CalculateNativeWinOcclusion,msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+
+static ACTIVE_WINDOW_LABEL: LazyLock<Mutex<String>> =
+    LazyLock::new(|| Mutex::new("minimap".to_string()));
+
+fn active_window_label() -> String {
+    ACTIVE_WINDOW_LABEL
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+}
+
+fn active_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
+    app.get_webview_window(&active_window_label())
+}
+
 /// Build the (hidden) minimap window. Shared by startup and by the
 /// supervisor's self-heal when the window died mid-session (e.g. a WebView2
 /// crash) — before that heal existed, a dead minimap stayed dead until the
 /// app was restarted (field report).
-fn build_window(app: &AppHandle, size: f64, height: f64) -> tauri::Result<tauri::WebviewWindow> {
-    let window = WebviewWindowBuilder::new(app, "minimap", WebviewUrl::App("minimap.html".into()))
+fn build_window(
+    app: &AppHandle,
+    label: &str,
+    size: f64,
+    height: f64,
+) -> tauri::Result<tauri::WebviewWindow> {
+    let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App("minimap.html".into()))
         .title("minimap")
+        // The HUD has no browser login state. Isolate its WebView2 process
+        // data from the main control panel so neither controller can hold the
+        // other's profile lock during startup or recovery.
+        .data_directory(settings::local_dir().join("minimap-webview2"))
+        // WebView2 otherwise treats a transparent overlay covered by a
+        // fullscreen game as occluded and can suspend its compositor/timers.
+        // Position packets continue to arrive, but pixels are not presented
+        // until Alt-Tab. Keep this always-on HUD renderer active. Include the
+        // Wry defaults because additional_browser_args replaces that list.
+        .additional_browser_args(WEBVIEW_ARGS)
         .inner_size(size, height)
         .transparent(true)
         .decorations(false)
@@ -46,6 +79,10 @@ fn build_window(app: &AppHandle, size: f64, height: f64) -> tauri::Result<tauri:
         .visible(false)
         .build()?;
 
+    *ACTIVE_WINDOW_LABEL
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = label.to_string();
+
     // Belt-and-braces: assert NOACTIVATE + TOOLWINDOW on the raw HWND no
     // matter what the windowing library set.
     if let Ok(hwnd) = window.hwnd() {
@@ -56,11 +93,21 @@ fn build_window(app: &AppHandle, size: f64, height: f64) -> tauri::Result<tauri:
     Ok(window)
 }
 
-pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    // Include the dino strip in the initial size, not just on later changes.
-    let snap = snapshot(app);
-    build_window(app, snap.size_px, snap.window_h())?;
+/// Remove a renderer-less minimap immediately. `close()` posts a normal close
+/// request and can leave the label registered for several seconds, which
+/// makes the next builder fail with "a webview with label minimap already
+/// exists". `destroy()` bypasses that lifecycle and is appropriate here
+/// because no usable renderer or page state exists to preserve.
+fn destroy_stale_window(app: &AppHandle) {
+    if let Some(window) = active_window(app) {
+        if let Err(error) = window.destroy() {
+            log::warn!("destroying stale minimap window failed: {error}");
+        }
+    }
+    vis::unregister("minimap");
+}
 
+pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let app_handle = app.clone();
     let shown = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let ready_guard = shown.clone();
@@ -72,14 +119,59 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         on_ready(&app_handle);
     });
 
-    // Fallback: if the webview never signals ready (a script error before
-    // its emit), wire up anyway — an overlay that no hotkey can ever revive
-    // is the worst failure mode this window has.
+    // Register the ready listener BEFORE creating the window. On a warm
+    // WebView2 start, minimap.html can emit its ready event quickly enough to
+    // beat a listener installed after `build()`, leaving a healthy renderer
+    // stuck in the startup-retry path.
+    //
+    // Do not fail the entire application when the overlay controller cannot
+    // be created on the first attempt. WebView2 returns ERROR_INVALID_STATE
+    // (0x8007139F) when another controller with the same data folder is still
+    // settling or was opened with different environment options. Keeping the
+    // main window alive lets the retry path below repair the overlay.
+    // Creating a fresh WebView2 environment is asynchronous internally. Do it
+    // off setup's UI thread so its completion callback can be pumped by the
+    // running event loop; blocking setup here can leave a healthy main window
+    // with the HUD builder waiting forever.
+    let initial_app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(250));
+        let snap = snapshot(&initial_app);
+        if let Err(error) = build_window(&initial_app, "minimap", snap.size_px, snap.window_h()) {
+            log::warn!("initial minimap window failed; retrying in background: {error}");
+            destroy_stale_window(&initial_app);
+        }
+    });
+
+    // A WebView2 environment can fail transiently while the main controller
+    // is still settling. `build()` may still leave a window handle behind in
+    // that case, so merely starting the supervisor produces misleading
+    // "show" logs for a window with no renderer. Close and rebuild it first.
     let fallback_app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(5));
+        if shown.load(Ordering::SeqCst) {
+            return;
+        }
+        for attempt in 1..=3 {
+            log::warn!("minimap://ready missing; rebuilding window ({attempt}/3)");
+            destroy_stale_window(&fallback_app);
+            std::thread::sleep(Duration::from_millis(350 * attempt));
+            let snap = snapshot(&fallback_app);
+            let label = format!("minimap-retry-{attempt}");
+            if let Err(error) = build_window(&fallback_app, &label, snap.size_px, snap.window_h()) {
+                log::warn!("minimap startup rebuild failed: {error}");
+            }
+            std::thread::sleep(Duration::from_secs(3));
+            if shown.load(Ordering::SeqCst) {
+                return;
+            }
+        }
+        // Keep the existing supervisor self-heal as the long-running fallback.
+        // Removing the last renderer-less handle lets it retry every 5 seconds.
+        destroy_stale_window(&fallback_app);
         if !shown.swap(true, Ordering::SeqCst) {
-            log::warn!("minimap://ready never arrived; starting supervisor anyway");
+            log::warn!("minimap renderer still unavailable; starting self-heal supervisor");
             on_ready(&fallback_app);
         }
     });
@@ -93,7 +185,7 @@ fn on_ready(app: &AppHandle) {
         let s = state.settings.lock_safe();
         settings::get_bool(&s, &["minimap", "click_through"], true)
     };
-    if let Some(window) = app.get_webview_window("minimap") {
+    if let Some(window) = active_window(app) {
         let _ = window.set_ignore_cursor_events(click_through);
     }
     // Showing is the supervisor's job — one show path, resync included.
@@ -112,7 +204,7 @@ const DINO_PANEL_ROW_H: f64 = 16.0;
 /// Quest-panel geometry, logical px. Must match QUEST_HEADER_H / QUEST_ROW_H /
 /// QUEST_PAD_H in src/minimap/render.ts.
 const QUEST_HEADER_H: f64 = 18.0;
-const QUEST_ROW_H: f64 = 14.0;
+const QUEST_ROW_H: f64 = 24.0;
 const QUEST_PAD_H: f64 = 8.0;
 
 /// Height of the Prime-quests panel for `n` quests; 0 quests -> no panel at
@@ -172,8 +264,8 @@ fn snapshot(app: &AppHandle) -> Snapshot {
     let state = app.state::<AppState>();
     let s = state.settings.lock_safe();
     let provider = crate::providers::orchestrator::current_state();
-    let provider_active = provider.provider.is_some()
-        && crate::providers::orchestrator::allows_main(provider.status);
+    let provider_active =
+        provider.provider.is_some() && crate::providers::orchestrator::allows_main(provider.status);
     Snapshot {
         user_visible: settings::get_bool(&s, &["minimap", "visible"], true),
         require_game: settings::get_bool(&s, &["minimap", "require_game"], true),
@@ -265,20 +357,24 @@ fn spawn_supervisor(app: AppHandle) {
         // not spin the builder.
         let mut since_recreate: u64 = u64::MAX / 2; // first attempt immediate
         const RECREATE_MS: u64 = 5000;
+        let mut recreate_generation: u64 = 0;
 
         loop {
             std::thread::sleep(Duration::from_millis(TICK_MS));
             let cur = snapshot(&app);
-            let Some(window) = app.get_webview_window("minimap") else {
+            let Some(window) = active_window(&app) else {
                 since_recreate = since_recreate.saturating_add(TICK_MS);
                 if since_recreate >= RECREATE_MS {
                     since_recreate = 0;
                     log::warn!("minimap window is gone — recreating");
-                    match build_window(&app, cur.size_px, cur.window_h()) {
+                    recreate_generation = recreate_generation.saturating_add(1);
+                    let label = format!("minimap-recovery-{recreate_generation}");
+                    match build_window(&app, &label, cur.size_px, cur.window_h()) {
                         Ok(w) => {
                             let _ = w.set_ignore_cursor_events(cur.click_through);
                             effective_prev = false; // next tick decides show
                             last_rect = None;
+                            size_applied = false;
                         }
                         Err(e) => log::warn!("minimap recreate failed: {e}"),
                     }
@@ -388,6 +484,12 @@ fn spawn_supervisor(app: AppHandle) {
                 continue;
             }
 
+            // A fullscreen game can stall WebView2's presentation even though
+            // position events arrive. Refresh from the native event loop, which
+            // is not governed by Chromium's background animation throttling.
+            // The snapshot also expires stale heading without inventing samples.
+            refresh_visible(&window, &app);
+
             // Anchor to the game's client area every tick (4 cheap reads/s);
             // the rect comparison keeps repositioning to actual moves.
             if let Some(game) = presence.hwnd() {
@@ -403,11 +505,19 @@ fn spawn_supervisor(app: AppHandle) {
                 since_topmost = 0;
                 if let Some(hwnd) = vis::hwnd("minimap") {
                     // Checks the style bit first — no needless DWM repaints.
-                    overlay::ensure_topmost(hwnd);
+                    overlay::force_topmost(hwnd);
                 }
             }
         }
     });
+}
+
+fn refresh_visible(window: &tauri::WebviewWindow, app: &AppHandle) {
+    use tauri::Emitter;
+    if let Some(position) = crate::pipeline::current_payload(&app.state::<AppState>()) {
+        let _ = window.emit(crate::events::POSITION_UPDATE, position);
+    }
+    crate::webview_mem::refresh_overlay(window);
 }
 
 /// Pin the overlay to a corner of the game's client area. All arithmetic in
@@ -438,7 +548,10 @@ mod tests {
     #[test]
     fn quest_panel_height_scales_with_count_and_vanishes_at_zero() {
         assert_eq!(quests_panel_h(0), 0.0, "no quests, no card");
-        assert_eq!(quests_panel_h(1), QUEST_HEADER_H + QUEST_ROW_H + QUEST_PAD_H);
+        assert_eq!(
+            quests_panel_h(1),
+            QUEST_HEADER_H + QUEST_ROW_H + QUEST_PAD_H
+        );
         assert_eq!(
             quests_panel_h(10),
             QUEST_HEADER_H + 10.0 * QUEST_ROW_H + QUEST_PAD_H

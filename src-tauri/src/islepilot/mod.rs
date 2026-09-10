@@ -100,7 +100,12 @@ pub(crate) fn http_client() -> Result<reqwest::blocking::Client, String> {
         .map_err(|e| e.to_string())
 }
 
-fn get_page(client: &reqwest::blocking::Client, domain: &str, path: &str, cookie: &str) -> Result<String, String> {
+fn get_page(
+    client: &reqwest::blocking::Client,
+    domain: &str,
+    path: &str,
+    cookie: &str,
+) -> Result<String, String> {
     let url = format!("{}{}", domain.trim_end_matches('/'), path);
     let resp = client
         .get(&url)
@@ -149,8 +154,7 @@ fn origin_of(domain: &str) -> Option<String> {
 /// Minimal base64url decoder — enough to read our own JWT payload without a
 /// new dependency (no verification: we are the client reading our own token).
 fn b64url_decode(s: &str) -> Option<Vec<u8>> {
-    const TABLE: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut idx = [255u8; 256];
     for (i, &c) in TABLE.iter().enumerate() {
         idx[c as usize] = i as u8;
@@ -200,7 +204,10 @@ fn steam_id_from_cookie(cookie: &str) -> Option<String> {
 ///
 /// Ok(None) = endpoint answered but carries no usable position (`ok:false`,
 /// empty list, ...) — the caller falls back to the HTML page.
-fn parse_own_marker(body: &str, own_steam_id: Option<&str>) -> Result<Option<(f64, f64)>, String> {
+fn parse_own_marker(
+    body: &str,
+    own_steam_id: Option<&str>,
+) -> Result<Option<(f64, f64, Option<f64>)>, String> {
     let v: serde_json::Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
     if v.get("ok").and_then(|b| b.as_bool()) != Some(true) {
         return Ok(None);
@@ -219,7 +226,13 @@ fn parse_own_marker(body: &str, own_steam_id: Option<&str>) -> Result<Option<(f6
                 .iter()
                 .find(|m| m.get("label").and_then(|l| l.as_str()) == Some("You"))
         })
-        .or_else(|| if markers.len() == 1 { markers.first() } else { None });
+        .or_else(|| {
+            if markers.len() == 1 {
+                markers.first()
+            } else {
+                None
+            }
+        });
     let Some(m) = own else { return Ok(None) };
     let (Some(long_cm), Some(lat_cm)) = (
         m.get("x").and_then(|x| x.as_f64()),
@@ -227,7 +240,11 @@ fn parse_own_marker(body: &str, own_steam_id: Option<&str>) -> Result<Option<(f6
     ) else {
         return Ok(None);
     };
-    Ok(Some((lat_cm, long_cm)))
+    let heading_deg = m
+        .get("yaw")
+        .and_then(|yaw| yaw.as_f64())
+        .and_then(overlay_core::map_yaw_to_bearing_deg);
+    Ok(Some((lat_cm, long_cm, heading_deg)))
 }
 
 /// GET /api/p/{slug}/map/markers and extract our own position (game cm, our
@@ -238,8 +255,13 @@ fn fetch_own_marker(
     slug: &str,
     cookie: &str,
     own_steam_id: Option<&str>,
-) -> Result<Option<(f64, f64)>, String> {
-    let body = get_page(client, origin, &format!("/api/p/{slug}/map/markers"), cookie)?;
+) -> Result<Option<(f64, f64, Option<f64>)>, String> {
+    let body = get_page(
+        client,
+        origin,
+        &format!("/api/p/{slug}/map/markers"),
+        cookie,
+    )?;
     parse_own_marker(&body, own_steam_id)
 }
 
@@ -336,7 +358,10 @@ fn ingest_map_position(app: &AppHandle, map: &MapPosition) {
     let px = pct_x / 100.0 * cal.image_width_px as f64;
     let py = pct_y / 100.0 * cal.image_height_px as f64;
     let (x_cm, y_cm) = pixel_to_world(px, py, cal);
-    pipeline::ingest_sample(app, x_cm, y_cm, 0.0);
+    let heading = map
+        .heading_deg
+        .and_then(overlay_core::map_yaw_to_bearing_deg);
+    pipeline::ingest_sample_with_heading(app, x_cm, y_cm, 0.0, heading);
 }
 
 /// Keep `use_map_position` truthful to the server's capability: no live map
@@ -486,13 +511,19 @@ pub fn restart_poller(app: &AppHandle) {
                                     &cookie,
                                     own_steam_id.as_deref(),
                                 ) {
-                                    Ok(Some((x_cm, y_cm))) => {
+                                    Ok(Some((x_cm, y_cm, heading_deg))) => {
                                         position_from_api = true;
                                         if live_map != Some(true) {
                                             live_map = Some(true);
                                             sync_map_pref(&app, true);
                                         }
-                                        pipeline::ingest_sample(&app, x_cm, y_cm, 0.0);
+                                        pipeline::ingest_sample_with_heading(
+                                            &app,
+                                            x_cm,
+                                            y_cm,
+                                            0.0,
+                                            heading_deg,
+                                        );
                                     }
                                     // ok:false / no own marker: map may be
                                     // off — let the HTML probe decide.
@@ -621,6 +652,7 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                         crate::translate::translate_quests(&mut player.prime_quests, &client);
                     }
                     let position = api::position_cm(&me);
+                    let heading = api::position_heading_deg(&me);
                     // Position availability doubles as the live-map probe.
                     // Only trust it while the API actually has data.
                     if me.has_data {
@@ -633,7 +665,7 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                     // Never move the marker from cached (offline) data.
                     if config.use_map_position && me.online == Some(true) {
                         if let Some((x_cm, y_cm)) = position {
-                            pipeline::ingest_sample(&app, x_cm, y_cm, 0.0);
+                            pipeline::ingest_sample_with_heading(&app, x_cm, y_cm, 0.0, heading);
                         }
                     }
                     publish(
@@ -723,7 +755,9 @@ pub fn start_login(app: &AppHandle, domain: String) -> Result<(), String> {
     // Same normalization as manual_cookie: the domain string is the cookie
     // store's key, so a trailing slash must not create a second identity.
     let domain = domain.trim().trim_end_matches('/').to_string();
-    let url: tauri::Url = domain.parse().map_err(|e| format!("URL không hợp lệ: {e}"))?;
+    let url: tauri::Url = domain
+        .parse()
+        .map_err(|e| format!("URL không hợp lệ: {e}"))?;
     if url.scheme() != "https" {
         return Err("Domain phải bắt đầu bằng https://".into());
     }
@@ -972,7 +1006,10 @@ pub fn manual_token(app: &AppHandle, raw: String) -> Result<(), String> {
         Err(api::ApiError::Unauthorized) => return Err("invalid-token".into()),
         Err(e) => return Err(e.to_string()),
     }
-    token::set(&token::OverlayToken { token: tok, steam_id: sid })?;
+    token::set(&token::OverlayToken {
+        token: tok,
+        steam_id: sid,
+    })?;
     crate::commands::apply_settings_patch(
         app,
         serde_json::json!({ "islepilot": { "enabled": true, "auth_mode": "token" } }),
@@ -1011,15 +1048,13 @@ pub fn manual_cookie(app: &AppHandle, domain: String, cookie: String) -> Result<
     // A real header starts with a cookie NAME before the first '=';
     // a bare JWT value has no '=' before its first '.' (it is base64url,
     // whose padding, if any, only appears at the end).
-    let looks_like_header = raw
-        .split_once('=')
-        .is_some_and(|(name, _)| {
-            !name.is_empty()
-                && name.len() < 64
-                && name
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-        });
+    let looks_like_header = raw.split_once('=').is_some_and(|(name, _)| {
+        !name.is_empty()
+            && name.len() < 64
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    });
     let cookie = if looks_like_header {
         raw.to_string()
     } else {
@@ -1117,9 +1152,7 @@ pub fn overlay_map_render(app: &AppHandle) -> Result<OverlayMapRender, String> {
                     m
                 }
                 Err(api::ApiError::Unauthorized) => return Err("unauthorized".into()),
-                Err(api::ApiError::NotFound) => {
-                    return Ok(OverlayMapRender::unavailable("empty"))
-                }
+                Err(api::ApiError::NotFound) => return Ok(OverlayMapRender::unavailable("empty")),
                 Err(e) => return Err(e.to_string()),
             }
         }
@@ -1327,10 +1360,23 @@ mod tests {
 
     #[test]
     fn slug_and_origin_for_both_domain_forms() {
-        assert_eq!(server_slug("https://sdvn2.islepilot.eu/"), Some("sdvn2".into()));
-        assert_eq!(server_slug("https://mixi.islepilot.eu"), Some("mixi".into()));
-        assert_eq!(server_slug("https://islepilot.eu/p/myserver"), Some("myserver".into()));
-        assert_eq!(server_slug("https://islepilot.eu"), None, "no slug to derive");
+        assert_eq!(
+            server_slug("https://sdvn2.islepilot.eu/"),
+            Some("sdvn2".into())
+        );
+        assert_eq!(
+            server_slug("https://mixi.islepilot.eu"),
+            Some("mixi".into())
+        );
+        assert_eq!(
+            server_slug("https://islepilot.eu/p/myserver"),
+            Some("myserver".into())
+        );
+        assert_eq!(
+            server_slug("https://islepilot.eu"),
+            None,
+            "no slug to derive"
+        );
         assert_eq!(
             origin_of("https://islepilot.eu/p/myserver/"),
             Some("https://islepilot.eu".into()),
@@ -1363,9 +1409,13 @@ mod tests {
              "path":[{"x":-92413.23,"y":38665.41}]}
         ]}"#;
         let got = parse_own_marker(body, Some("76561198000000001")).unwrap();
-        assert_eq!(got, Some((38665.41, -92413.23)), "(game X=their y, game Y=their x)");
+        let (x, y, heading) = got.expect("own marker");
+        assert_eq!((x, y), (38665.41, -92413.23));
+        assert!((heading.unwrap() - 303.11).abs() < 0.001);
         // No steamId available -> the "You" label still finds us.
-        assert_eq!(parse_own_marker(body, None).unwrap(), Some((38665.41, -92413.23)));
+        let (x, y, heading) = parse_own_marker(body, None).unwrap().expect("You marker");
+        assert_eq!((x, y), (38665.41, -92413.23));
+        assert!((heading.unwrap() - 303.11).abs() < 0.001);
     }
 
     #[test]
@@ -1406,10 +1456,13 @@ mod tests {
         let pos = fetch_own_marker(&client, &origin, &slug, &cookie, own.as_deref())
             .expect("markers api reachable");
         eprintln!("own position (game cm, our axes): {pos:?}");
-        if let Some((x, y)) = pos {
+        if let Some((x, y, heading)) = pos {
             let cal = overlay_core::Calibration::gateway();
             let (px, py) = overlay_core::world_to_pixel(x, y, cal);
-            eprintln!("-> vulnona px=({px:.0},{py:.0}) of {}x{}", cal.image_width_px, cal.image_height_px);
+            eprintln!(
+                "-> vulnona px=({px:.0},{py:.0}) of {}x{} heading={heading:?}",
+                cal.image_width_px, cal.image_height_px
+            );
         }
     }
 

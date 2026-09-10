@@ -6,8 +6,9 @@
 //! manager — no hooks, no touching other processes. Windows posts WM_HOTKEY
 //! straight to the registering THREAD's queue.
 //!
-//! And absolutely never SEND keys to the game — reading the user's presses is
-//! normal, injecting keys into the game is cheating.
+//! The one narrow output action is the user-requested `/unstuck` chat macro.
+//! It emits that fixed text only while The Isle is foreground; it is not a
+//! general key-sending API and still never reads or modifies the game process.
 //!
 //! A dedicated thread holds the GetMessageW loop and idles at 0% CPU.
 
@@ -29,6 +30,8 @@ use crate::commands::apply_settings_patch;
 use crate::settings;
 use crate::state::{AppState, LockExt};
 use crate::store;
+
+pub use crate::win::unstuck::{unstuck_macro_plan, MacroStep};
 
 const OPACITY_MIN: f64 = 0.25;
 const OPACITY_MAX: f64 = 1.0;
@@ -84,6 +87,17 @@ pub fn parse_hotkey(spec: &str) -> Option<(u32, u32)> {
     match (vk, mods) {
         (Some(vk), m) if m != 0 => Some((m | MOD_NOREPEAT.0, vk)),
         _ => None,
+    }
+}
+
+/// Resolve one configured action. Bare keys remain forbidden except for the
+/// explicit `/unstuck` binding requested by the user. VK_OEM_3 is the
+/// physical backtick/tilde key on a standard Windows keyboard.
+pub fn parse_binding(action: &str, spec: &str) -> Option<(u32, u32)> {
+    if action == "unstuck" && spec.trim() == "`" {
+        Some((MOD_NOREPEAT.0, 0xC0))
+    } else {
+        parse_hotkey(spec)
     }
 }
 
@@ -156,7 +170,7 @@ impl HotkeyManager {
             let mut failed: Vec<FailedHotkey> = Vec::new();
             for (index, (action, spec)) in bindings.iter().enumerate() {
                 let id = index as i32 + 1;
-                match parse_hotkey(spec) {
+                match parse_binding(action, spec) {
                     Some((mods, vk)) => unsafe {
                         // One retry: right after a rebind the OS may not have
                         // finished releasing the previous registration.
@@ -198,8 +212,7 @@ impl HotkeyManager {
                 // sense for the stepped actions, so everything else gets a
                 // sliding debounce: held keys fire once, not per repeat.
                 const DEBOUNCE_MS: u128 = 350;
-                const REPEATABLE: [&str; 4] =
-                    ["opacity_up", "opacity_down", "zoom_in", "zoom_out"];
+                const REPEATABLE: [&str; 4] = ["opacity_up", "opacity_down", "zoom_in", "zoom_out"];
                 let mut last: Option<(String, Instant)> = None;
                 while let Ok(action) = work_rx.recv() {
                     let is_repeat = !REPEATABLE.contains(&action.as_str())
@@ -217,9 +230,7 @@ impl HotkeyManager {
                 while GetMessageW(&mut msg, None, 0, 0).as_bool() {
                     if msg.message == WM_HOTKEY {
                         let id = msg.wParam.0 as i32;
-                        if let Some((_, action)) =
-                            registered.iter().find(|(rid, _)| *rid == id)
-                        {
+                        if let Some((_, action)) = registered.iter().find(|(rid, _)| *rid == id) {
                             let _ = work_tx.send(action.clone());
                         }
                     }
@@ -333,6 +344,7 @@ fn dispatch(app: &AppHandle, action: &str) {
             }
         },
         "mark_here" => mark_here(app),
+        "unstuck" => crate::win::unstuck::send_unstuck_if_game_foreground(),
         // Rescue for any webview whose input died: a global hotkey needs no
         // clicks, and a reload rebuilds the page (state comes back through
         // get_current_position/resync).
@@ -411,14 +423,23 @@ fn mark_here(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_hotkey;
+    use super::{parse_binding, parse_hotkey, unstuck_macro_plan, MacroStep};
 
     #[test]
     fn parses_the_default_table() {
         // (mods | MOD_NOREPEAT, vk)
-        assert_eq!(parse_hotkey("Ctrl+Alt+M"), Some((0x2 | 0x1 | 0x4000, b'M' as u32)));
-        assert_eq!(parse_hotkey("Ctrl+Alt+Up"), Some((0x2 | 0x1 | 0x4000, 0x26)));
-        assert_eq!(parse_hotkey("Ctrl+Shift+F5"), Some((0x2 | 0x4 | 0x4000, 0x74)));
+        assert_eq!(
+            parse_hotkey("Ctrl+Alt+M"),
+            Some((0x2 | 0x1 | 0x4000, b'M' as u32))
+        );
+        assert_eq!(
+            parse_hotkey("Ctrl+Alt+Up"),
+            Some((0x2 | 0x1 | 0x4000, 0x26))
+        );
+        assert_eq!(
+            parse_hotkey("Ctrl+Shift+F5"),
+            Some((0x2 | 0x4 | 0x4000, 0x74))
+        );
         assert_eq!(parse_hotkey("Win+Plus"), Some((0x8 | 0x4000, 0xBB)));
     }
 
@@ -426,6 +447,26 @@ mod tests {
     fn requires_a_modifier() {
         assert_eq!(parse_hotkey("M"), None, "bare keys would steal game input");
         assert_eq!(parse_hotkey("F5"), None);
+    }
+
+    #[test]
+    fn only_unstuck_accepts_the_bare_backtick_key() {
+        assert_eq!(parse_binding("unstuck", "`"), Some((0x4000, 0xC0)));
+        assert_eq!(parse_binding("toggle_minimap", "`"), None);
+    }
+
+    #[test]
+    fn unstuck_macro_opens_chat_types_command_and_submits() {
+        assert_eq!(
+            unstuck_macro_plan(),
+            vec![
+                MacroStep::Key(0x0D),
+                MacroStep::DelayMs(70),
+                MacroStep::Text("/unstuck"),
+                MacroStep::DelayMs(30),
+                MacroStep::Key(0x0D),
+            ]
+        );
     }
 
     #[test]

@@ -13,7 +13,38 @@ export const vi = {
   "tab.dino": "Khủng long",
   "tab.settings": "Cài đặt",
   "tab.garage": "Garage",
-  "tab.guide": "Hướng dẫn",
+  "tab.skin": "Đổi skin",
+  "tab.history": "Lịch sử",
+
+  // --- lịch sử giao tranh Era ---
+  "history.title": "Lịch sử giao tranh",
+  "history.subtitle":
+    "Theo dõi các lần mất máu và sự kiện tấn công do ERAGAMING cung cấp. Ba sự kiện mới nhất cũng xuất hiện tạm thời trên minimap.",
+  "history.live": "THEO DÕI TRỰC TIẾP",
+  "history.identity_title": "Dữ liệu danh tính",
+  "history.identity_hint":
+    "API Era hiện tại chưa gửi tên và loài đối phương. Hub sẽ tự điền chính xác khi server bổ sung combatEvents; sự kiện suy ra từ giảm máu luôn ghi Không xác định.",
+  "history.filter": "Lọc lịch sử",
+  "history.filter_all": "Tất cả",
+  "history.filter_incoming": "Nhận sát thương",
+  "history.filter_outgoing": "Đã tấn công",
+  "history.filter_death": "Tử vong",
+  "history.events": "sự kiện",
+  "history.loading": "Đang đọc lịch sử…",
+  "history.error": "Không thể đọc lịch sử giao tranh.",
+  "history.empty": "Chưa có sự kiện giao tranh",
+  "history.empty_hint": "Giữ hub chạy khi chơi ERAGAMING để ghi nhận các thay đổi máu.",
+  "history.health_drop": "Phát hiện giảm máu",
+  "history.incoming": "Bị người chơi tấn công",
+  "history.outgoing": "Bạn đã tấn công",
+  "history.death": "Khủng long đã chết",
+  "history.player": "Người chơi",
+  "history.species": "Loài đối phương",
+  "history.your_species": "Loài của bạn",
+  "history.damage": "Sát thương",
+  "history.unknown": "Không xác định",
+  "history.estimated": "Suy ra từ máu",
+  "history.verified": "Era xác nhận",
 
   // --- trạng thái vị trí ---
   "pos.none": "Chưa có vị trí",
@@ -57,7 +88,10 @@ export const vi = {
   "wp.remove": "Xóa điểm",
   "wp.rename": "Đổi tên",
   "wp.name_prompt": "Tên điểm đánh dấu:",
-  "wp.empty": "Chưa có điểm nào. Bấm chuột phải lên bản đồ để thêm.",
+  "wp.destination": "Điểm đến",
+  "wp.destination_hint":
+    "Chuột trái: đặt hoặc thay cờ đích. Chuột phải: thêm điểm đánh dấu thường.",
+  "wp.empty": "Chưa có điểm nào. Bấm chuột trái để đặt cờ đích.",
   "wp.distance": "{dir} · {dist}",
   "wp.here": "Vị trí của tôi",
   "wp.confirm_delete": "Xóa điểm “{name}”?",
@@ -102,6 +136,7 @@ export const vi = {
   "hotkey.zoom_in": "Thu gần vùng nhìn",
   "hotkey.zoom_out": "Nhìn xa hơn",
   "hotkey.toggle_quests": "Hiện/ẩn bảng nhiệm vụ Prime",
+  "hotkey.unstuck": "Mở chat và gửi /unstuck",
   "hotkey.reload_ui": "Tải lại giao diện (khi bị đơ)",
 
   // --- cài đặt ---
@@ -123,7 +158,7 @@ export const vi = {
   "settings.radius": "Bán kính vùng nhìn",
   "settings.hotkeys": "Phím tắt",
   "settings.hotkeys_hint":
-    "Bấm vào ô phím rồi nhấn tổ hợp mới. Cần ít nhất một phím bổ trợ (Ctrl/Alt/Shift/Win).",
+    "Bấm vào ô phím rồi nhấn tổ hợp mới. Phím thường cần Ctrl/Alt/Shift/Win; /unstuck được phép dùng riêng phím `.",
   "settings.press_keys": "Nhấn tổ hợp phím… (Esc để hủy)",
   "settings.hotkey_in_use": "Tổ hợp này đang bị ứng dụng khác giữ",
   "settings.hotkey_duplicate": "Trùng với một phím tắt khác trong ứng dụng",
@@ -198,8 +233,7 @@ export const vi = {
   "dino.logout": "Đăng xuất",
   "dino.auth_expired": "Phiên đăng nhập đã hết hạn — hãy đăng nhập lại.",
   "dino.supported_servers":
-    "Hỗ trợ mọi server chạy IslePilot — dạng xxx.islepilot.eu hoặc islepilot.eu/p/tên-server. " +
-    "Xem danh sách ví dụ và hướng dẫn từng bước trong tab Hướng dẫn.",
+    "Hỗ trợ mọi server chạy IslePilot — dạng xxx.islepilot.eu hoặc islepilot.eu/p/tên-server.",
   "dino.manual_cookie": "Dán cookie đăng nhập",
   "dino.manual_cookie_hint":
     "Mở trang server trong trình duyệt và đăng nhập Steam. Bấm F12 → tab Application " +
@@ -251,6 +285,8 @@ export const vi = {
   "dino.sex_female": "Cái",
   "dino.sex_male": "Đực",
   "dino.prime": "Prime progress",
+  "dino.prime_done": "Đã hoàn thành",
+  "dino.prime_pending": "Chưa hoàn thành",
   "dino.online": "Online",
   "dino.offline": "Offline",
   "dino.updated": "Cập nhật lúc {time}",
@@ -289,6 +325,56 @@ export const vi = {
   "garage.updated":
     "Cập nhật lúc {time} · tự làm mới sau mỗi 10 phút — bấm Làm mới nếu cần ngay.",
 
+  // --- Garage đa server ---
+  "server_garage.title": "Dino Garage",
+  "server_garage.subtitle": "Kho khủng long trực tiếp của {provider}.",
+  "server_garage.standard": "THƯỜNG",
+  "server_garage.uncertain": "CHƯA XÁC ĐỊNH TRẠNG THÁI",
+  "server_garage.pending": "Server đang xử lý một thao tác Garage.",
+  "server_garage.countdown": "Còn {seconds} giây trước khi cất Dino.",
+  "server_garage.locked": "ĐÃ KHÓA",
+  "server_garage.restoring": "ĐANG LẤY",
+  "server_garage.stored": "ĐÃ CẤT",
+  "server_garage.empty": "TRỐNG",
+  "server_garage.empty_hint": "Slot trống · có thể cất Dino đang chơi",
+  "server_garage.park": "Cất Dino",
+  "server_garage.restore": "Lấy Dino",
+  "server_garage.delete": "Xóa vĩnh viễn",
+  "server_garage.failed": "Server từ chối thao tác Garage.",
+  "server_garage.confirm_park_titan":
+    "Cất Dino vào slot {slot}? Titan sẽ đếm ngược rồi kết thúc Dino đang chơi sau khi lưu.",
+  "server_garage.confirm_park_era":
+    "Cất Dino vào slot {slot}? Era sẽ lưu an toàn rồi kết thúc Dino đang chơi.",
+  "server_garage.confirm_restore":
+    "Lấy {name}? Trước tiên hãy spawn Dino non đúng loài và giới tính, đồng thời tránh đứng gần người chơi khác.",
+  "server_garage.confirm_delete": "Xóa vĩnh viễn {name} khỏi Garage? Không thể hoàn tác.",
+  "server_garage.titan_note":
+    "Titan: thao tác cần Dino online và cầu nối server hoạt động. Khi cất, bạn có thể hủy trong thời gian đếm ngược.",
+  "server_garage.era_note":
+    "Era: lấy Dino yêu cầu đang online, spawn đúng loài/giới tính và không có người chơi trong bán kính an toàn.",
+
+  // --- đổi skin đa server ---
+  "skin.title": "Đổi skin trực tiếp",
+  "skin.subtitle": "Bảng phối màu theo quyền tài khoản trên {provider}.",
+  "skin.not_supported": "IslePilot chưa công bố API đổi skin cho overlay",
+  "skin.not_supported_hint":
+    "Garage IslePilot vẫn hoạt động. Mục đổi skin sẽ được mở khi có endpoint chính thức để tránh gửi dữ liệu sai tới server.",
+  "skin.failed": "Không thể đọc hoặc áp dụng skin lúc này.",
+  "skin.done": "Đã áp dụng bảng màu cho Dino đang chơi.",
+  "skin.cooldown": "Đổi lại sau {time}",
+  "skin.preview": "XEM TRƯỚC BẢNG MÀU",
+  "skin.presets": "PHỐI MÀU NHANH",
+  "skin.preset_forest": "Rừng",
+  "skin.preset_desert": "Sa mạc",
+  "skin.preset_shadow": "Bóng tối",
+  "skin.preset_snow": "Tuyết",
+  "skin.choose_for": "Chọn một trong 16 màu cho vùng: {zone}",
+  "skin.variation": "Biến thể hoa văn",
+  "skin.online_only":
+    "Dino phải đang online trên đúng server. Mỗi server tự kiểm tra quyền màu và thời gian chờ.",
+  "skin.applying": "Đang áp dụng…",
+  "skin.apply": "Áp dụng vào game",
+
   // --- xem 3D ---
   "dino3d.loading": "Đang tải model 3D…",
   "dino3d.no_model": "Loài này chưa có model 3D.",
@@ -309,6 +395,25 @@ export const vi = {
   "footer.developed_by": "Được phát triển bởi",
   "footer.custom_build": "Bản đa server thử nghiệm",
   "footer.reload_hint": "Nếu ứng dụng bị lỗi, nhấn F5 hoặc Ctrl+Alt+R để tải lại",
+
+  // --- cập nhật ứng dụng ---
+  "update.available": "Có bản cập nhật {version}",
+  "update.body": "Kênh cập nhật chính thức: thienvyma/hubisle.",
+  "update.title": "Cập nhật Isle Pulse Overlay",
+  "update.check": "Kiểm tra cập nhật",
+  "update.checking": "Đang kiểm tra cập nhật…",
+  "update.current": "Bạn đang dùng phiên bản mới nhất của kênh cập nhật.",
+  "update.check_failed": "Chưa thể kiểm tra cập nhật",
+  "update.check_failed_body": "Kiểm tra kết nối mạng hoặc thử lại sau. Kênh phát hành có thể chưa khả dụng.",
+  "update.notes": "Nội dung bản cập nhật",
+  "update.releases": "Xem trên GitHub",
+  "update.downloading_unknown": "Đang tải bản cập nhật…",
+  "update.link_failed": "Không mở được trình duyệt. Truy cập github.com/thienvyma/hubisle/releases.",
+  "update.install": "Tải và cài đặt",
+  "update.downloading": "Đang tải {percent}%",
+  "update.installing": "Đang mở bộ cài…",
+  "update.later": "Để sau",
+  "update.failed": "Không thể cài bản cập nhật. Hãy thử lại sau.",
 
 
   // --- số liệu sử dụng & phản hồi ---

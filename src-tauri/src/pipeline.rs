@@ -15,6 +15,19 @@ use crate::state::{AppState, LockExt};
 
 /// Feed one accepted coordinate sample through the tracker and notify the UI.
 pub fn ingest_sample(app: &AppHandle, x: f64, y: f64, z: f64) {
+    ingest_sample_with_heading(app, x, y, z, None);
+}
+
+/// Feed a coordinate plus an exact provider heading through the same tracker
+/// and UI event path. The fallback providers still call `ingest_sample` and
+/// derive direction from successive positions.
+pub fn ingest_sample_with_heading(
+    app: &AppHandle,
+    x: f64,
+    y: f64,
+    z: f64,
+    heading_deg: Option<f64>,
+) {
     let state = app.state::<AppState>();
     let now_s = state.now_s();
     // Resolve the calibration BEFORE taking the tracker lock (active_calibration
@@ -23,8 +36,8 @@ pub fn ingest_sample(app: &AppHandle, x: f64, y: f64, z: f64) {
 
     let (outcome, heading, trail) = {
         let mut tracker = state.tracker.lock_safe();
-        let outcome = tracker.add_sample(x, y, z, now_s);
-        let heading = tracker.heading(now_s);
+        let outcome = tracker.add_sample_with_heading(x, y, z, heading_deg, now_s);
+        let heading = tracker.heading_with_source(now_s);
         let trail = outcome
             .trail_changed
             .then(|| trail_payload(&tracker.segments, cal));
@@ -49,13 +62,32 @@ pub fn ingest_sample(app: &AppHandle, x: f64, y: f64, z: f64) {
         z_cm: z,
         px,
         py,
-        heading_deg: heading,
-        compass_key: heading.map(bearing_to_compass_key),
+        heading_deg: heading.map(|(bearing, _)| bearing),
+        heading_source: heading.map(|(_, source)| source.key()),
+        compass_key: heading.map(|(bearing, _)| bearing_to_compass_key(bearing)),
         in_bounds: overlay_core::is_in_bounds(px, py, cal),
     };
     emit_all(app, POSITION_UPDATE, payload);
     if let Some(trail) = trail {
         emit_all(app, TRAIL_CHANGED, trail);
+    }
+}
+
+/// Feed an exact camera bearing from a safe local adapter without changing
+/// the server-owned position or trail. The installed The Isle Shipping build
+/// does not currently expose such an adapter; this is the isolated boundary a
+/// future official plugin/telemetry source can call.
+pub fn ingest_local_heading(app: &AppHandle, heading_deg: f64) {
+    let state = app.state::<AppState>();
+    let now_s = state.now_s();
+    {
+        state
+            .tracker
+            .lock_safe()
+            .update_local_heading(heading_deg, now_s);
+    }
+    if let Some(payload) = current_payload(&state) {
+        emit_all(app, POSITION_UPDATE, payload);
     }
 }
 
@@ -68,10 +100,16 @@ pub fn clear_position(app: &AppHandle) {
     let (trail, add_break) = {
         let mut tracker = state.tracker.lock_safe();
         let add_break = tracker.current.is_some()
-            || tracker.segments.last().is_some_and(|segment| !segment.is_empty());
-        tracker.current = None;
-        tracker.previous = None;
-        if tracker.segments.last().is_some_and(|segment| !segment.is_empty()) {
+            || tracker
+                .segments
+                .last()
+                .is_some_and(|segment| !segment.is_empty());
+        tracker.clear_position();
+        if tracker
+            .segments
+            .last()
+            .is_some_and(|segment| !segment.is_empty())
+        {
             tracker.segments.push(Vec::new());
         }
         (trail_payload(&tracker.segments, cal), add_break)
@@ -94,7 +132,7 @@ pub fn current_payload(state: &AppState) -> Option<PositionUpdate> {
     let cal = state.active_calibration();
     let (current, heading) = {
         let tracker = state.tracker.lock_safe();
-        (tracker.current, tracker.heading(now_s))
+        (tracker.current, tracker.heading_with_source(now_s))
     };
     let cur = current?;
     let (px, py) = world_to_pixel(cur.x, cur.y, cal);
@@ -104,8 +142,9 @@ pub fn current_payload(state: &AppState) -> Option<PositionUpdate> {
         z_cm: cur.z,
         px,
         py,
-        heading_deg: heading,
-        compass_key: heading.map(bearing_to_compass_key),
+        heading_deg: heading.map(|(bearing, _)| bearing),
+        heading_source: heading.map(|(_, source)| source.key()),
+        compass_key: heading.map(|(bearing, _)| bearing_to_compass_key(bearing)),
         in_bounds: overlay_core::is_in_bounds(px, py, cal),
     })
 }

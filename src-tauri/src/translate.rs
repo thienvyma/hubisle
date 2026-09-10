@@ -32,23 +32,50 @@ use crate::state::LockExt;
 /// Hand-translated Prime quest pool (exact match, trimmed). Keep game terms
 /// recognisable — players see the English names in-game and on the panel.
 const DICT: &[(&str, &str)] = &[
-    ("Visit a Sanctuary as a juvenile", "Ghé Khu bảo tồn (Sanctuary) khi còn non"),
+    (
+        "Visit a Sanctuary as a juvenile",
+        "Ghé Khu bảo tồn (Sanctuary) khi còn non",
+    ),
     ("Get nested in", "Được sinh ra từ tổ (nest)"),
-    ("Get perfect diet (1% of each)", "Đạt chế độ ăn hoàn hảo (mỗi loại 1%)"),
-    ("Visit Mass Migration zone", "Ghé khu Đại di cư (Mass Migration)"),
+    (
+        "Get perfect diet (1% of each)",
+        "Đạt chế độ ăn hoàn hảo (mỗi loại 1%)",
+    ),
+    (
+        "Visit Mass Migration zone",
+        "Ghé khu Đại di cư (Mass Migration)",
+    ),
     ("Never be Infertile", "Không bao giờ bị Vô sinh (Infertile)"),
-    ("Never get Muscle spasms", "Không bao giờ bị Co thắt cơ (Muscle spasms)"),
+    (
+        "Never get Muscle spasms",
+        "Không bao giờ bị Co thắt cơ (Muscle spasms)",
+    ),
     ("Raise children to Subadult", "Nuôi con đến Subadult"),
-    ("Be a Hypsi, Troodon, Beipi, Dryo or Deino", "Chơi Hypsi, Troodon, Beipi, Dryo hoặc Deino"),
+    (
+        "Be a Hypsi, Troodon, Beipi, Dryo or Deino",
+        "Chơi Hypsi, Troodon, Beipi, Dryo hoặc Deino",
+    ),
 ];
 
 /// Numeric variants: `{n}` is replaced by the captured count.
 static TEMPLATES: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
     [
-        (r"^Visit (\d+) Migration zones?$", "Ghé {n} khu Di cư (Migration)"),
-        (r"^Visit (\d+) Patrol zones?$", "Ghé {n} khu Tuần tra (Patrol)"),
-        (r"^Visit (\d+) Sanctuar(?:y|ies)$", "Ghé {n} Khu bảo tồn (Sanctuary)"),
-        (r"^Raise (\d+) child(?:ren)? to Subadult$", "Nuôi {n} con đến Subadult"),
+        (
+            r"^Visit (\d+) Migration zones?$",
+            "Ghé {n} khu Di cư (Migration)",
+        ),
+        (
+            r"^Visit (\d+) Patrol zones?$",
+            "Ghé {n} khu Tuần tra (Patrol)",
+        ),
+        (
+            r"^Visit (\d+) Sanctuar(?:y|ies)$",
+            "Ghé {n} Khu bảo tồn (Sanctuary)",
+        ),
+        (
+            r"^Raise (\d+) child(?:ren)? to Subadult$",
+            "Nuôi {n} con đến Subadult",
+        ),
     ]
     .into_iter()
     .map(|(re, vi)| (Regex::new(re).unwrap(), vi))
@@ -293,7 +320,11 @@ mod tests {
             Some("Nuôi 2 con đến Subadult")
         );
         assert_eq!(template_lookup("Visit zones"), None);
-        assert_eq!(template_lookup("visit 3 patrol zones"), None, "case matters");
+        assert_eq!(
+            template_lookup("visit 3 patrol zones"),
+            None,
+            "case matters"
+        );
     }
 
     #[test]
@@ -312,10 +343,16 @@ mod tests {
         let quota = r#"{"responseData":{"translatedText":"MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY"},"responseStatus":403}"#;
         assert!(matches!(parse_api_response(quota), Err(ApiFailure::Quota)));
         let string_status = r#"{"responseData":{"translatedText":""},"responseStatus":"403"}"#;
-        assert!(matches!(parse_api_response(string_status), Err(ApiFailure::Other(_))));
+        assert!(matches!(
+            parse_api_response(string_status),
+            Err(ApiFailure::Other(_))
+        ));
         assert!(parse_api_response("junk").is_err());
         let empty = r#"{"responseData":{"translatedText":"  "},"responseStatus":200}"#;
-        assert!(parse_api_response(empty).is_err(), "whitespace is not a translation");
+        assert!(
+            parse_api_response(empty).is_err(),
+            "whitespace is not a translation"
+        );
     }
 
     /// One real MyMemory call through the exact production path:

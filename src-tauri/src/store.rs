@@ -15,7 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::settings;
 
 fn now_iso() -> String {
-    chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%:z").to_string()
+    chrono::Local::now()
+        .format("%Y-%m-%dT%H:%M:%S%:z")
+        .to_string()
 }
 
 // ------------------------------------------------------------- waypoints ---
@@ -34,6 +36,29 @@ pub struct Waypoint {
     pub color: Option<String>,
     #[serde(default)]
     pub created: Option<String>,
+}
+
+pub const DESTINATION_PREFIX: &str = "🚩";
+
+pub fn is_destination(waypoint: &Waypoint) -> bool {
+    waypoint.name.trim_start().starts_with(DESTINATION_PREFIX)
+}
+
+/// Keep one active navigation target while preserving every normal saved
+/// waypoint. The flag prefix remains compatible with existing waypoint files
+/// and already maps to an icon in both map renderers.
+pub fn replace_destination(waypoints: &mut Vec<Waypoint>, destination: Waypoint) {
+    waypoints.retain(|waypoint| !is_destination(waypoint));
+    waypoints.push(destination);
+}
+
+/// An active destination takes navigation priority over ordinary saved
+/// points. Without a flag, callers retain the nearest-waypoint behaviour.
+pub fn navigation_targets(waypoints: &[Waypoint]) -> impl Iterator<Item = &Waypoint> {
+    let has_destination = waypoints.iter().any(is_destination);
+    waypoints
+        .iter()
+        .filter(move |waypoint| !has_destination || is_destination(waypoint))
 }
 
 pub fn load_waypoints() -> Vec<Waypoint> {
@@ -130,9 +155,7 @@ impl TrailWriter {
     }
 
     pub fn add(&mut self, x: f64, y: f64, z: f64) {
-        self.write_line(
-            &serde_json::json!({ "t": now_iso(), "x": x, "y": y, "z": z }).to_string(),
-        );
+        self.write_line(&serde_json::json!({ "t": now_iso(), "x": x, "y": y, "z": z }).to_string());
     }
 
     pub fn add_break(&mut self) {
@@ -229,5 +252,32 @@ mod tests {
         let back = serde_json::to_value(&wp).unwrap();
         assert_eq!(back["x"], -231654.353);
         assert_eq!(back["color"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn setting_a_destination_replaces_only_the_previous_destination() {
+        let mut waypoints = vec![
+            new_waypoint("🚩 Điểm đến cũ", 10.0, 20.0, 0.0, None),
+            new_waypoint("💧 Nguồn nước", 30.0, 40.0, 0.0, None),
+        ];
+        let destination = new_waypoint("🚩 Điểm đến", 50.0, 60.0, 0.0, None);
+
+        replace_destination(&mut waypoints, destination.clone());
+
+        assert_eq!(waypoints.len(), 2);
+        assert!(waypoints.iter().any(|wp| wp.name == "💧 Nguồn nước"));
+        assert_eq!(
+            waypoints
+                .iter()
+                .find(|wp| is_destination(wp))
+                .map(|wp| (wp.x, wp.y)),
+            Some((destination.x, destination.y))
+        );
+        assert_eq!(
+            navigation_targets(&waypoints)
+                .map(|waypoint| waypoint.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["🚩 Điểm đến"]
+        );
     }
 }

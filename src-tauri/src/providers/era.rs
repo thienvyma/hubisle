@@ -1,18 +1,24 @@
 use std::{fmt, time::Duration};
 
 use reqwest::{
-    blocking::Client,
-    header::{HeaderValue, ACCEPT, COOKIE},
+    blocking::{Client, RequestBuilder},
+    header::{HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE, COOKIE, ORIGIN, REFERER},
     redirect::Policy,
     StatusCode,
 };
 use serde_json::Value;
 
-use crate::islepilot::parser::QuestStatus;
+use overlay_core::map_yaw_to_bearing_deg;
 
-use super::model::{ConnectionStatus, ProviderId, ProviderSnapshot, SharedPlayer, SharedStatBar};
+use crate::{combat::CombatEvent, islepilot::parser::QuestStatus};
+
+use super::model::{
+    ConnectionStatus, ProviderId, ProviderSnapshot, SharedFriend, SharedPlayer, SharedStatBar,
+};
 
 const ENDPOINT: &str = "https://eragamingvn.net/api/theisle/map";
+const GARAGE_ENDPOINT: &str = "https://eragamingvn.net/api/theisle/garage";
+const SKIN_ENDPOINT: &str = "https://eragamingvn.net/api/theisle/skin";
 const PRIME_EN: [&str; 10] = [
     "Visit a Sanctuary while juvenile",
     "Be born from a nest",
@@ -150,6 +156,43 @@ fn prime_quests(player: &Value) -> Vec<QuestStatus> {
         .collect()
 }
 
+fn shared_friends(value: &Value) -> Vec<SharedFriend> {
+    value
+        .get("friends")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|friend| {
+            let name = optional_string(friend.get("name"))?;
+            let online = friend.get("online").and_then(Value::as_bool) == Some(true);
+            let location = friend.get("location");
+            // Era's RCON object uses x for the horizontal HUD coordinate and
+            // y for the vertical coordinate. Convert to the overlay's
+            // canonical (vertical game X, horizontal game Y) ordering.
+            let position_cm = if online {
+                match (
+                    number(location.and_then(|item| item.get("x"))),
+                    number(location.and_then(|item| item.get("y"))),
+                    number(location.and_then(|item| item.get("z"))),
+                ) {
+                    (Some(x), Some(y), z) => Some((y, x, z.unwrap_or(0.0))),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            Some(SharedFriend {
+                slot: None,
+                name,
+                dino_name: optional_string(friend.get("class")),
+                online: position_cm.is_some(),
+                position_cm,
+                position_px: None,
+            })
+        })
+        .collect()
+}
+
 pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot, EraError> {
     if value.get("success").and_then(Value::as_bool) != Some(true) {
         return Err(EraError::InvalidResponse);
@@ -165,7 +208,7 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
         .ok_or(EraError::InvalidResponse)?;
     let online = server_online && player_online;
 
-    let (player, position_cm) = if online {
+    let (player, position_cm, heading_deg) = if online {
         let source = value
             .get("player")
             .and_then(Value::as_object)
@@ -180,6 +223,18 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
             (Some(x), Some(y), Some(z)) => Some((y, x, z)),
             _ => None,
         };
+        // Current Era responses usually expose location only. Accept the
+        // common camera/yaw fields when the bridge provides them so a server
+        // update can enable exact view direction without another app update.
+        let heading = ["cam", "cameraYaw", "camera_yaw", "yaw"]
+            .into_iter()
+            .find_map(|key| number(source.get(key)))
+            .or_else(|| {
+                source
+                    .get("rotation")
+                    .and_then(|rotation| number(rotation.get("yaw")))
+            })
+            .and_then(map_yaw_to_bearing_deg);
         let player = SharedPlayer {
             name: optional_string(source.get("name")),
             dino_name: optional_string(source.get("class")),
@@ -193,13 +248,14 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
             nutrition: None,
             prime_quests: prime_quests(&source),
         };
-        (Some(player), position)
+        (Some(player), position, heading)
     } else {
-        (None, None)
+        (None, None, None)
     };
 
     let server_name = optional_string(value.get("server"))
         .or_else(|| optional_string(value.get("server").and_then(|server| server.get("name"))));
+    let friends = shared_friends(value);
     Ok(ProviderSnapshot {
         provider: ProviderId::Era,
         status: if online {
@@ -214,7 +270,9 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
             value.get("updatedAt").or_else(|| value.get("timestamp")),
         ),
         player,
+        friends,
         position_cm,
+        heading_deg,
     })
 }
 
@@ -226,7 +284,7 @@ fn client() -> Result<Client, EraError> {
         .map_err(|_| EraError::Temporary)
 }
 
-pub fn poll(cookie: &str) -> Result<ProviderSnapshot, EraError> {
+fn poll_value(cookie: &str) -> Result<(Value, i64), EraError> {
     let cookie = HeaderValue::from_str(cookie).map_err(|_| EraError::LoginRequired)?;
     let response = client()?
         .get(ENDPOINT)
@@ -246,11 +304,186 @@ pub fn poll(cookie: &str) -> Result<ProviderSnapshot, EraError> {
     }
     let body = response.text().map_err(|_| EraError::InvalidResponse)?;
     let value = serde_json::from_str::<Value>(&body).map_err(|_| EraError::InvalidResponse)?;
-    normalize(&value, chrono::Utc::now().timestamp_millis())
+    Ok((value, chrono::Utc::now().timestamp_millis()))
+}
+
+pub fn poll_with_events(
+    cookie: &str,
+) -> Result<(ProviderSnapshot, Vec<CombatEvent>), EraError> {
+    let (value, received_at_ms) = poll_value(cookie)?;
+    let snapshot = normalize(&value, received_at_ms)?;
+    let events = crate::combat::parse_era_events(
+        &value,
+        snapshot.source_timestamp_ms.unwrap_or(received_at_ms),
+        snapshot.server_name.as_deref(),
+        snapshot
+            .player
+            .as_ref()
+            .and_then(|player| player.dino_name.as_deref()),
+    );
+    Ok((snapshot, events))
+}
+
+pub fn poll(cookie: &str) -> Result<ProviderSnapshot, EraError> {
+    poll_with_events(cookie).map(|(snapshot, _)| snapshot)
 }
 
 pub fn validate(cookie: &str) -> Result<ProviderSnapshot, EraError> {
     poll(cookie)
+}
+
+fn authenticated_feature_request(request: RequestBuilder, cookie: HeaderValue) -> RequestBuilder {
+    // Era's live-map JavaScript sends Garage/Skin mutations from this exact
+    // same-origin page. The server validates that browser context for writes;
+    // a raw Cookie header alone can be rejected as unauthenticated, especially
+    // for the two VIP Garage slots.
+    request
+        .header(ACCEPT, "application/json")
+        .header(COOKIE, cookie)
+        .header(ORIGIN, "https://eragamingvn.net")
+        .header(REFERER, "https://eragamingvn.net/live-map")
+}
+
+fn feature_response(request: RequestBuilder, cookie: &str) -> Result<(StatusCode, Value), String> {
+    let cookie = HeaderValue::from_str(cookie).map_err(|_| EraError::LoginRequired.to_string())?;
+    let response = authenticated_feature_request(request, cookie)
+        .send()
+        .map_err(|_| EraError::Temporary.to_string())?;
+    let status = response.status();
+    if status == StatusCode::UNAUTHORIZED || status.is_redirection() {
+        return Err(EraError::LoginRequired.to_string());
+    }
+    let text = response
+        .text()
+        .map_err(|_| "Dữ liệu Era không hợp lệ.".to_string())?;
+    let value = serde_json::from_str(&text).map_err(|_| "Dữ liệu Era không hợp lệ.".to_string())?;
+    Ok((status, value))
+}
+
+pub fn garage_fetch(cookie: &str) -> Result<Value, String> {
+    let request = client()
+        .map_err(|error| error.to_string())?
+        .get(GARAGE_ENDPOINT)
+        .header(HeaderName::from_static("x-era-slot"), "1");
+    feature_response(request, cookie).map(|(_, value)| value)
+}
+
+pub fn garage_action(
+    cookie: &str,
+    action: &str,
+    slot: usize,
+    state_hash: Option<&str>,
+) -> Result<Value, String> {
+    if !matches!(action, "park" | "restore" | "delete") || !(1..=5).contains(&slot) {
+        return Err("Thao tác Garage Era không hợp lệ.".to_string());
+    }
+    let client = client().map_err(|error| error.to_string())?;
+    let mut request = client
+        .post(GARAGE_ENDPOINT)
+        .header(HeaderName::from_static("x-era-slot"), slot.to_string())
+        .header(HeaderName::from_static("x-era-action"), action)
+        .header(
+            HeaderName::from_static("x-era-operation-id"),
+            uuid::Uuid::new_v4().simple().to_string(),
+        );
+    if action == "delete" {
+        let hash = state_hash
+            .filter(|hash| hash.len() == 64 && hash.as_bytes().iter().all(u8::is_ascii_hexdigit))
+            .ok_or_else(|| "Thiếu mã xác nhận Dino trong slot Era.".to_string())?;
+        request = request
+            .header(
+                HeaderName::from_static("x-era-confirm-delete"),
+                format!("slot:{slot}"),
+            )
+            .header(HeaderName::from_static("x-era-state-hash"), hash);
+    }
+    let (_, mut value) = feature_response(request, cookie)?;
+    let Some(job_id) = value
+        .get("jobId")
+        .and_then(Value::as_str)
+        .filter(|_| value.get("queued").and_then(Value::as_bool) == Some(true))
+        .map(str::to_string)
+    else {
+        return Ok(value);
+    };
+    for _ in 0..120 {
+        std::thread::sleep(Duration::from_millis(500));
+        let request = client
+            .get(GARAGE_ENDPOINT)
+            .header(HeaderName::from_static("x-era-slot"), slot.to_string())
+            .header(HeaderName::from_static("x-era-job-id"), &job_id);
+        let (_, next) = feature_response(request, cookie)?;
+        value = next;
+        if !matches!(
+            value.get("state").and_then(Value::as_str),
+            Some("queued" | "running")
+        ) {
+            return Ok(value);
+        }
+    }
+    Err("Garage Era xử lý quá lâu; hãy làm mới để kiểm tra trạng thái.".to_string())
+}
+
+pub fn skin_state(cookie: &str) -> Result<Value, String> {
+    feature_response(
+        client()
+            .map_err(|error| error.to_string())?
+            .get(SKIN_ENDPOINT),
+        cookie,
+    )
+    .map(|(_, value)| value)
+}
+
+pub fn skin_apply(cookie: &str, colors: &[String]) -> Result<Value, String> {
+    // Era's official live-map editor currently exposes seven color zones and
+    // serializes them as color1..color7. Keep this strict so a stale UI cannot
+    // send an ambiguous partial palette after the provider changes its schema.
+    if colors.len() != 7 || colors.iter().any(|color| !valid_hex_color(color)) {
+        return Err("Bảng màu Era phải có đúng 7 mã #RRGGBB.".to_string());
+    }
+    let body = colors
+        .iter()
+        .enumerate()
+        .map(|(index, color)| (format!("color{}", index + 1), Value::String(color.clone())))
+        .collect::<serde_json::Map<String, Value>>();
+    let client = client().map_err(|error| error.to_string())?;
+    let (_, queued) = feature_response(
+        client
+            .post(SKIN_ENDPOINT)
+            .header(HeaderName::from_static("x-era-action"), "skin")
+            .header(CONTENT_TYPE, "application/json")
+            .body(
+                serde_json::to_string(&body)
+                    .map_err(|_| "Dữ liệu đổi skin Era không hợp lệ.".to_string())?,
+            ),
+        cookie,
+    )?;
+    let Some(operation_id) = queued
+        .get("operationId")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
+        return Ok(queued);
+    };
+    for _ in 0..18 {
+        std::thread::sleep(Duration::from_secs(1));
+        let (_, result) = feature_response(
+            client
+                .get(SKIN_ENDPOINT)
+                .header(HeaderName::from_static("x-era-operation"), &operation_id),
+            cookie,
+        )?;
+        if result.get("state").and_then(Value::as_str) != Some("queued") {
+            return Ok(result);
+        }
+    }
+    Err("Chưa nhận được kết quả đổi skin Era; hãy kiểm tra lại sau.".to_string())
+}
+
+fn valid_hex_color(value: &str) -> bool {
+    value.len() == 7
+        && value.starts_with('#')
+        && value.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit)
 }
 
 #[cfg(test)]
@@ -270,7 +503,11 @@ mod tests {
                 "growthPercent": 54.0,
                 "healthPercent": 0.0,
                 "staminaPercent": 96.0
-            }
+            },
+            "friends": [
+                {"online": true, "name": "Era Friend", "class": "Diabloceratops", "location": {"x": -120000.0, "y": 340000.0, "z": 800.0}},
+                {"online": false, "name": "Offline Friend", "location": null}
+            ]
         });
 
         let snapshot = normalize(&value, 1000).unwrap();
@@ -279,6 +516,33 @@ mod tests {
         assert_eq!(health.percent, 0.0);
         assert_eq!(health.current, None);
         assert_eq!(health.max, None);
+        assert_eq!(snapshot.friends.len(), 2);
+        assert_eq!(snapshot.friends[0].name, "Era Friend");
+        assert_eq!(
+            snapshot.friends[0].dino_name.as_deref(),
+            Some("Diabloceratops")
+        );
+        assert_eq!(
+            snapshot.friends[0].position_cm,
+            Some((340000.0, -120000.0, 800.0))
+        );
+        assert!(!snapshot.friends[1].online);
+        assert!(snapshot.friends[1].position_cm.is_none());
+    }
+
+    #[test]
+    fn era_uses_camera_yaw_when_the_server_bridge_exposes_it() {
+        let value = json!({
+            "success": true,
+            "serverOnline": true,
+            "playerOnline": true,
+            "player": {
+                "location": {"x": 45100.0, "y": 317900.0, "z": 20900.0},
+                "cameraYaw": -20.0,
+                "yaw": 110.0
+            }
+        });
+        assert_eq!(normalize(&value, 1).unwrap().heading_deg, Some(70.0));
     }
 
     #[test]
@@ -393,5 +657,36 @@ mod tests {
             .unwrap()
             .prime_quests
             .is_empty());
+    }
+
+    #[test]
+    fn era_feature_commands_reject_stale_client_schemas_before_network_io() {
+        assert!(garage_action("", "unknown", 1, None).is_err());
+        assert!(garage_action("", "park", 0, None).is_err());
+        assert!(garage_action("", "delete", 1, Some("short")).is_err());
+        assert!(skin_apply("", &vec!["#112233".to_string(); 6]).is_err());
+        assert!(skin_apply("", &vec!["not-a-color".to_string(); 7]).is_err());
+        assert!(valid_hex_color("#A1b2C3"));
+        assert!(!valid_hex_color("#12345"));
+    }
+
+    #[test]
+    fn era_mutation_requests_carry_the_same_origin_context_as_the_live_map() {
+        let request = authenticated_feature_request(
+            Client::new().post(GARAGE_ENDPOINT),
+            HeaderValue::from_static("session=test"),
+        )
+        .build()
+        .unwrap();
+
+        assert_eq!(
+            request.headers().get(ORIGIN).unwrap(),
+            "https://eragamingvn.net"
+        );
+        assert_eq!(
+            request.headers().get(REFERER).unwrap(),
+            "https://eragamingvn.net/live-map"
+        );
+        assert_eq!(request.headers().get(COOKIE).unwrap(), "session=test");
     }
 }

@@ -11,6 +11,8 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use overlay_core::map_yaw_to_bearing_deg;
+
 use super::parser::{Nutrition, PlayerStats, QuestStatus, StatBar};
 
 pub const API_ORIGIN: &str = "https://islepilot.eu";
@@ -73,11 +75,7 @@ fn request(
     Ok(v)
 }
 
-fn get(
-    client: &reqwest::blocking::Client,
-    path: &str,
-    token: &str,
-) -> Result<Value, ApiError> {
+fn get(client: &reqwest::blocking::Client, path: &str, token: &str) -> Result<Value, ApiError> {
     request(client, reqwest::Method::GET, path, token, None)
 }
 
@@ -150,10 +148,7 @@ pub struct OverlayQuest {
     pub done: bool,
 }
 
-pub fn get_me(
-    client: &reqwest::blocking::Client,
-    token: &str,
-) -> Result<OverlayMe, ApiError> {
+pub fn get_me(client: &reqwest::blocking::Client, token: &str) -> Result<OverlayMe, ApiError> {
     let v = get(client, "/api/overlay/me", token)?;
     serde_json::from_value(v).map_err(|e| ApiError::Http(format!("/api/overlay/me: {e}")))
 }
@@ -205,6 +200,12 @@ pub fn to_player_stats(me: &OverlayMe) -> PlayerStats {
 pub fn position_cm(me: &OverlayMe) -> Option<(f64, f64)> {
     let pos = me.position?;
     Some((pos.y?, pos.x?))
+}
+
+/// Exact north-up compass heading supplied by IslePilot. The API yaw uses
+/// the same convention as its web map: zero points to screen-right/east.
+pub fn position_heading_deg(me: &OverlayMe) -> Option<f64> {
+    me.position?.yaw.and_then(map_yaw_to_bearing_deg)
 }
 
 // ---------------------------------------------------------------------------
@@ -264,10 +265,7 @@ pub struct OverlayCategory {
     pub color: Option<String>,
 }
 
-pub fn get_map(
-    client: &reqwest::blocking::Client,
-    token: &str,
-) -> Result<OverlayMap, ApiError> {
+pub fn get_map(client: &reqwest::blocking::Client, token: &str) -> Result<OverlayMap, ApiError> {
     let v = get(client, "/api/overlay/map", token)?;
     serde_json::from_value(v).map_err(|e| ApiError::Http(format!("/api/overlay/map: {e}")))
 }
@@ -290,10 +288,7 @@ impl OverlayCalibration {
 /// both as u,v fractions and as raw world cm depending on backend version, so
 /// disambiguate by magnitude: |coord| <= 1.5 can only be a fraction (1.5 cm
 /// off the world origin is not a real POI).
-pub fn poi_point_cm(
-    cal: Option<&OverlayCalibration>,
-    p: OverlayPoint,
-) -> Option<(f64, f64)> {
+pub fn poi_point_cm(cal: Option<&OverlayCalibration>, p: OverlayPoint) -> Option<(f64, f64)> {
     let (their_x, their_y) = if p.x.abs() <= 1.5 && p.y.abs() <= 1.5 {
         cal?.uv_to_world(p.x, p.y)?
     } else {
@@ -306,10 +301,7 @@ pub fn poi_point_cm(
 // /api/overlay/garage — gacha park/restore/sell/rename
 // ---------------------------------------------------------------------------
 
-pub fn garage_list(
-    client: &reqwest::blocking::Client,
-    token: &str,
-) -> Result<Value, ApiError> {
+pub fn garage_list(client: &reqwest::blocking::Client, token: &str) -> Result<Value, ApiError> {
     get(client, "/api/overlay/garage", token)
 }
 
@@ -326,7 +318,10 @@ pub fn garage_command(
     if let Some(err) = res.get("error").and_then(|e| e.as_str()) {
         return Err(err.to_string());
     }
-    let Some(command_id) = res.get("commandId").and_then(|c| c.as_str()).map(String::from)
+    let Some(command_id) = res
+        .get("commandId")
+        .and_then(|c| c.as_str())
+        .map(String::from)
     else {
         return Ok(res); // synchronous command (e.g. rename, sell)
     };
@@ -366,7 +361,10 @@ pub struct GarageState {
 pub fn garage_state(raw: &Value) -> GarageState {
     let settings = raw.get("settings").cloned().unwrap_or(Value::Null);
     GarageState {
-        dinos: raw.get("dinos").cloned().unwrap_or_else(|| Value::Array(vec![])),
+        dinos: raw
+            .get("dinos")
+            .cloned()
+            .unwrap_or_else(|| Value::Array(vec![])),
         selling_enabled: settings
             .get("sellingEnabled")
             .and_then(|v| v.as_bool())
@@ -422,6 +420,7 @@ mod tests {
         let me: OverlayMe = serde_json::from_str(ME).unwrap();
         // JSON: x=-263306, y=307415.69 -> ours (x=their y, y=their x).
         assert_eq!(position_cm(&me), Some((307415.69, -263306.0)));
+        assert!((position_heading_deg(&me).unwrap() - 70.85).abs() < 0.001);
     }
 
     #[test]
@@ -436,8 +435,18 @@ mod tests {
     #[test]
     fn poi_points_convert_from_both_spaces() {
         let cal = OverlayCalibration {
-            a: OverlayCalPoint { u: 0.0, v: 0.0, world_x: -100_000.0, world_y: -200_000.0 },
-            b: OverlayCalPoint { u: 1.0, v: 1.0, world_x: 100_000.0, world_y: 200_000.0 },
+            a: OverlayCalPoint {
+                u: 0.0,
+                v: 0.0,
+                world_x: -100_000.0,
+                world_y: -200_000.0,
+            },
+            b: OverlayCalPoint {
+                u: 1.0,
+                v: 1.0,
+                world_x: 100_000.0,
+                world_y: 200_000.0,
+            },
         };
         // uv fraction: center of the map -> world origin -> swapped ours.
         assert_eq!(
@@ -446,7 +455,13 @@ mod tests {
         );
         // Raw world cm passes through (with the axis swap).
         assert_eq!(
-            poi_point_cm(Some(&cal), OverlayPoint { x: 50_000.0, y: -30_000.0 }),
+            poi_point_cm(
+                Some(&cal),
+                OverlayPoint {
+                    x: 50_000.0,
+                    y: -30_000.0
+                }
+            ),
             Some((-30_000.0, 50_000.0))
         );
         // Fraction without calibration: unusable.

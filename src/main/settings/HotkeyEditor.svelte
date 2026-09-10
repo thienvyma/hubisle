@@ -1,7 +1,8 @@
 <script lang="ts">
   // Hotkey rebinding rows. Click a field, press the combination; validation:
-  // must parse (>= 1 modifier), not duplicate another action, and — probed
-  // through RegisterHotKey in Rust — not held by another app.
+  // must parse (>= 1 modifier, except the dedicated bare ` key), not
+  // duplicate another action, and — probed through RegisterHotKey in Rust —
+  // not held by another app.
   import {
     applyHotkeys,
     checkHotkeyAvailable,
@@ -23,6 +24,7 @@
     "zoom_in",
     "zoom_out",
     "toggle_quests",
+    "unstuck",
     "reload_ui",
   ] as const;
 
@@ -48,12 +50,13 @@
     "=": "Plus",
   };
 
-  function specFromEvent(e: KeyboardEvent): string | null {
+  function specFromEvent(action: string, e: KeyboardEvent): string | null {
     const mods: string[] = [];
     if (e.ctrlKey) mods.push("Ctrl");
     if (e.altKey) mods.push("Alt");
     if (e.shiftKey) mods.push("Shift");
     if (e.metaKey) mods.push("Win");
+    if (action === "unstuck" && e.code === "Backquote" && mods.length === 0) return "`";
     const key = e.key;
     if (["Control", "Alt", "Shift", "Meta"].includes(key)) return null; // modifier only
     let name: string | null = null;
@@ -71,7 +74,7 @@
       capturing = null;
       return;
     }
-    const spec = specFromEvent(e);
+    const spec = specFromEvent(action, e);
     if (!spec) {
       if (!["Control", "Alt", "Shift", "Meta"].includes(e.key)) {
         errors = { ...errors, [action]: $t("settings.hotkey_invalid") };
@@ -87,7 +90,7 @@
     }
     // Held by another app? (Skip the probe when unchanged — our own live
     // registration would make the probe fail against ourselves.)
-    if (hotkeys[action] !== spec && !(await checkHotkeyAvailable(spec))) {
+    if (hotkeys[action] !== spec && !(await checkHotkeyAvailable(spec, action))) {
       errors = { ...errors, [action]: $t("settings.hotkey_in_use") };
       return;
     }

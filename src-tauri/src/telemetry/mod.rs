@@ -338,7 +338,12 @@ fn flush_pending_crash(client_id: &str) {
 /// Group crashes that are the same bug. Only the first few stack frames are
 /// used: deeper frames vary with timing and would split one bug into dozens.
 fn fingerprint(message: &str, stack: &str) -> String {
-    let head: Vec<&str> = stack.lines().map(str::trim).filter(|l| !l.is_empty()).take(5).collect();
+    let head: Vec<&str> = stack
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .take(5)
+        .collect();
     let kind = message.split(':').next().unwrap_or(message).trim();
     attest::sha256_hex(format!("{kind}\n{}", head.join("\n")).as_bytes())[..32].to_string()
 }
@@ -451,8 +456,14 @@ mod tests {
     /// not arrive as a hundred separate rows.
     #[test]
     fn fingerprint_ignores_the_variable_part_of_the_message() {
-        let a = fingerprint("panic: index out of bounds: 5", "at draw\nat render\nat main");
-        let b = fingerprint("panic: index out of bounds: 9", "at draw\nat render\nat main");
+        let a = fingerprint(
+            "panic: index out of bounds: 5",
+            "at draw\nat render\nat main",
+        );
+        let b = fingerprint(
+            "panic: index out of bounds: 9",
+            "at draw\nat render\nat main",
+        );
         assert_eq!(a, b);
         assert_eq!(a.len(), 32);
     }
@@ -508,7 +519,10 @@ mod tests {
             "locale": "vi",
             "features": vec![1u32; counters::N],
         });
-        assert!(client::post(PING_PATH, &body), "worker rejected a signed ping");
+        assert!(
+            client::post(PING_PATH, &body),
+            "worker rejected a signed ping"
+        );
     }
 
     #[test]

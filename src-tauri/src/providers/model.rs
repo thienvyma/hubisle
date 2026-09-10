@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::islepilot::parser::{Nutrition, QuestStatus};
 
@@ -88,6 +89,21 @@ pub struct SharedPlayer {
     pub prime_quests: Vec<QuestStatus>,
 }
 
+/// A friend relationship accepted by the selected server's own website.
+/// Providers decide who is allowed to appear; the overlay never discovers or
+/// uploads player locations itself. `position_px` is filled by the
+/// orchestrator using the active local basemap calibration before publishing.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedFriend {
+    pub slot: Option<u8>,
+    pub name: String,
+    pub dino_name: Option<String>,
+    pub online: bool,
+    pub position_cm: Option<(f64, f64, f64)>,
+    pub position_px: Option<(f64, f64)>,
+}
+
 #[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderSnapshot {
@@ -98,7 +114,10 @@ pub struct ProviderSnapshot {
     pub received_at_ms: i64,
     pub source_timestamp_ms: Option<i64>,
     pub player: Option<SharedPlayer>,
+    pub friends: Vec<SharedFriend>,
     pub position_cm: Option<(f64, f64, f64)>,
+    /// Exact north-up compass heading from the provider, when available.
+    pub heading_deg: Option<f64>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -109,6 +128,13 @@ pub struct ProviderState {
     pub status: ConnectionStatus,
     pub message: Option<String>,
     pub last_received_at_ms: Option<i64>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderFeaturePayload {
+    pub provider: ProviderId,
+    pub data: Value,
 }
 
 #[cfg(test)]

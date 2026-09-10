@@ -1,19 +1,15 @@
-# TheIsle Overlay
+# Isle Pulse Overlay
 
 [Tiếng Việt](README.md) · **English**
 
-This is custom build **1.6.0-eratitan.2**, based on the open-source 1.5.2 code. Its in-game
-minimap reads the player's coordinates automatically from the server's account
+**Isle Pulse Overlay 2.0.2** is developed by **Huỳnh Vỹ**. Its in-game minimap
+reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
 
 On first launch, enter the server website and sign in in the separate window.
 The session is encrypted on this computer. Unsupported sites require a specific
 adapter; the app never guesses an API or sends cookies to an unknown domain.
-
-▶️ **Install & usage video guide** (Vietnamese):
-
-[![TheIsle Overlay video guide](https://img.youtube.com/vi/R2IzwqHapuw/hqdefault.jpg)](https://y2u.be/R2IzwqHapuw)
 
 ![Minimap with a friend marker, stat bars, Prime quests and the voice strip over the running game — the dino wears a skin just changed in the app](docs/screenshot-ingame.jpg)
 
@@ -23,7 +19,7 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
 
 ![Garage (Gacha) tab: a parked dino in 3D with growth, stats and a Restore button](docs/screenshot-garage.png)
 
-![Skin editor: ten colour zones, a 3D preview of the species you are playing, applied live](docs/screenshot-skin.png)
+![Per-region skin palette applied directly to the current dino](docs/screenshot-skin.png)
 
 ![Voice tab: proximity voice over IsleVOIP, device pickers and who is in earshot](docs/screenshot-voip.png)
 
@@ -50,12 +46,12 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
 - **Realtime position and stats**: coordinates, growth, health, hunger, thirst,
   and stamina are normalized from the selected provider and rendered by the same
   minimap. Missing provider fields remain empty rather than being fabricated.
-- **IslePilot Garage (Gacha) with 3D preview**: each parked dino is a card with an
-  orbitable **3D model in its own skin colours** + growth + Park/Restore/
-  Rename/Sell; models download once and open instantly (and offline) after.
-- **Skin editor**: ten colour zones, a 3D preview of the species you are actually
-  playing, colour sets saved **on your own machine**, applied straight to the dino
-  in game (the server must have live skins enabled).
+- **Multi-provider Garage**: IslePilot keeps its 3D cards and Park/Restore/
+  Rename/Sell flow; Era and Titan get five official API slots with store,
+  restore, delete, connection gating, and server job progress.
+- **Skin editor in the hub**: seven current Era/Titan color regions, presets,
+  local drafts, Era's 16-color/full-color permission, Titan variation, and a
+  server-authoritative cooldown. IslePilot has no published overlay skin API yet.
 - **Global hotkeys** rebindable in-app and a bilingual Vietnamese/English UI.
 
 ## Install
@@ -68,6 +64,17 @@ installs; the installer fetches it if missing.
 
 > Windows may show a SmartScreen warning because the installer is not
 > code-signed. Click **More info → Run anyway**.
+
+### Automatic updates
+
+The app checks at startup, hourly, and when the network reconnects.
+Use **Check for updates** in the footer to check manually or retry.
+The notification includes release notes, download progress, and a **Later** button.
+
+The app checks releases at [github.com/thienvyma/hubisle](https://github.com/thienvyma/hubisle).
+When a newer version is available, an in-app banner can download and install it.
+Every package must carry Huỳnh Vỹ's updater signature; modified packages and
+packages published from another source are rejected.
 
 ## Connecting "Your Dino" (IslePilot)
 
@@ -174,17 +181,15 @@ when new data arrives.
 The game runs kernel-level Easy Anti-Cheat. This app is safe because it
 **never touches the game process**:
 
-- Position comes only from the **clipboard**, when you press Tab → "Asset
-  Location" in game yourself — the app just reads back what the game
-  voluntarily hands over.
+- Realtime position arrives over **HTTPS from the signed-in server management
+  site**; the clipboard remains a manual fallback when a provider has no feed.
 - Hotkeys use `RegisterHotKey` (Windows' cooperative API), **not** a keyboard
   hook.
-- Dino stats / Garage / 3D models come over **HTTPS from the IslePilot system**
-  (the islepilot.eu API or the server's own website) — again, nothing to do
-  with the game process.
-- Never: reading game memory, DLL injection, DirectX hooks, synthetic input,
-  packet capture, auto-copying coordinates on a timer, or sharing positions
-  between players.
+- Stats, position, accepted friends, Garage and skins come over **HTTPS from the
+  exact verified provider** (Era, Titan or IslePilot), without reading game memory.
+- The `` ` `` shortcut uses `SendInput` only to send the fixed `/unstuck` chat
+  command after verifying that The Isle is foreground. The app does not inject
+  DLLs, hook DirectX, or capture packets.
 
 CI greps for any forbidden API call site (`scripts/check-forbidden-apis.ps1`).
 The allowed-call list lives at the top of `src-tauri/src/win/mod.rs`.
@@ -232,8 +237,7 @@ Unaffiliated with Afterthought LLC.
 
 ## Credits
 
-Developed by **Trần Quốc Toản**.
+Developed by **Huỳnh Vỹ**.
 
-- 📧 Email: toantranct1@gmail.com
-- 💬 Facebook: https://www.facebook.com/satann247/
-- 🐛 Original source: [toantranct/theisle-overlay](https://github.com/toantranct/theisle-overlay)
+- 💬 Facebook: https://www.facebook.com/thienvyma
+- 💻 GitHub: https://github.com/thienvyma/hubisle

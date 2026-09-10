@@ -1,36 +1,33 @@
-// Colours and sizes carried over from the original theme.py — survival-HUD
-// dark ground with an amber accent. No display strings here (see i18n/).
+// Isle Pulse HUD palette. No display strings here (see i18n/).
 
 export const COLORS = {
-  bg: "#11150e",
-  panel: "#191f14",
-  panelBorder: "#333c26",
-  text: "#eae6d6",
-  textMuted: "#a3aa8c",
-  accent: "#e8a33d",
-  player: "#ff3b8b", // pink: collides with no terrain colour
-  // Electric yellow + double outline: the self-marker must outrank every
-  // waypoint/POI dot and never be mistaken for the (softer yellow) trail.
-  playerArrow: "#ffe600",
-  playerArrowOutline: "#10130c",
-  trail: "#ffcc55",
-  waypoint: "#4fc3f7",
+  bg: "#030711",
+  panel: "#08111f",
+  panelBorder: "#1a3852",
+  text: "#edf6ff",
+  textMuted: "#7890aa",
+  accent: "#35f2ff",
+  player: "#c65cff",
+  playerArrow: "#35f2ff",
+  playerArrowOutline: "#020711",
+  trail: "#c65cff",
+  waypoint: "#45f5a2",
 } as const;
 
 // Keys match pois_gateway.json layer keys (+ image-overlay layer keys).
 export const LAYER_COLORS: Record<string, string> = {
   freshwater: "#149af2", // islemaps.com's own fresh-water blue
-  water: "#4aa8d8",
-  saltlick: "#d9a441",
+  water: "#35bdf2",
+  saltlick: "#ffc857",
   mudwallow: "#9c7b4f",
   sanctuary: "#a855f7",
-  migration: "#72d653",
-  food: "#e2664a",
-  patrol: "#ef6f6c", // myislemap's original patrol colour
-  animal: "#d66ba0", // islemaps.com AI spawn sightings
-  region: "#eae6d6",
-  landmark: "#cfc9b3",
-  islepilot: "#34d399", // live server POIs from the IslePilot overlay API
+  migration: "#45f5a2",
+  food: "#ff5678",
+  patrol: "#ff708c",
+  animal: "#ff62bc",
+  region: "#edf6ff",
+  landmark: "#9cb1c7",
+  islepilot: "#35f2ff",
 };
 
 // Draw order: image overlays lowest, big zones next, small dots after, text
@@ -54,7 +51,7 @@ export const LAYER_ORDER = [
 // name STARTS with one of these renders as that glyph on both maps instead
 // of a colour dot — the name itself is the single source of truth, so the
 // on-disk waypoint format stays byte-compatible.
-export const WAYPOINT_GLYPHS = ["💀", "🏠", "💧", "⚠️", "🍖"];
+export const WAYPOINT_GLYPHS = ["🚩", "💀", "🏠", "💧", "⚠️", "🍖"];
 
 /** The glyph a waypoint renders as, or undefined for the plain colour dot. */
 export function waypointGlyph(name: string): string | undefined {

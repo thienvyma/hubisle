@@ -106,16 +106,24 @@ mod tests {
     fn slots_match_worker_and_frontend() {
         let root = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
 
-        let worker = ts_section(&format!("{root}/worker/src/features.ts"), "FEATURE_SLOTS = [", ']')
-            .expect("FEATURE_SLOTS not found in worker/src/features.ts");
+        let worker = ts_section(
+            &format!("{root}/worker/src/features.ts"),
+            "FEATURE_SLOTS = [",
+            ']',
+        )
+        .expect("FEATURE_SLOTS not found in worker/src/features.ts");
         assert_eq!(
             quoted_names(&worker),
             FEATURE_SLOTS.to_vec(),
             "Rust and worker/src/features.ts disagree",
         );
 
-        let frontend = ts_section(&format!("{root}/src/lib/api.ts"), "export type Feature =", ';')
-            .expect("`export type Feature` not found in src/lib/api.ts");
+        let frontend = ts_section(
+            &format!("{root}/src/lib/api.ts"),
+            "export type Feature =",
+            ';',
+        )
+        .expect("`export type Feature` not found in src/lib/api.ts");
         assert_eq!(
             quoted_names(&frontend),
             FEATURE_SLOTS.to_vec(),
