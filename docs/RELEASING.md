@@ -25,10 +25,8 @@ không tự biết GitHub mới: cần cài thủ công một bản chuyển ti�
 hoặc phát hành bản chuyển tiếp trên kênh cũ nếu vẫn quản lý được kênh đó.
 Giữ nguyên khóa ký đang dùng nếu muốn các bản đã cài chấp nhận bản cập nhật.
 
-Kiểm tra trực tiếp bằng trình duyệt ngày 2026-09-10: repository là **Public**
-nhưng đang trống (chưa có mã nguồn, nhánh hoặc tag). Đường dẫn latest.json
-chưa khả dụng. Cần đẩy mã nguồn, thiết lập secret ký và phát hành bản đầu tiên
-trước khi thử cập nhật thật từ một máy khác.
+Repository chính thức là **Public**. Phiên bản chuyển tiếp sang kênh cập nhật
+mới là **2.1.0**; các bản cũ vẫn trỏ kênh cũ cần cài bộ cài này một lần.
 
 ## Thiết lập một lần
 
