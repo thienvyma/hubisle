@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**Isle Pulse Overlay 2.0.2** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**Isle Pulse Overlay 2.1.0** is developed by **Huỳnh Vỹ**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.

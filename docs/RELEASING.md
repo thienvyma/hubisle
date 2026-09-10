@@ -48,7 +48,7 @@ chối mọi bản cập nhật bị sửa hoặc được ký bằng khóa khá
 ## Tạo phiên bản mới
 
 1. Sửa cùng một số phiên bản trong `package.json`, `src-tauri/Cargo.toml` và
-   `src-tauri/tauri.conf.json`, ví dụ `2.0.1`.
+   `src-tauri/tauri.conf.json`, ví dụ `2.1.1`.
 2. Ghi thay đổi vào `CHANGELOG.md`.
 3. Chạy kiểm tra phiên bản:
 
@@ -59,16 +59,16 @@ chối mọi bản cập nhật bị sửa hoặc được ký bằng khóa khá
 4. Commit, tạo tag trùng số phiên bản rồi push repository và tag:
 
    ```powershell
-   git tag v2.0.1
+   git tag v2.1.1
    git push origin main
-   git push origin v2.0.1
+   git push origin v2.1.1
    ```
 
 Workflow `Release Isle Pulse Overlay` chỉ chạy phát hành trong
 `thienvyma/hubisle`. Workflow kiểm tra phiên bản, cấu hình updater, kiểm thử
 logic thông báo và Svelte trước khi build. Bộ cài có chữ ký và `latest.json`
 được tải lên một draft release; manifest phải đúng phiên bản và URL bộ cài
-Windows của hubisle rồi release mới được công bố.
+Windows của hubisle rồi release mới được công bố. URL API hoặc URL tạm của draft được đổi sang URL tải công khai theo tag trước khi upload lại latest.json. Chữ ký bộ cài được giữ nguyên.
 
 Kiểm tra tại máy trước khi push:
 
@@ -79,7 +79,7 @@ npm run check
 npm run build
 ```
 
-Bản phát hành tiếp theo phải có số phiên bản cao hơn 2.0.2, đồng bộ cả ba
+Bản phát hành tiếp theo phải có số phiên bản cao hơn 2.1.0, đồng bộ cả ba
 file phiên bản và lockfile. Chuyển mục Unreleased trong CHANGELOG thành số
 phiên bản đó trước khi tạo tag.
 

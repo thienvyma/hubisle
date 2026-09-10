@@ -14,7 +14,7 @@
     "build": "vite build --configLoader runner",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:updater": "node scripts/check-updater.mjs",
-    "test:updater": "node --experimental-strip-types --test scripts/update-controller.test.mjs",
+    "test:updater": "node --experimental-strip-types --test scripts/update*.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
