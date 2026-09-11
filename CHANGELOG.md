@@ -6,6 +6,9 @@
 - Chủ động phát trạng thái hết hạn góc từ luồng Rust kể cả khi server im lặng; ngăn phản hồi cũ khôi phục góc đã hết hạn.
 - Phân biệt góc server với hướng di chuyển ước lượng; hiển thị đầy đủ Bắc/Đông/Nam/Tây trên minimap, kể cả khi chưa có vị trí.
 - Thêm kiểm thử luồng góc và pipeline CI Windows. Bộ đọc hình ảnh la bàn Q vẫn chưa tích hợp; chưa có camera offline realtime trong bản này.
+- Nối dữ liệu IslePilot token-mode vào provider snapshot: vị trí, hướng server và danh sách bạn bè được publish cho full map/minimap thay vì chỉ nằm trong tab Dino.
+- Bật skin IslePilot bằng endpoint overlay mới `/api/overlay/skin`; tab Skin đọc danh sách vùng màu động từ server DinoVietnam và chỉ gửi lệnh apply khi người dùng bấm áp dụng.
+- Dò endpoint DinoVietnam VIP: `/api/overlay/friends`, `/api/overlay/garage`, `/api/overlay/skin` đều trả dữ liệu hợp lệ. Bạn bè chỉ hiện trên bản đồ khi server trả kèm tọa độ; mẫu hiện tại chỉ có quan hệ bạn bè, chưa có vị trí.
 
 Mọi thay đổi đáng chú ý của Isle Pulse Overlay được ghi tại đây, theo định dạng
 [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và đánh số phiên bản

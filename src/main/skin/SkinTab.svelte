@@ -11,6 +11,7 @@
   const TITAN_NAMES = ["Màu con đực", "Hoa văn", "Thân", "Sườn", "Bụng", "Chi tiết", "Mắt"];
   const ERA_DEFAULT = ["#16A34A", "#3F6212", "#EAB308", "#78350F", "#C08457", "#111827", "#F3F4F6"];
   const TITAN_DEFAULT = ["#B06A3C", "#5A3C28", "#7A5A3C", "#6A4A30", "#C8B090", "#3C2C1C", "#D0A020"];
+  const ISLEPILOT_DEFAULT = ["#7A5A3C", "#5A3C28", "#C8B090", "#8A6A42", "#A88A5A", "#6A5230", "#D0A020", "#F0E0B8", "#C8C8C8", "#3C2C1C"];
   const ERA_FREE = ["#111827", "#F3F4F6", "#6B7280", "#DC2626", "#7F1D1D", "#F97316", "#EAB308", "#16A34A", "#3F6212", "#2563EB", "#0891B2", "#7C3AED", "#DB2777", "#78350F", "#C08457", "#D6B38B"];
   const PRESETS: Record<string, { era: string[]; titan: string[] }> = {
     forest: {
@@ -37,10 +38,14 @@
       : {};
   const finite = (value: unknown): number | null =>
     typeof value === "number" && Number.isFinite(value) ? value : null;
+  const text = (value: unknown): string | null =>
+    typeof value === "string" && value.trim() ? value.trim() : null;
   const validColor = (value: unknown): value is string =>
     typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
 
   let raw = $state<Obj>({});
+  let fieldKeys = $state<string[]>([]);
+  let fieldLabels = $state<string[]>([]);
   let colors = $state<string[]>([...TITAN_DEFAULT]);
   let variation = $state(0);
   let activeZone = $state(0);
@@ -51,12 +56,19 @@
   let clock = $state(Date.now());
   let providerSeen = $state<ProviderId | null>(null);
 
-  const names = $derived(provider === "era" ? ERA_NAMES : TITAN_NAMES);
-  const fullColor = $derived(provider !== "era" || raw.arbitraryHex === true);
+  const names = $derived(provider === "era" ? ERA_NAMES : provider === "titan" ? TITAN_NAMES : fieldLabels);
+  const fullColor = $derived(provider === "isle-pilot" || provider !== "era" || raw.arbitraryHex === true);
+  const lockedZones = $derived(
+    Array.isArray(raw.lockedZones)
+      ? raw.lockedZones.filter((zone): zone is string => typeof zone === "string")
+      : [],
+  );
   const available = $derived(
     provider === "era"
       ? raw.success === true && raw.available === true
-      : provider === "titan" && raw.ok === true,
+      : provider === "titan"
+        ? raw.ok === true
+        : raw.skinLiveEnabled !== false && raw.allowed !== false && raw.hasDino !== false,
   );
   const cooldown = $derived(Math.max(0, Math.ceil((cooldownUntil - clock) / 1000)));
 
@@ -71,7 +83,11 @@
       error = null;
       colors = loadDraft(provider);
       variation = loadVariation(provider);
-      if (provider !== "isle-pilot") void refresh();
+      if (provider !== "isle-pilot") {
+        fieldKeys = [];
+        fieldLabels = [];
+      }
+      void refresh();
     }
   });
 
@@ -79,10 +95,10 @@
     return `isle-pulse.skin.${current}.v1`;
   }
   function loadDraft(current: ProviderId): string[] {
-    const fallback = current === "era" ? ERA_DEFAULT : TITAN_DEFAULT;
+    const fallback = current === "era" ? ERA_DEFAULT : current === "titan" ? TITAN_DEFAULT : ISLEPILOT_DEFAULT;
     try {
       const value = JSON.parse(localStorage.getItem(storageKey(current)) ?? "null");
-      if (Array.isArray(value) && value.length === 7 && value.every(validColor)) {
+      if (Array.isArray(value) && value.length === fallback.length && value.every(validColor)) {
         return value.map((color) => color.toUpperCase());
       }
     } catch (_) {}
@@ -103,6 +119,7 @@
     saveDraft();
   }
   function applyPreset(name: string) {
+    if (provider === "isle-pilot") return;
     const preset = PRESETS[name];
     if (!preset) return;
     const next = provider === "era" ? preset.era : preset.titan;
@@ -129,6 +146,28 @@
     const value = Math.max(0, Math.trunc(finite(seconds) ?? 0));
     cooldownUntil = value ? Date.now() + value * 1_000 : 0;
   }
+  function readIslePilotFields(source: Obj) {
+    const fields = Array.isArray(source.fields) ? source.fields.map(obj) : [];
+    fieldKeys = fields
+      .map((field) => (typeof field.key === "string" ? field.key : null))
+      .filter((key): key is string => key !== null);
+    fieldLabels = fields
+      .map((field, index) => text(field.label) ?? fieldKeys[index] ?? `Zone ${index + 1}`);
+    const current = obj(source.current);
+    const defaults = obj(source.defaults);
+    const fallback = loadDraft("isle-pilot");
+    const next = fieldKeys.map((key, index) => {
+      const value = current[key] ?? defaults[key] ?? fallback[index] ?? ISLEPILOT_DEFAULT[index % ISLEPILOT_DEFAULT.length];
+      return validColor(value) ? value.toUpperCase() : ISLEPILOT_DEFAULT[index % ISLEPILOT_DEFAULT.length];
+    });
+    if (next.length > 0) {
+      colors = next;
+      saveDraft();
+    }
+  }
+  function zoneLocked(index: number): boolean {
+    return provider === "isle-pilot" && lockedZones.includes(fieldKeys[index] ?? "");
+  }
 
   async function refresh() {
     loading = true;
@@ -145,8 +184,13 @@
         }
         setCooldown(raw.cooldownRemainingSeconds);
       } else {
-        if (raw.ok !== true) throw new Error(String(raw.error ?? tNow("skin.failed")));
-        setCooldown(raw.con_giay);
+        if (provider === "titan") {
+          if (raw.ok !== true) throw new Error(String(raw.error ?? tNow("skin.failed")));
+          setCooldown(raw.con_giay);
+        } else {
+          readIslePilotFields(raw);
+          setCooldown(0);
+        }
       }
       error = null;
     } catch (reason) {
@@ -163,7 +207,7 @@
     try {
       const response = await providerSkinApply(colors, variation);
       const data = obj(response.data);
-      const success = provider === "era" ? data.success === true : data.ok === true;
+      const success = provider === "era" ? data.success === true : data.ok !== false;
       if (!success) throw new Error(String(data.message ?? data.error ?? tNow("skin.failed")));
       setCooldown(provider === "era" ? data.cooldownRemainingSeconds : data.skin_con_giay);
       note = String(data.message ?? tNow("skin.done"));
@@ -183,84 +227,77 @@
       <h2>{$t("skin.title")}</h2>
       <p>{$t("skin.subtitle", { provider: providerLabel(provider) })}</p>
     </div>
-    {#if provider !== "isle-pilot"}
-      <button class="outline" disabled={loading} onclick={() => void refresh()}>{$t("garage.refresh")}</button>
-    {/if}
+    <button class="outline" disabled={loading} onclick={() => void refresh()}>{$t("garage.refresh")}</button>
   </header>
 
-  {#if provider === "isle-pilot"}
-    <div class="unsupported">
-      <div class="lock">API</div>
-      <h3>{$t("skin.not_supported")}</h3>
-      <p>{$t("skin.not_supported_hint")}</p>
+  <div class="tier-row">
+    <span class:good={available}>{available ? "READY" : "LOCKED"}</span>
+    {#if provider === "era"}<span>{fullColor ? "VIP · FULL COLOR" : "FREE · 16 COLOR"}</span>{/if}
+    {#if provider === "isle-pilot" && raw.glitchEnabled === true}<span>GLITCH</span>{/if}
+    {#if cooldown > 0}<span class="waiting">{$t("skin.cooldown", { time: formatTime(cooldown) })}</span>{/if}
+  </div>
+
+  {#if error}<div class="notice error">{error}</div>{/if}
+  {#if note}<div class="notice success">{note}</div>{/if}
+
+  <section class="preview-panel">
+    <div class="preview-head"><span>{$t("skin.preview")}</span><strong>{providerLabel(provider)}</strong></div>
+    <div class="preview-strip">
+      {#each colors as color}<i style:background={color}></i>{/each}
     </div>
-  {:else}
-    <div class="tier-row">
-      <span class:good={available}>{available ? "READY" : "LOCKED"}</span>
-      {#if provider === "era"}<span>{fullColor ? "VIP · FULL COLOR" : "FREE · 16 COLOR"}</span>{/if}
-      {#if cooldown > 0}<span class="waiting">{$t("skin.cooldown", { time: formatTime(cooldown) })}</span>{/if}
-    </div>
+  </section>
 
-    {#if error}<div class="notice error">{error}</div>{/if}
-    {#if note}<div class="notice success">{note}</div>{/if}
-
-    <section class="preview-panel">
-      <div class="preview-head"><span>{$t("skin.preview")}</span><strong>{providerLabel(provider)}</strong></div>
-      <div class="preview-strip">
-        {#each colors as color}<i style:background={color}></i>{/each}
-      </div>
-    </section>
-
+  {#if provider !== "isle-pilot"}
     <section class="preset-row">
       <span>{$t("skin.presets")}</span>
       {#each Object.keys(PRESETS) as preset}
         <button onclick={() => applyPreset(preset)}>{$t(`skin.preset_${preset}` as "skin.preset_forest")}</button>
       {/each}
     </section>
-
-    <div class="color-grid">
-      {#each names as name, index}
-        <article class:active={!fullColor && activeZone === index}>
-          <span class="zone-index">{String(index + 1).padStart(2, "0")}</span>
-          <button class="zone-name" onclick={() => (activeZone = index)}>{name}</button>
-          <input id={`skin-${index}`} aria-label={name} type="color" value={colors[index]} disabled={!fullColor} oninput={(event) => setColor(index, event.currentTarget.value)} />
-          <code>{colors[index]}</code>
-        </article>
-      {/each}
-    </div>
-
-    {#if !fullColor}
-      <section class="free-palette">
-        <span>{$t("skin.choose_for", { zone: names[activeZone] })}</span>
-        <div>
-          {#each ERA_FREE as color}
-            <button class:selected={colors[activeZone] === color} title={color} style:background={color} onclick={() => setColor(activeZone, color)}></button>
-          {/each}
-        </div>
-      </section>
-    {/if}
-
-    {#if provider === "titan"}
-      <label class="variation">
-        <span>{$t("skin.variation")} <strong>{Math.round(variation * 100)}%</strong></span>
-        <input type="range" min="0" max="1" step="0.01" bind:value={variation} oninput={saveDraft} />
-      </label>
-    {/if}
-
-    <div class="apply-row">
-      <p>{$t("skin.online_only")}</p>
-      <button class="apply" disabled={loading || !available || cooldown > 0} onclick={() => void apply()}>
-        {loading ? $t("skin.applying") : cooldown > 0 ? $t("skin.cooldown", { time: formatTime(cooldown) }) : $t("skin.apply")}
-      </button>
-    </div>
   {/if}
+
+  <div class="color-grid">
+    {#each names as name, index}
+      <article class:active={!fullColor && activeZone === index} class:locked={zoneLocked(index)}>
+        <span class="zone-index">{String(index + 1).padStart(2, "0")}</span>
+        <button class="zone-name" onclick={() => (activeZone = index)} disabled={zoneLocked(index)}>{name}</button>
+        <input id={`skin-${index}`} aria-label={name} type="color" value={colors[index]} disabled={!fullColor || zoneLocked(index)} oninput={(event) => setColor(index, event.currentTarget.value)} />
+        <code>{colors[index]}</code>
+      </article>
+    {/each}
+  </div>
+
+  {#if provider === "era" && !fullColor}
+    <section class="free-palette">
+      <span>{$t("skin.choose_for", { zone: names[activeZone] })}</span>
+      <div>
+        {#each ERA_FREE as color}
+          <button class:selected={colors[activeZone] === color} title={color} style:background={color} onclick={() => setColor(activeZone, color)}></button>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
+  {#if provider === "titan"}
+    <label class="variation">
+      <span>{$t("skin.variation")} <strong>{Math.round(variation * 100)}%</strong></span>
+      <input type="range" min="0" max="1" step="0.01" bind:value={variation} oninput={saveDraft} />
+    </label>
+  {/if}
+
+  <div class="apply-row">
+    <p>{$t("skin.online_only")}</p>
+    <button class="apply" disabled={loading || !available || cooldown > 0 || colors.length === 0} onclick={() => void apply()}>
+      {loading ? $t("skin.applying") : cooldown > 0 ? $t("skin.cooldown", { time: formatTime(cooldown) }) : $t("skin.apply")}
+    </button>
+  </div>
 </div>
 
 <style>
   .skin-page { max-width:1050px; margin:0 auto; padding:28px; color:var(--color-text); }
   .page-head { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; }
   .eyebrow { color:var(--color-accent); font:9px Consolas,monospace; letter-spacing:.2em; }
-  h2 { margin:5px 0 3px; font-size:22px; } h3 { margin:8px 0; }
+  h2 { margin:5px 0 3px; font-size:22px; }
   p { color:var(--color-muted); font-size:12px; }
   button { border:1px solid rgba(53,242,255,.35); background:rgba(53,242,255,.08); color:var(--color-text); padding:7px 11px; font:10px Consolas,monospace; cursor:pointer; }
   button:hover:not(:disabled) { border-color:var(--color-accent); } button:disabled { opacity:.35; cursor:not-allowed; }
@@ -279,6 +316,7 @@
   .color-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr)); gap:10px; }
   .color-grid article { display:grid; grid-template-columns:25px 1fr 44px; grid-template-rows:auto auto; align-items:center; column-gap:10px; border:1px solid #16354e; background:linear-gradient(135deg,rgba(8,23,39,.95),rgba(4,11,22,.95)); padding:11px; cursor:pointer; }
   .color-grid article.active { border-color:var(--color-accent); box-shadow:inset 3px 0 var(--color-accent); }
+  .color-grid article.locked { opacity:.45; }
   .zone-index { grid-row:1/3; color:#48647c; font:9px Consolas,monospace; }
   .zone-name { border:0; background:transparent; padding:0; color:var(--color-text); font:inherit; font-size:12px; text-align:left; }
   .color-grid input { grid-row:1/3; grid-column:3; width:42px; height:34px; border:0; background:none; }
@@ -294,6 +332,4 @@
   .apply-row { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-top:18px; }
   .apply-row p { max-width:620px; line-height:1.5; }
   button.apply { min-width:190px; border-color:var(--color-accent); background:var(--color-accent); color:#03101a; font-weight:bold; }
-  .unsupported { margin:40px auto; max-width:540px; border:1px solid var(--color-border); background:rgba(7,18,31,.9); padding:34px; text-align:center; }
-  .lock { display:flex; align-items:center; justify-content:center; width:58px; height:58px; margin:0 auto 16px; border:1px solid var(--color-accent); border-radius:50%; color:var(--color-accent); font:12px Consolas,monospace; }
 </style>

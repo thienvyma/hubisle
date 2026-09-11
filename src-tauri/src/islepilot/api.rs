@@ -208,6 +208,88 @@ pub fn position_heading_deg(me: &OverlayMe) -> Option<f64> {
     me.position?.yaw.and_then(map_yaw_to_bearing_deg)
 }
 
+pub fn position_cm3(me: &OverlayMe) -> Option<(f64, f64, f64)> {
+    let pos = me.position?;
+    Some((pos.y?, pos.x?, pos.z.unwrap_or(0.0)))
+}
+
+// ---------------------------------------------------------------------------
+// /api/overlay/friends — relationship list, with optional live positions
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OverlayFriends {
+    pub share_location: Option<bool>,
+    pub limit: Option<u32>,
+    pub used: Option<u32>,
+    pub friends: Vec<OverlayFriend>,
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OverlayFriend {
+    pub id: Option<String>,
+    pub steam_id: Option<String>,
+    pub name: Option<String>,
+    pub species: Option<String>,
+    pub dino_name: Option<String>,
+    pub online: Option<bool>,
+    pub status: Option<String>,
+    pub incoming: Option<bool>,
+    pub position: Option<OverlayPosition>,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub z: Option<f64>,
+    pub yaw: Option<f64>,
+}
+
+impl OverlayFriend {
+    pub fn position_cm3(&self) -> Option<(f64, f64, f64)> {
+        if let Some(pos) = self.position {
+            return Some((pos.y?, pos.x?, pos.z.unwrap_or(0.0)));
+        }
+        Some((self.y?, self.x?, self.z.unwrap_or(0.0)))
+    }
+
+    pub fn heading_deg(&self) -> Option<f64> {
+        self.position
+            .and_then(|pos| pos.yaw)
+            .or(self.yaw)
+            .and_then(map_yaw_to_bearing_deg)
+    }
+}
+
+pub fn get_friends(
+    client: &reqwest::blocking::Client,
+    token: &str,
+) -> Result<OverlayFriends, ApiError> {
+    let v = get(client, "/api/overlay/friends", token)?;
+    serde_json::from_value(v).map_err(|e| ApiError::Http(format!("/api/overlay/friends: {e}")))
+}
+
+// ---------------------------------------------------------------------------
+// /api/overlay/skin — live skin editor
+// ---------------------------------------------------------------------------
+
+pub fn skin_state(client: &reqwest::blocking::Client, token: &str) -> Result<Value, ApiError> {
+    get(client, "/api/overlay/skin", token)
+}
+
+pub fn skin_apply(
+    client: &reqwest::blocking::Client,
+    token: &str,
+    palette: Value,
+) -> Result<Value, String> {
+    post(
+        client,
+        "/api/overlay/skin/apply",
+        token,
+        &serde_json::json!({ "palette": palette }),
+    )
+    .map_err(|e| e.to_string())
+}
+
 // ---------------------------------------------------------------------------
 // /api/overlay/map — POIs + categories (token mode extra map layers)
 // ---------------------------------------------------------------------------

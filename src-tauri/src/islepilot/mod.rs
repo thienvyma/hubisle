@@ -65,6 +65,9 @@ pub struct DinoUpdate {
     pub fetched_at_ms: u64,
     pub player: Option<PlayerStats>,
     pub map: Option<MapPosition>,
+    pub position_cm: Option<(f64, f64, f64)>,
+    pub heading_deg: Option<f64>,
+    pub friends: Vec<FriendUpdate>,
     /// IslePilot deployed a new build since we started — markup may have
     /// changed, so treat odd values with suspicion.
     pub layout_changed: bool,
@@ -72,6 +75,16 @@ pub struct DinoUpdate {
     /// None until the first successful probe.
     pub live_map_available: Option<bool>,
     pub error: Option<String>,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FriendUpdate {
+    pub slot: Option<u8>,
+    pub name: String,
+    pub dino_name: Option<String>,
+    pub online: bool,
+    pub position_cm: Option<(f64, f64, f64)>,
 }
 
 #[derive(Serialize, Clone)]
@@ -350,9 +363,9 @@ pub fn emit_last(app: &AppHandle) {
 /// is viewing. The cm we produce here flows through `pipeline::ingest_sample`,
 /// which converts cm -> px with the ACTIVE calibration, so display is correct
 /// on any basemap. Do not switch this to `state.active_calibration()`.
-fn ingest_map_position(app: &AppHandle, map: &MapPosition) {
+fn map_position_cm(map: &MapPosition) -> Option<(f64, f64, f64, Option<f64>)> {
     let (Some(pct_x), Some(pct_y)) = (map.pct_x, map.pct_y) else {
-        return;
+        return None;
     };
     let cal = Calibration::gateway();
     let px = pct_x / 100.0 * cal.image_width_px as f64;
@@ -361,7 +374,37 @@ fn ingest_map_position(app: &AppHandle, map: &MapPosition) {
     let heading = map
         .heading_deg
         .and_then(overlay_core::map_yaw_to_bearing_deg);
-    pipeline::ingest_sample_with_heading(app, x_cm, y_cm, 0.0, heading);
+    Some((x_cm, y_cm, 0.0, heading))
+}
+
+fn ingest_map_position(app: &AppHandle, map: &MapPosition) {
+    let Some((x_cm, y_cm, z_cm, heading)) = map_position_cm(map) else {
+        return;
+    };
+    pipeline::ingest_sample_with_heading(app, x_cm, y_cm, z_cm, heading);
+}
+
+fn overlay_friends_to_update(friends: api::OverlayFriends) -> Vec<FriendUpdate> {
+    friends
+        .friends
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, friend)| {
+            let name = friend.name.or(friend.steam_id).or(friend.id)?;
+            Some(FriendUpdate {
+                slot: u8::try_from(index + 1).ok(),
+                name,
+                dino_name: friend.dino_name.or(friend.species),
+                online: friend.online.unwrap_or_else(|| {
+                    friend
+                        .status
+                        .as_deref()
+                        .is_some_and(|status| status.eq_ignore_ascii_case("online"))
+                }),
+                position_cm: friend.position_cm3(),
+            })
+        })
+        .collect()
 }
 
 /// Keep `use_map_position` truthful to the server's capability: no live map
@@ -500,6 +543,8 @@ pub fn restart_poller(app: &AppHandle) {
                         // cm, no pct->px->cm roundtrip, immune to markup
                         // changes. Any miss falls through to the HTML page.
                         let mut position_from_api = false;
+                        let mut update_position: Option<(f64, f64, f64)> = None;
+                        let mut update_heading: Option<f64> = None;
                         if config.use_map_position {
                             if let (Some(origin), Some(slug)) =
                                 (origin_of(&config.domain), server_slug(&config.domain))
@@ -513,6 +558,8 @@ pub fn restart_poller(app: &AppHandle) {
                                 ) {
                                     Ok(Some((x_cm, y_cm, heading_deg))) => {
                                         position_from_api = true;
+                                        update_position = Some((x_cm, y_cm, 0.0));
+                                        update_heading = heading_deg;
                                         if live_map != Some(true) {
                                             live_map = Some(true);
                                             sync_map_pref(&app, true);
@@ -552,6 +599,12 @@ pub fn restart_poller(app: &AppHandle) {
                                     }
                                     if config.use_map_position && !position_from_api {
                                         ingest_map_position(&app, &map);
+                                        if let Some((x_cm, y_cm, z_cm, heading)) =
+                                            map_position_cm(&map)
+                                        {
+                                            update_position = Some((x_cm, y_cm, z_cm));
+                                            update_heading = heading;
+                                        }
                                     }
                                     Some(map)
                                 }
@@ -570,6 +623,9 @@ pub fn restart_poller(app: &AppHandle) {
                                 fetched_at_ms: now_ms(),
                                 player: Some(player),
                                 map,
+                                position_cm: update_position,
+                                heading_deg: update_heading,
+                                friends: Vec::new(),
                                 layout_changed,
                                 live_map_available: live_map,
                                 error: None,
@@ -587,6 +643,9 @@ pub fn restart_poller(app: &AppHandle) {
                             fetched_at_ms: now_ms(),
                             player: None,
                             map: None,
+                            position_cm: None,
+                            heading_deg: None,
+                            friends: Vec::new(),
                             layout_changed,
                             live_map_available: live_map,
                             error: Some(e),
@@ -651,8 +710,15 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                     if lang_vi && !player.prime_quests.is_empty() {
                         crate::translate::translate_quests(&mut player.prime_quests, &client);
                     }
-                    let position = api::position_cm(&me);
+                    let position = api::position_cm3(&me);
                     let heading = api::position_heading_deg(&me);
+                    let friends = match api::get_friends(&client, &tok.token) {
+                        Ok(friends) => overlay_friends_to_update(friends),
+                        Err(e) => {
+                            log::debug!("islepilot friends unavailable: {e}");
+                            Vec::new()
+                        }
+                    };
                     // Position availability doubles as the live-map probe.
                     // Only trust it while the API actually has data.
                     if me.has_data {
@@ -663,11 +729,16 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                         }
                     }
                     // Never move the marker from cached (offline) data.
-                    if config.use_map_position && me.online == Some(true) {
-                        if let Some((x_cm, y_cm)) = position {
-                            pipeline::ingest_sample_with_heading(&app, x_cm, y_cm, 0.0, heading);
+                    let update_position = if config.use_map_position && me.online == Some(true) {
+                        if let Some((x_cm, y_cm, z_cm)) = position {
+                            pipeline::ingest_sample_with_heading(&app, x_cm, y_cm, z_cm, heading);
+                            Some((x_cm, y_cm, z_cm))
+                        } else {
+                            None
                         }
-                    }
+                    } else {
+                        None
+                    };
                     publish(
                         &app,
                         DinoUpdate {
@@ -675,6 +746,9 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                             fetched_at_ms: now_ms(),
                             player: Some(player),
                             map: None,
+                            position_cm: update_position,
+                            heading_deg: heading,
+                            friends,
                             layout_changed: false,
                             live_map_available: live_map,
                             error: None,
@@ -693,6 +767,9 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                             fetched_at_ms: now_ms(),
                             player: Some(api::to_player_stats(&api::OverlayMe::default())),
                             map: None,
+                            position_cm: None,
+                            heading_deg: None,
+                            friends: Vec::new(),
                             layout_changed: false,
                             live_map_available: live_map,
                             error: None,
@@ -716,6 +793,9 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                             fetched_at_ms: now_ms(),
                             player: None,
                             map: None,
+                            position_cm: None,
+                            heading_deg: None,
+                            friends: Vec::new(),
                             layout_changed: false,
                             live_map_available: live_map,
                             error: Some(e),
@@ -1326,6 +1406,18 @@ pub fn garage_action(path: &str, body: serde_json::Value) -> Result<serde_json::
     let tok = token_or_err()?;
     let client = http_client()?;
     api::garage_command(&client, &tok.token, path, body)
+}
+
+pub fn skin_state() -> Result<serde_json::Value, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::skin_state(&client, &tok.token).map_err(|e| e.to_string())
+}
+
+pub fn skin_apply(palette: serde_json::Value) -> Result<serde_json::Value, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::skin_apply(&client, &tok.token, palette)
 }
 
 /// Log out of the ACTIVE mode only: token mode drops the central token,

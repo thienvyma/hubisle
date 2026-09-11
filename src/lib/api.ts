@@ -460,11 +460,22 @@ export interface DinoMap {
   pctY: number | null;
 }
 
+export interface DinoFriend {
+  slot: number | null;
+  name: string;
+  dinoName: string | null;
+  online: boolean;
+  positionCm: [number, number, number] | null;
+}
+
 export interface DinoUpdate {
   domain: string;
   fetchedAtMs: number;
   player: DinoPlayer | null;
   map: DinoMap | null;
+  positionCm: [number, number, number] | null;
+  headingDeg: number | null;
+  friends: DinoFriend[];
   layoutChanged: boolean;
   /** Whether the server runs a live map at all; null until probed. */
   liveMapAvailable: boolean | null;

@@ -18,7 +18,7 @@ use super::{
     era::{self, EraError},
     model::{
         ConnectionStatus, ProviderFeaturePayload, ProviderId, ProviderSnapshot, ProviderState,
-        SharedPlayer, SharedStatBar,
+        SharedFriend, SharedPlayer, SharedStatBar,
     },
     registry::{detect_provider, DetectedProvider},
     session_store::ProviderSessionStore,
@@ -154,14 +154,26 @@ fn active_server_session() -> Result<(ProviderId, String, String, Option<String>
     Ok((provider, origin, cookie, server_id))
 }
 
+fn active_provider() -> Result<ProviderId, String> {
+    RUNTIME
+        .lock_safe()
+        .machine
+        .provider
+        .ok_or_else(|| "Chưa chọn server.".to_string())
+}
+
 pub fn garage_fetch() -> Result<ProviderFeaturePayload, String> {
+    let provider = active_provider()?;
+    if provider == ProviderId::IslePilot {
+        let data = serde_json::to_value(crate::islepilot::garage_fetch()?)
+            .map_err(|e| e.to_string())?;
+        return Ok(ProviderFeaturePayload { provider, data });
+    }
     let (provider, origin, cookie, _) = active_server_session()?;
     let data = match provider {
         ProviderId::Era => era::garage_fetch(&cookie)?,
         ProviderId::Titan => titan::garage_fetch(&cookie, &origin)?,
-        ProviderId::IslePilot => {
-            return Err("Garage IslePilot dùng kết nối riêng của IslePilot.".to_string())
-        }
+        ProviderId::IslePilot => unreachable!(),
     };
     Ok(ProviderFeaturePayload { provider, data })
 }
@@ -188,18 +200,43 @@ pub fn garage_action(
 }
 
 pub fn skin_state() -> Result<ProviderFeaturePayload, String> {
+    let provider = active_provider()?;
+    if provider == ProviderId::IslePilot {
+        let data = crate::islepilot::skin_state()?;
+        return Ok(ProviderFeaturePayload { provider, data });
+    }
     let (provider, origin, cookie, _) = active_server_session()?;
     let data = match provider {
         ProviderId::Era => era::skin_state(&cookie)?,
         ProviderId::Titan => titan::skin_state(&cookie, &origin)?,
-        ProviderId::IslePilot => {
-            return Err("Server IslePilot này chưa công bố API đổi skin cho overlay.".to_string())
-        }
+        ProviderId::IslePilot => unreachable!(),
     };
     Ok(ProviderFeaturePayload { provider, data })
 }
 
 pub fn skin_apply(colors: &[String], variation: f64) -> Result<ProviderFeaturePayload, String> {
+    let provider = active_provider()?;
+    if provider == ProviderId::IslePilot {
+        let state = crate::islepilot::skin_state()?;
+        let keys = state
+            .get("fields")
+            .and_then(|fields| fields.as_array())
+            .ok_or_else(|| "Skin IslePilot thiếu danh sách vùng màu.".to_string())?;
+        let mut palette = serde_json::Map::new();
+        for (index, key) in keys
+            .iter()
+            .filter_map(|field| field.get("key").and_then(|key| key.as_str()))
+            .enumerate()
+        {
+            let Some(color) = colors.get(index) else { break };
+            palette.insert(key.to_string(), serde_json::Value::String(color.clone()));
+        }
+        if palette.is_empty() {
+            return Err("Chưa có màu hợp lệ để áp dụng skin.".to_string());
+        }
+        let data = crate::islepilot::skin_apply(serde_json::Value::Object(palette))?;
+        return Ok(ProviderFeaturePayload { provider, data });
+    }
     let (provider, origin, cookie, server_id) = active_server_session()?;
     let data = match provider {
         ProviderId::Era => era::skin_apply(&cookie, colors)?,
@@ -212,9 +249,7 @@ pub fn skin_apply(colors: &[String], variation: f64) -> Result<ProviderFeaturePa
             colors,
             variation,
         )?,
-        ProviderId::IslePilot => {
-            return Err("Server IslePilot này chưa công bố API đổi skin cho overlay.".to_string())
-        }
+        ProviderId::IslePilot => unreachable!(),
     };
     Ok(ProviderFeaturePayload { provider, data })
 }
@@ -962,6 +997,18 @@ pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
         nutrition: player.nutrition,
         prime_quests: player.prime_quests.clone(),
     });
+    let friends = update
+        .friends
+        .iter()
+        .map(|friend| SharedFriend {
+            slot: friend.slot,
+            name: friend.name.clone(),
+            dino_name: friend.dino_name.clone(),
+            online: friend.online,
+            position_cm: friend.position_cm,
+            position_px: None,
+        })
+        .collect();
     let snapshot = ProviderSnapshot {
         provider: ProviderId::IslePilot,
         status,
@@ -973,9 +1020,9 @@ pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
         received_at_ms: update.fetched_at_ms as i64,
         source_timestamp_ms: None,
         player,
-        friends: Vec::new(),
-        position_cm: None,
-        heading_deg: None,
+        friends,
+        position_cm: update.position_cm,
+        heading_deg: update.heading_deg,
     };
     publish_snapshot(app, generation, snapshot, false);
 }
