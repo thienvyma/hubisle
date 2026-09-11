@@ -10,6 +10,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { error } from "@tauri-apps/plugin-log";
 import { installGlobalErrorLog } from "../lib/errlog";
+import { acceptHeading, emptyHeading, headingSourceLabel, type HeadingUpdate } from "../lib/heading";
 import { ANIMAL_GLYPHS, waypointGlyph } from "../lib/theme";
 import {
   PANEL_H,
@@ -28,7 +29,7 @@ import {
 installGlobalErrorLog("minimap");
 
 // Local minimal types — this bundle stays free of the main window's modules.
-interface PositionUpdate {
+interface PositionUpdate extends HeadingUpdate {
   xCm: number;
   yCm: number;
   px: number;
@@ -93,7 +94,7 @@ const LAYER_COLORS: Record<string, string> = {
 // Compass letters + strings per language (kept inline: no i18n bundle here).
 const STRINGS = {
   vi: {
-    letters: ["B", "Đ", "N", "T"] as [string, string, string, string],
+    letters: ["Bắc", "Đông", "Nam", "Tây"] as [string, string, string, string],
     hint: "Đang chờ vị trí từ server…",
     retrying: "Đang kết nối lại server…",
     stale: "Dữ liệu cũ · đang kết nối lại",
@@ -141,6 +142,8 @@ let providerStale = false;
 
 const state: MinimapState = {
   position: null,
+  headingDeg: null,
+  headingSourceLabel: "",
   trailPx: [],
   pois: [],
   friends: [],
@@ -172,6 +175,16 @@ const state: MinimapState = {
 let lastHeadingKey: string | null = null;
 let lastHeadingDeg: number | null = null;
 let lastHeadingSource: PositionUpdate["headingSource"] = null;
+let currentHeading = emptyHeading();
+
+function applyHeading(p: HeadingUpdate) {
+  currentHeading = acceptHeading(currentHeading, p);
+  lastHeadingKey = currentHeading.compassKey;
+  lastHeadingDeg = currentHeading.headingDeg;
+  lastHeadingSource = currentHeading.headingSource;
+  state.headingDeg = currentHeading.headingDeg;
+  refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
+}
 
 function applySettings(s: Settings) {
   settings = s;
@@ -274,6 +287,7 @@ function applyProviderSnapshot(snapshot: ProviderSnapshot | null) {
 }
 
 function refreshHeadingLabel(lang: keyof typeof STRINGS) {
+  state.headingSourceLabel = headingSourceLabel(lastHeadingSource, lang);
   const estimate = lastHeadingSource === "movement" ? "≈ " : "";
   state.headingLabel =
     lastHeadingKey && lastHeadingDeg !== null
@@ -505,10 +519,7 @@ async function reloadMapSource() {
     const p = await invoke<PositionUpdate | null>("get_current_position");
     if (p) {
       state.position = { xCm: p.xCm, yCm: p.yCm, px: p.px, py: p.py, headingDeg: p.headingDeg };
-      lastHeadingKey = p.compassKey;
-      lastHeadingDeg = p.headingDeg;
-      lastHeadingSource = p.headingSource;
-      refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
+      applyHeading(p);
     }
     const trail = await invoke<{ segmentsPx: [number, number][][] }>("get_current_trail");
     state.trailPx = trail.segmentsPx;
@@ -542,10 +553,7 @@ async function init() {
       py: p.py,
       headingDeg: p.headingDeg,
     };
-    lastHeadingKey = p.compassKey;
-    lastHeadingDeg = p.headingDeg;
-    lastHeadingSource = p.headingSource;
-    refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
+    applyHeading(p);
     draw();
     // Limit the waypoint IPC calculation while Titan is sending 20 position
     // samples per second. The player marker and camera arrow still repaint on
@@ -555,11 +563,11 @@ async function init() {
   await listen("position://cleared", () => {
     state.position = null;
     state.nearestWaypoint = null;
-    lastHeadingKey = null;
-    lastHeadingDeg = null;
-    lastHeadingSource = null;
-    refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
     draw();
+  });
+  await listen<HeadingUpdate>("heading://update", (e) => {
+    applyHeading(e.payload);
+    draw(); // No waypoint IPC or position/trail mutation on camera updates.
   });
   await listen("waypoints://changed", () => void refreshWaypoints());
   await listen<{ segmentsPx: [number, number][][] }>("trail://changed", (e) => {
@@ -598,10 +606,7 @@ async function init() {
     const p = await invoke<PositionUpdate | null>("get_current_position");
     if (p) {
       state.position = { xCm: p.xCm, yCm: p.yCm, px: p.px, py: p.py, headingDeg: p.headingDeg };
-      lastHeadingKey = p.compassKey;
-      lastHeadingDeg = p.headingDeg;
-      lastHeadingSource = p.headingSource;
-      refreshHeadingLabel(settings.language === "en" ? "en" : "vi");
+      applyHeading(p);
     }
     const trail = await invoke<{ segmentsPx: [number, number][][] }>("get_current_trail");
     state.trailPx = trail.segmentsPx;
@@ -610,6 +615,7 @@ async function init() {
   }
 
   // First paint before the window is shown (Rust shows it on this signal).
+  applyHeading(await invoke<HeadingUpdate>("get_current_heading"));
   draw();
   await emit("minimap://ready", {});
 

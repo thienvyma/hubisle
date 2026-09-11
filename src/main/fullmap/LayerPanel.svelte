@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { headingSourceLabel } from "$lib/heading";
   // Right-side panel: layer toggles (persisted), position status, and the
   // waypoint list with rename/delete — the CRUD UI the old app never had.
   import type { NearestWaypoint, PositionUpdate, Waypoint, WaypointPx } from "$lib/api";
@@ -282,6 +283,7 @@
           {compassLabel($locale, position.compassKey)}
           {Math.round(position.headingDeg)}°
         </div>
+        <div class="text-xs">{headingSourceLabel(position.headingSource, $locale)}</div>
       {:else}
         <div>{$t("heading.unknown")}</div>
       {/if}

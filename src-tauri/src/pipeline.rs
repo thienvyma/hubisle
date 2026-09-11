@@ -8,8 +8,8 @@ use overlay_core::{bearing_to_compass_key, world_to_pixel, Calibration};
 use tauri::{AppHandle, Manager};
 
 use crate::events::{
-    emit_all, PositionUpdate, TrailPayload, POSITION_CLEARED, POSITION_UPDATE, SETTINGS_CHANGED,
-    TRAIL_CHANGED,
+    emit_all, HeadingUpdate, PositionUpdate, TrailPayload, HEADING_UPDATE, POSITION_CLEARED,
+    POSITION_UPDATE, SETTINGS_CHANGED, TRAIL_CHANGED,
 };
 use crate::state::{AppState, LockExt};
 
@@ -34,14 +34,15 @@ pub fn ingest_sample_with_heading(
     // briefly takes the settings lock).
     let cal = state.active_calibration();
 
-    let (outcome, heading, trail) = {
+    let (outcome, heading, heading_observed_at_ms, trail) = {
         let mut tracker = state.tracker.lock_safe();
         let outcome = tracker.add_sample_with_heading(x, y, z, heading_deg, now_s);
-        let heading = tracker.heading_with_source(now_s);
+        let observed_at = state.now_s();
+        let heading = tracker.heading_with_source(observed_at);
         let trail = outcome
             .trail_changed
             .then(|| trail_payload(&tracker.segments, cal));
-        (outcome, heading, trail)
+        (outcome, heading, observed_at * 1000.0, trail)
     };
 
     // Persist AFTER releasing no locks out of order: trail writes follow the
@@ -63,6 +64,7 @@ pub fn ingest_sample_with_heading(
         px,
         py,
         heading_deg: heading.map(|(bearing, _)| bearing),
+        heading_observed_at_ms,
         heading_source: heading.map(|(_, source)| source.key()),
         compass_key: heading.map(|(bearing, _)| bearing_to_compass_key(bearing)),
         in_bounds: overlay_core::is_in_bounds(px, py, cal),
@@ -77,18 +79,62 @@ pub fn ingest_sample_with_heading(
 /// the server-owned position or trail. The installed The Isle Shipping build
 /// does not currently expose such an adapter; this is the isolated boundary a
 /// future official plugin/telemetry source can call.
-pub fn ingest_local_heading(app: &AppHandle, heading_deg: f64) {
+/// `captured_at_s` must use AppState's monotonic clock, NOT receive time for a
+/// cached frame; a WGC adapter must translate its QPC timestamp first.
+pub fn ingest_local_heading(app: &AppHandle, heading_deg: f64, captured_at_s: f64) {
     let state = app.state::<AppState>();
     let now_s = state.now_s();
+    if !captured_at_s.is_finite()
+        || !(0.0..=overlay_core::tracker::LOCAL_HEADING_MAX_AGE_S)
+            .contains(&(now_s - captured_at_s))
+    {
+        return;
+    }
     {
         state
             .tracker
             .lock_safe()
-            .update_local_heading(heading_deg, now_s);
+            .update_local_heading(heading_deg, captured_at_s);
     }
-    if let Some(payload) = current_payload(&state) {
-        emit_all(app, POSITION_UPDATE, payload);
+    emit_all(app, HEADING_UPDATE, current_heading(&state));
+}
+
+/// A hidden or occluded webview cannot be trusted to run an expiry timer.
+/// Native ticks publish changes (including Some -> None) even if providers
+/// are completely silent. No IPC is sent while the selected value is stable.
+pub fn spawn_heading_watchdog(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut previous = None;
+        loop {
+            let payload = current_heading(&app.state::<AppState>());
+            let value = (payload.heading_deg, payload.heading_source);
+            if previous != Some(value) {
+                previous = Some(value);
+                emit_all(&app, HEADING_UPDATE, payload);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    });
+}
+
+pub fn current_heading(state: &AppState) -> HeadingUpdate {
+    let tracker = state.tracker.lock_safe();
+    let now_s = state.now_s();
+    let heading = tracker.heading_with_source(now_s);
+    HeadingUpdate {
+        heading_deg: heading.map(|(bearing, _)| bearing),
+        heading_source: heading.map(|(_, source)| source.key()),
+        compass_key: heading.map(|(bearing, _)| bearing_to_compass_key(bearing)),
+        heading_observed_at_ms: now_s * 1000.0,
     }
+}
+
+/// A capture adapter must call this on loss of HUD/focus, not keep restamping
+/// its cached angle. Coordinates and trail remain untouched.
+pub fn clear_local_heading(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    state.tracker.lock_safe().clear_local_heading();
+    emit_all(app, HEADING_UPDATE, current_heading(&state));
 }
 
 /// Remove the active marker and heading while preserving completed trail
@@ -120,6 +166,7 @@ pub fn clear_position(app: &AppHandle) {
         }
     }
     emit_all(app, POSITION_CLEARED, ());
+    emit_all(app, HEADING_UPDATE, current_heading(&state));
     emit_all(app, TRAIL_CHANGED, trail);
 }
 
@@ -128,11 +175,15 @@ pub fn clear_position(app: &AppHandle) {
 /// freshly (re)loaded webview paints at once instead of waiting for the
 /// player's next manual coordinate copy.
 pub fn current_payload(state: &AppState) -> Option<PositionUpdate> {
-    let now_s = state.now_s();
     let cal = state.active_calibration();
-    let (current, heading) = {
+    let (current, heading, heading_observed_at_ms) = {
         let tracker = state.tracker.lock_safe();
-        (tracker.current, tracker.heading_with_source(now_s))
+        let now_s = state.now_s();
+        (
+            tracker.current,
+            tracker.heading_with_source(now_s),
+            now_s * 1000.0,
+        )
     };
     let cur = current?;
     let (px, py) = world_to_pixel(cur.x, cur.y, cal);
@@ -143,6 +194,7 @@ pub fn current_payload(state: &AppState) -> Option<PositionUpdate> {
         px,
         py,
         heading_deg: heading.map(|(bearing, _)| bearing),
+        heading_observed_at_ms,
         heading_source: heading.map(|(_, source)| source.key()),
         compass_key: heading.map(|(bearing, _)| bearing_to_compass_key(bearing)),
         in_bounds: overlay_core::is_in_bounds(px, py, cal),
@@ -163,6 +215,7 @@ pub fn resync(app: &AppHandle) {
     if let Some(payload) = current_payload(&state) {
         emit_all(app, POSITION_UPDATE, payload);
     }
+    emit_all(app, HEADING_UPDATE, current_heading(&state));
     emit_all(app, TRAIL_CHANGED, trail);
     {
         let settings = state.settings.lock_safe().clone();

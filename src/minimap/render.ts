@@ -50,6 +50,9 @@ export interface CombatAlert {
 }
 
 export interface MinimapState {
+  /** Independent of the last server coordinate; can be known without one. */
+  headingDeg: number | null;
+  headingSourceLabel: string;
   /** Player position (cm + basemap px) and heading, or null before first sample. */
   position: { xCm: number; yCm: number; px: number; py: number; headingDeg: number | null } | null;
   /** Trail segments in basemap px. */
@@ -167,7 +170,15 @@ export function render(canvas: HTMLCanvasElement, state: MinimapState): void {
     ctx.arc(c, c, radius, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(3, 7, 17, 0.91)";
     ctx.fill();
-    drawHint(ctx, c, radius, state.hintText);
+    drawRadarFrame(ctx, c, radius, state.opacity);
+    drawCompass(ctx, state, c, radius);
+    if (state.headingDeg !== null) {
+      drawPlayer(ctx, state, c);
+      drawHeadingPill(ctx, state, c, radius);
+      drawHint(ctx, c, radius, state.hintText, -35);
+    } else {
+      drawHint(ctx, c, radius, state.hintText);
+    }
     return;
   }
 
@@ -465,7 +476,7 @@ function drawCompass(
   c: number,
   radius: number,
 ): void {
-  // Four letters around the disc. No ring, no ticks: each letter gets a
+  // Four cardinal labels around the disc. Each label gets a
   // 1 px offset shadow instead — enough to separate it from bright terrain
   // without drawing any outline.
   ctx.font = "bold 13px 'Segoe UI', sans-serif";
@@ -478,6 +489,8 @@ function drawCompass(
     const rad = ((angles[i] - 90) * Math.PI) / 180;
     const x = c + labelR * Math.cos(rad);
     const y = c + labelR * Math.sin(rad);
+    // Full Vietnamese names must stay inside the canvas at the side edges.
+    ctx.textAlign = i === 1 ? "right" : i === 3 ? "left" : "center";
     ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
     ctx.fillText(state.compassLetters[i], x + 1, y + 1);
     // North in the accent colour so a glance finds it.
@@ -488,7 +501,7 @@ function drawCompass(
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: MinimapState, c: number): void {
-  const heading = state.position!.headingDeg;
+  const heading = state.headingDeg;
 
   ctx.beginPath();
   ctx.arc(c, c, 13, 0, Math.PI * 2);
@@ -557,6 +570,13 @@ function drawHeadingPill(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, c, y + h / 2 + 0.5);
+  ctx.font = "500 10px 'Segoe UI', sans-serif";
+  const sourceY = y + h + 10;
+  const sourceW = ctx.measureText(state.headingSourceLabel).width + 12;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.67)";
+  ctx.fillRect(c - sourceW / 2, sourceY - 7, sourceW, 14);
+  ctx.fillStyle = COLORS.textMuted;
+  ctx.fillText(state.headingSourceLabel, c, sourceY);
   ctx.globalAlpha = 1;
 }
 
@@ -753,6 +773,7 @@ function drawHint(
   c: number,
   radius: number,
   hint: string,
+  offsetY = 0,
 ): void {
   ctx.fillStyle = COLORS.textMuted;
   ctx.font = "12px 'Segoe UI', sans-serif";
@@ -774,6 +795,6 @@ function drawHint(
   }
   if (line) lines.push(line);
   const lineH = 16;
-  const y0 = c - ((lines.length - 1) * lineH) / 2;
+  const y0 = c + offsetY - ((lines.length - 1) * lineH) / 2;
   lines.forEach((l, i) => ctx.fillText(l, c, y0 + i * lineH));
 }

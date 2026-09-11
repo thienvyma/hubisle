@@ -20,6 +20,8 @@ use crate::coords::{bearing_deg, distance_m};
 pub const HEADING_MIN_DISTANCE_M: f64 = 1.0;
 pub const HEADING_MAX_AGE_S: f64 = 600.0; // 10 minutes
 pub const SOURCE_HEADING_MAX_AGE_S: f64 = 15.0;
+/// A local frame stream needs a much shorter deadline than a polled server.
+pub const LOCAL_HEADING_MAX_AGE_S: f64 = 0.25;
 
 /// Re-copying the same spot only refreshes the timestamp below this distance.
 pub const REFRESH_EPSILON_M: f64 = 0.01;
@@ -222,9 +224,16 @@ impl PositionTracker {
     /// touch `current`, `previous`, or the trail: position remains owned by the
     /// authenticated server provider.
     pub fn update_local_heading(&mut self, heading_deg: f64, now_s: f64) {
-        if heading_deg.is_finite() {
+        if heading_deg.is_finite()
+            && now_s.is_finite()
+            && self.local_heading.is_none_or(|(_, at_s)| now_s >= at_s)
+        {
             self.local_heading = Some((heading_deg.rem_euclid(360.0), now_s));
         }
+    }
+
+    pub fn clear_local_heading(&mut self) {
+        self.local_heading = None;
     }
 
     pub fn clear_trail(&mut self) {
@@ -254,13 +263,16 @@ impl PositionTracker {
     /// coordinates. Exact sources expire so a disconnected adapter cannot
     /// leave an authoritative-looking arrow frozen forever.
     pub fn heading_with_source(&self, now_s: f64) -> Option<(f64, HeadingSource)> {
+        if !now_s.is_finite() {
+            return None;
+        }
         if let Some((heading, at_s)) = self.local_heading {
-            if now_s - at_s <= SOURCE_HEADING_MAX_AGE_S {
+            if (0.0..=LOCAL_HEADING_MAX_AGE_S).contains(&(now_s - at_s)) {
                 return Some((heading, HeadingSource::LocalCamera));
             }
         }
         if let Some((heading, at_s)) = self.provider_heading {
-            if now_s - at_s <= SOURCE_HEADING_MAX_AGE_S {
+            if (0.0..=SOURCE_HEADING_MAX_AGE_S).contains(&(now_s - at_s)) {
                 return Some((heading, HeadingSource::ProviderCamera));
             }
         }

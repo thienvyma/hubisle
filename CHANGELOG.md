@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+- Tách sự kiện góc quay khỏi tọa độ; góc cục bộ không còn tạo sự kiện vị trí hoặc gọi tính waypoint theo mỗi frame.
+- Chủ động phát trạng thái hết hạn góc từ luồng Rust kể cả khi server im lặng; ngăn phản hồi cũ khôi phục góc đã hết hạn.
+- Phân biệt góc server với hướng di chuyển ước lượng; hiển thị đầy đủ Bắc/Đông/Nam/Tây trên minimap, kể cả khi chưa có vị trí.
+- Thêm kiểm thử luồng góc và pipeline CI Windows. Bộ đọc hình ảnh la bàn Q vẫn chưa tích hợp; chưa có camera offline realtime trong bản này.
+
 Mọi thay đổi đáng chú ý của Isle Pulse Overlay được ghi tại đây, theo định dạng
 [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và đánh số phiên bản
 [SemVer](https://semver.org/lang/vi/). Mã trong ngoặc là commit tương ứng.

@@ -79,6 +79,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::get_settings,
             commands::patch_settings,
             commands::get_current_position,
+            commands::get_current_heading,
             commands::list_waypoints,
             commands::list_waypoints_px,
             commands::add_waypoint_at_pixel,
@@ -206,6 +207,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             minimap::create(app.handle())?;
             tray::create(app.handle())?;
             clipboard::spawn(app.handle().clone());
+            pipeline::spawn_heading_watchdog(app.handle().clone());
             webview_mem::spawn_watchdog(app.handle().clone());
             {
                 let state = app.state::<AppState>();

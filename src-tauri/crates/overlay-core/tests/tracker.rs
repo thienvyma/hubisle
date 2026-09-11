@@ -4,7 +4,8 @@
 
 use overlay_core::calibration::Calibration;
 use overlay_core::tracker::{
-    HeadingSource, PositionTracker, TrailConfig, HEADING_MAX_AGE_S, SOURCE_HEADING_MAX_AGE_S,
+    HeadingSource, PositionTracker, TrailConfig, HEADING_MAX_AGE_S, LOCAL_HEADING_MAX_AGE_S,
+    SOURCE_HEADING_MAX_AGE_S,
 };
 
 fn tracker() -> PositionTracker {
@@ -175,6 +176,55 @@ fn local_camera_wins_while_fresh_then_falls_back_to_provider_camera() {
         t.heading_with_source(10.0 + SOURCE_HEADING_MAX_AGE_S + 1.0),
         Some((120.0, HeadingSource::ProviderCamera))
     );
+}
+
+#[test]
+fn local_heading_expires_independently_without_another_position_packet() {
+    let mut t = tracker();
+    t.add_sample_with_heading(1000.0, 2000.0, 0.0, Some(90.0), 5.0);
+    let position = t.current;
+    let trail = t.segments.clone();
+    t.update_local_heading(180.0, 5.0);
+    assert_eq!(
+        t.heading_with_source(5.0 + LOCAL_HEADING_MAX_AGE_S),
+        Some((180.0, HeadingSource::LocalCamera))
+    );
+    assert_eq!(
+        t.heading_with_source(5.0 + LOCAL_HEADING_MAX_AGE_S + 0.001),
+        Some((90.0, HeadingSource::ProviderCamera))
+    );
+    assert_eq!(
+        t.heading_with_source(5.0 + SOURCE_HEADING_MAX_AGE_S + 0.001),
+        None
+    );
+    assert_eq!(t.current, position);
+    assert_eq!(t.segments, trail);
+}
+
+#[test]
+fn local_heading_can_exist_before_position_and_can_be_cleared_without_it() {
+    let mut t = tracker();
+    t.update_local_heading(270.0, 1.0);
+    assert_eq!(
+        t.heading_with_source(1.05),
+        Some((270.0, HeadingSource::LocalCamera))
+    );
+    assert!(t.current.is_none());
+    assert!(t.segments.is_empty());
+    t.clear_local_heading();
+    assert_eq!(t.heading_with_source(1.06), None);
+}
+
+#[test]
+fn delayed_or_invalid_local_frames_cannot_replace_a_newer_bearing() {
+    let mut t = tracker();
+    t.update_local_heading(90.0, 2.0);
+    t.update_local_heading(180.0, 1.0);
+    t.update_local_heading(f64::NAN, 2.05);
+    t.update_local_heading(180.0, f64::NAN);
+    assert_eq!(t.heading(2.1), Some(90.0));
+    assert_eq!(t.heading(1.9), None);
+    assert_eq!(t.heading(f64::NAN), None);
 }
 
 #[test]

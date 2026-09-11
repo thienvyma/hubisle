@@ -7,6 +7,7 @@ use tauri::{AppHandle, Emitter};
 
 pub const POSITION_UPDATE: &str = "position://update";
 pub const POSITION_CLEARED: &str = "position://cleared";
+pub const HEADING_UPDATE: &str = "heading://update";
 pub const TRAIL_CHANGED: &str = "trail://changed";
 pub const SETTINGS_CHANGED: &str = "settings://changed";
 
@@ -21,11 +22,23 @@ pub struct PositionUpdate {
     pub px: f64,
     pub py: f64,
     pub heading_deg: Option<f64>,
+    /// Monotonic observation time, used to reject delayed heading events.
+    pub heading_observed_at_ms: f64,
     /// "local-camera", "provider-camera", or movement-derived estimate.
     pub heading_source: Option<&'static str>,
     /// Compass key ("dir.N".."dir.NW") for the heading, when known.
     pub compass_key: Option<&'static str>,
     pub in_bounds: bool,
+}
+
+/// No position fields: camera-only updates never pan maps or refresh trails.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadingUpdate {
+    pub heading_deg: Option<f64>,
+    pub heading_source: Option<&'static str>,
+    pub compass_key: Option<&'static str>,
+    pub heading_observed_at_ms: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]

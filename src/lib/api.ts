@@ -92,7 +92,10 @@ export interface CombatEvent {
   serverName: string | null;
 }
 
-export interface PositionUpdate {
+export type { HeadingUpdate } from "./heading";
+import type { HeadingUpdate } from "./heading";
+
+export interface PositionUpdate extends HeadingUpdate {
   xCm: number;
   yCm: number;
   zCm: number;
@@ -158,6 +161,11 @@ export const onPositionUpdate = (
 
 export const onPositionCleared = (cb: () => void): Promise<UnlistenFn> =>
   listen("position://cleared", () => cb());
+
+export const onHeadingUpdate = (cb: (h: HeadingUpdate) => void): Promise<UnlistenFn> =>
+  listen<HeadingUpdate>("heading://update", (e) => cb(e.payload));
+
+export const getCurrentHeading = () => invoke<HeadingUpdate>("get_current_heading");
 
 export const onTrailChanged = (
   cb: (t: TrailPayload) => void,

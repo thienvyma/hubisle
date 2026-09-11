@@ -6,6 +6,7 @@
   // whole component is remounted by App.svelte ({#key}) — every layer's px
   // changes together with the imageOverlay.
   import { onDestroy, onMount, untrack } from "svelte";
+  import { acceptHeading, emptyHeading, type HeadingUpdate } from "$lib/heading";
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
   import {
@@ -31,6 +32,8 @@
     onFetchFinished,
     onWaypointsChanged,
     onPositionUpdate,
+    onHeadingUpdate,
+    getCurrentHeading,
     onPositionCleared,
     onProviderSnapshot,
     onProviderState,
@@ -111,6 +114,14 @@
 
   let settings = $state<Settings | null>(null);
   let position = $state<PositionUpdate | null>(null);
+  let currentHeading = emptyHeading();
+
+  function applyHeading(h: HeadingUpdate) {
+    currentHeading = acceptHeading(currentHeading, h);
+    if (position) position = { ...position, ...currentHeading };
+    if (parkedPosition) parkedPosition = { ...parkedPosition, ...currentHeading };
+    if (visible && position) rotatePlayer(position.headingDeg);
+  }
   let dataStale = $state(false);
   let nearest = $state<NearestWaypoint | null>(null);
   // The newest sample/trail that arrived while the tab was hidden. Nothing is
@@ -172,11 +183,15 @@
     } else {
       playerMarker.setLatLng(ll);
     }
+    rotatePlayer(p.headingDeg);
+  }
+
+  function rotatePlayer(headingDeg: number | null) {
     if (playerArrowEl) {
       // Rotate the INNER element: Leaflet owns the icon's own transform for
       // positioning. Compass 0 = north = up, clockwise — CSS rotate matches.
-      playerArrowEl.classList.toggle("no-heading", p.headingDeg === null);
-      playerArrowEl.style.transform = p.headingDeg !== null ? `rotate(${p.headingDeg}deg)` : "";
+      playerArrowEl.classList.toggle("no-heading", headingDeg === null);
+      playerArrowEl.style.transform = headingDeg !== null ? `rotate(${headingDeg}deg)` : "";
     }
   }
 
@@ -647,6 +662,8 @@
   }
 
   function applyPosition(p: PositionUpdate, animate = true) {
+    currentHeading = acceptHeading(currentHeading, p);
+    p = { ...p, ...currentHeading };
     position = p;
     if (!map) return;
     upsertPlayer(p);
@@ -683,6 +700,8 @@
           if (!destroyed) nearest = n;
         });
       }
+      // A heading can expire while hidden without any parked position packet.
+      if (position) rotatePlayer(position.headingDeg);
     });
   });
 
@@ -759,6 +778,8 @@
 
       await bag.add(
         onPositionUpdate(async (p) => {
+          currentHeading = acceptHeading(currentHeading, p);
+          p = { ...p, ...currentHeading };
           if (!visible) {
             parkedPosition = p;
             return;
@@ -767,6 +788,7 @@
           nearest = await getNearestWaypoint();
         }),
       );
+      await bag.add(onHeadingUpdate(applyHeading));
       await bag.add(
         onPositionCleared(() => {
           position = null;
@@ -829,11 +851,13 @@
       // an F5 the marker would wait for the player's next manual copy.
       const p = await getCurrentPosition();
       if (p && map) {
-        position = p;
-        upsertPlayer(p);
+        applyPosition(p, false);
         map.panTo(toLatLng(p.px, p.py));
         nearest = await getNearestWaypoint();
       }
+      const initialHeading = await getCurrentHeading();
+      if (destroyed || !map) return;
+      applyHeading(initialHeading);
     })();
 
     return () => bag.dispose();

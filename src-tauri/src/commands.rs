@@ -79,6 +79,11 @@ pub fn get_current_position(state: State<AppState>) -> Option<PositionUpdate> {
     pipeline::current_payload(&state)
 }
 
+#[tauri::command]
+pub fn get_current_heading(state: State<AppState>) -> crate::events::HeadingUpdate {
+    pipeline::current_heading(&state)
+}
+
 /// Settings-screen probe: is this key combination valid AND currently free?
 /// Registering on a scratch id and immediately unregistering answers both.
 #[tauri::command]

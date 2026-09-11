@@ -44,6 +44,9 @@ jobs:
       - name: Test updater
         run: npm run test:updater
 
+      - name: Test heading delivery and compass math
+        run: npm run test:heading
+
       - name: Check frontend
         run: npm run check
 

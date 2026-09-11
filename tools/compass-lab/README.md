@@ -1,5 +1,8 @@
 # Nghiên cứu hướng camera từ la bàn Q
 
+Cập nhật: [phân tích sâu và các sửa đổi trong ứng dụng](runtime-research.md).
+Bảng code bên dưới mô tả nền 2.1.1 trước các sửa đổi Unreleased.
+
 Ngày kiểm tra: 11/09/2026. Code ứng dụng được đối chiếu tại `e23cd3b` (2.1.1).
 
 Đây là bộ thử phép tính offline, **chưa phải tính năng đọc màn hình của hub**.

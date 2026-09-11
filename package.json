@@ -15,6 +15,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:updater": "node scripts/check-updater.mjs",
     "test:updater": "node --experimental-strip-types --test scripts/update*.test.mjs",
+    "test:heading": "node --experimental-strip-types --test scripts/heading.test.mjs tools/compass-lab/solver.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
