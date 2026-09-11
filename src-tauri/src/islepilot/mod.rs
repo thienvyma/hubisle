@@ -390,18 +390,20 @@ fn overlay_friends_to_update(friends: api::OverlayFriends) -> Vec<FriendUpdate> 
         .into_iter()
         .enumerate()
         .filter_map(|(index, friend)| {
+            let position_cm = friend.position_cm3();
+            let online = friend.online.unwrap_or_else(|| {
+                friend
+                    .status
+                    .as_deref()
+                    .is_some_and(|status| status.eq_ignore_ascii_case("online"))
+            });
             let name = friend.name.or(friend.steam_id).or(friend.id)?;
             Some(FriendUpdate {
                 slot: u8::try_from(index + 1).ok(),
                 name,
                 dino_name: friend.dino_name.or(friend.species),
-                online: friend.online.unwrap_or_else(|| {
-                    friend
-                        .status
-                        .as_deref()
-                        .is_some_and(|status| status.eq_ignore_ascii_case("online"))
-                }),
-                position_cm: friend.position_cm3(),
+                online,
+                position_cm,
             })
         })
         .collect()
