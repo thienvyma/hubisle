@@ -111,6 +111,7 @@
 
   let settings = $state<Settings | null>(null);
   let position = $state<PositionUpdate | null>(null);
+  let dataStale = $state(false);
   let nearest = $state<NearestWaypoint | null>(null);
   // The newest sample/trail that arrived while the tab was hidden. Nothing is
   // painted for them until the tab shows again: keeping the map alive must
@@ -741,6 +742,7 @@
       drawTrail(currentTrail, await getCurrentTrail(), false);
       await refreshWaypoints();
       applyProviderFriends(await providerSnapshot());
+      dataStale = (await providerState()).dataStale;
       // The helpers above all guard `map` themselves; the handlers below do
       // not, and this is the point the field crash resumed at.
       if (destroyed || !map) return;
@@ -779,9 +781,11 @@
       await bag.add(onProviderSnapshot((snapshot) => applyProviderFriends(snapshot)));
       await bag.add(
         onProviderState((provider) => {
+          dataStale = provider.dataStale;
           if (
             provider.provider === null ||
-            ["login-required", "logged-out", "unconfigured", "unsupported", "temporary-error"].includes(
+            (provider.status === "temporary-error" && !provider.dataStale) ||
+            ["login-required", "logged-out", "unconfigured", "unsupported"].includes(
               provider.status,
             )
           ) {
@@ -860,6 +864,11 @@
 <div class="flex h-full min-h-0">
   <div class="relative min-w-0 flex-1">
     <div class="absolute inset-0" bind:this={mapEl} style="background: var(--color-bg)"></div>
+    {#if dataStale}
+      <div role="status" class="pointer-events-none absolute left-14 right-3 top-3 z-[1000] rounded border px-3 py-2 text-xs" style="background: #241e11; color: #ffd277; border-color: #65472a">
+        {$t("provider.stale")} {$t("provider.retrying")}…
+      </div>
+    {/if}
     {#if edgeArrow}
       <button
         class="edge-arrow"

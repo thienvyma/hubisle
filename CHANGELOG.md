@@ -4,6 +4,16 @@ Mọi thay đổi đáng chú ý của Isle Pulse Overlay được ghi tại đ�
 [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và đánh số phiên bản
 [SemVer](https://semver.org/lang/vi/). Mã trong ngoặc là commit tương ứng.
 
+## [2.1.1] — 2026-09-11
+
+- Đọc trường góc nhìn `viewYaw` mới của Era; ưu tiên góc nhìn này khi có giá trị hợp lệ. Khi server không gửi góc nhìn, hub vẫn dùng hướng suy từ di chuyển (ký hiệu ≈).
+- Tăng thời gian chờ phản hồi Era, tái sử dụng kết nối HTTP và điều chỉnh nhịp tải theo trang bản đồ chính thức. Khi server lỗi hoặc giới hạn yêu cầu, hub giãn thời gian thử lại.
+- Giữ dữ liệu gần nhất trong gián đoạn ngắn, kèm cảnh báo dữ liệu cũ trên bản đồ, minimap và tab Dino. Lỗi kéo dài, đăng xuất hoặc nhân vật offline vẫn xóa dữ liệu đang theo dõi.
+- Hiển thị rõ trạng thái Prime chưa được Era cung cấp thay vì làm biến mất mục Prime. Phản hồi được kiểm tra đang trả `prime: null`; hub không biến dữ liệu thiếu thành tiến độ 0/10.
+- Đồng bộ nội dung thông báo cập nhật trong app với ghi chú của đúng phiên bản trên GitHub.
+
+Góc nhìn Era vẫn phụ thuộc nhịp dữ liệu do server cung cấp, không phải luồng camera từng khung hình. Bản này chưa được xác nhận trực tiếp trong game khi respawn/Alt-Tab.
+
 ## [2.1.0] — 2026-09-10
 
 - Bổ sung làm mới minimap từ luồng Windows khi overlay đang hiển thị, khôi

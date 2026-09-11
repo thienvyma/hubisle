@@ -23,7 +23,7 @@
   let changing = $state(false);
 
   const player = $derived(
-    connection?.status === "temporary-error" ? null : (snapshot?.player ?? null),
+    connection?.status === "temporary-error" && !connection.dataStale ? null : (snapshot?.player ?? null),
   );
   const online = $derived(connection?.status === "authenticated-online");
   const primeDone = $derived(
@@ -95,6 +95,7 @@
   {#if connection?.status === "temporary-error"}
     <section class="rounded border p-3 text-sm" style="border-color: #65472a; color: #ffd277">
       {$t("provider.temporary")}{#if connection.message} · {connection.message}{/if}
+      {#if connection.dataStale}<p class="mt-1">{$t("provider.stale")}</p>{/if}
     </section>
   {/if}
 
@@ -136,7 +137,7 @@
           ? "background: #0d3028; color: #45f5a2"
           : "background: #352814; color: #ffd277"}
       >
-        {online ? $t("dino.online") : $t("dino.offline")}
+        {connection?.status === "temporary-error" ? $t("provider.retrying") : online ? $t("dino.online") : $t("dino.offline")}
       </span>
       {#if player?.female !== null && player?.female !== undefined}
         <span class="text-xs" style="color: var(--color-muted)">
@@ -145,7 +146,7 @@
       {/if}
       {#if snapshot}
         <span class="ml-auto text-xs" style="color: var(--color-muted)">
-          {$t("dino.updated", { time: timeStr(snapshot.receivedAtMs) })}
+          {$t("dino.updated", { time: timeStr(snapshot.sourceTimestampMs ?? snapshot.receivedAtMs) })}
         </span>
       {/if}
     </div>
@@ -218,6 +219,14 @@
             {/each}
           </div>
         </div>
+      {:else if connection?.provider === "era"}
+        <div class="mt-4 border-t pt-3" style="border-color: var(--color-border)">
+          <div class="text-sm font-semibold" style="color: var(--color-accent)">{$t("dino.prime")}</div>
+          <p class="mt-2 text-sm" style="color: var(--color-muted)">{$t("dino.era_prime_unavailable")}</p>
+        </div>
+      {/if}
+      {#if connection?.provider === "era"}
+        <p class="mt-4 text-xs" style="color: var(--color-muted)">{$t("dino.era_heading_cadence")}</p>
       {/if}
 
       {#if !player.health && !player.stamina && !player.hunger && !player.thirst}

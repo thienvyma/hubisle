@@ -128,6 +128,8 @@ pub struct ProviderState {
     pub status: ConnectionStatus,
     pub message: Option<String>,
     pub last_received_at_ms: Option<i64>,
+    /// Retained Era snapshot during a short transport outage; never live data.
+    pub data_stale: bool,
 }
 
 #[derive(Serialize, Debug, Clone)]

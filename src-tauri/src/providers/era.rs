@@ -1,4 +1,4 @@
-use std::{fmt, time::Duration};
+use std::{fmt, sync::LazyLock, time::Duration};
 
 use reqwest::{
     blocking::{Client, RequestBuilder},
@@ -223,10 +223,9 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
             (Some(x), Some(y), Some(z)) => Some((y, x, z)),
             _ => None,
         };
-        // Current Era responses usually expose location only. Accept the
-        // common camera/yaw fields when the bridge provides them so a server
-        // update can enable exact view direction without another app update.
-        let heading = ["cam", "cameraYaw", "camera_yaw", "yaw"]
+        // Era now exposes viewYaw; older bridge versions use camera/yaw aliases.
+        // Missing/null view data must keep the movement fallback available.
+        let heading = ["viewYaw", "cam", "cameraYaw", "camera_yaw", "yaw"]
             .into_iter()
             .find_map(|key| number(source.get(key)))
             .or_else(|| {
@@ -276,12 +275,32 @@ pub fn normalize(value: &Value, received_at_ms: i64) -> Result<ProviderSnapshot,
     })
 }
 
-fn client() -> Result<Client, EraError> {
+static CLIENT: LazyLock<Result<Client, EraError>> = LazyLock::new(|| {
     Client::builder()
         .redirect(Policy::none())
-        .timeout(Duration::from_secs(15))
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(35))
+        .user_agent(concat!("Isle-Pulse-Overlay/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| EraError::Temporary)
+});
+
+fn client() -> Result<Client, EraError> {
+    CLIENT.clone()
+}
+
+/// Match the official map's 12s refresh cadence and back off during outages.
+pub fn retry_delay_secs(failures: u32) -> u64 {
+    match failures {
+        0 => 12,
+        1 => 20,
+        2 => 40,
+        _ => 60,
+    }
+}
+
+pub fn may_retain_snapshot(last_received_at_ms: Option<i64>, now_ms: i64) -> bool {
+    last_received_at_ms.is_some_and(|last| (0..=90_000).contains(&now_ms.saturating_sub(last)))
 }
 
 fn poll_value(cookie: &str) -> Result<(Value, i64), EraError> {
@@ -290,13 +309,22 @@ fn poll_value(cookie: &str) -> Result<(Value, i64), EraError> {
         .get(ENDPOINT)
         .header(ACCEPT, "application/json")
         .header(COOKIE, cookie)
+        .header(ORIGIN, "https://eragamingvn.net")
+        .header(REFERER, "https://eragamingvn.net/live-map")
+        .header(reqwest::header::CACHE_CONTROL, "no-cache")
         .send()
-        .map_err(|_| EraError::Temporary)?;
+        .map_err(|error| {
+            log::warn!("Era map request failed (timeout={}, connect={})", error.is_timeout(), error.is_connect());
+            EraError::Temporary
+        })?;
 
     if response.status() == StatusCode::UNAUTHORIZED || response.status().is_redirection() {
         return Err(EraError::LoginRequired);
     }
-    if response.status().is_server_error() {
+    if response.status().is_server_error()
+        || matches!(response.status(), StatusCode::TOO_MANY_REQUESTS | StatusCode::REQUEST_TIMEOUT)
+    {
+        log::warn!("Era map temporarily unavailable (HTTP {})", response.status().as_u16());
         return Err(EraError::Temporary);
     }
     if !response.status().is_success() {
@@ -311,7 +339,10 @@ pub fn poll_with_events(
     cookie: &str,
 ) -> Result<(ProviderSnapshot, Vec<CombatEvent>), EraError> {
     let (value, received_at_ms) = poll_value(cookie)?;
-    let snapshot = normalize(&value, received_at_ms)?;
+    let snapshot = normalize(&value, received_at_ms).map_err(|error| {
+        log::warn!("Era map returned an unrecognized snapshot schema");
+        error
+    })?;
     let events = crate::combat::parse_era_events(
         &value,
         snapshot.source_timestamp_ms.unwrap_or(received_at_ms),
@@ -490,6 +521,38 @@ fn valid_hex_color(value: &str) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn era_accepts_new_view_yaw_and_null_prime_without_losing_player() {
+        let mut value = json!({
+            "success": true, "serverOnline": true, "playerOnline": true,
+            "player": {
+                "location": {"x": 10.0, "y": 20.0, "z": 30.0},
+                "viewYaw": -20.0, "cameraYaw": 40.0, "prime": null
+            }
+        });
+        let snapshot = normalize(&value, 1).unwrap();
+        assert_eq!(snapshot.status, ConnectionStatus::AuthenticatedOnline);
+        assert_eq!(snapshot.heading_deg, Some(70.0));
+        assert_eq!(snapshot.position_cm, Some((20.0, 10.0, 30.0)));
+        assert!(snapshot.player.unwrap().prime_quests.is_empty());
+        value["player"]["viewYaw"] = Value::Null;
+        assert_eq!(normalize(&value, 2).unwrap().heading_deg, Some(130.0));
+        value["player"]["cameraYaw"] = Value::Null;
+        assert_eq!(normalize(&value, 3).unwrap().heading_deg, None);
+        value["player"]["viewYaw"] = json!(0.0);
+        assert_eq!(normalize(&value, 4).unwrap().heading_deg, Some(90.0));
+    }
+
+    #[test]
+    fn era_backoff_is_bounded_and_retained_data_expires() {
+        assert_eq!((0..5).map(retry_delay_secs).collect::<Vec<_>>(), vec![12, 20, 40, 60, 60]);
+        assert_eq!(retry_delay_secs(u32::MAX), 60);
+        assert!(may_retain_snapshot(Some(1000), 91_000));
+        assert!(!may_retain_snapshot(Some(1000), 91_001));
+        assert!(!may_retain_snapshot(None, 1000));
+        assert!(!may_retain_snapshot(Some(2000), 1000));
+    }
 
     #[test]
     fn era_swaps_axes_and_preserves_percent_only_vitals() {

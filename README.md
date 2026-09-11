@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**Isle Pulse Overlay 2.1.0** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**Isle Pulse Overlay 2.1.1** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 

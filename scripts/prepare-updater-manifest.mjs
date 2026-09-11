@@ -22,10 +22,22 @@ export function prepareManifest(manifest, release, version) {
   return result;
 }
 
+export function releaseNotes(changelog, version) {
+  const lines = changelog.split(/\r?\n/);
+  const start = lines.findIndex(line => line.startsWith("## [" + version + "]"));
+  assert.ok(start >= 0, "Changelog section missing for " + version);
+  const remaining = lines.slice(start + 1);
+  const end = remaining.findIndex(line => line.startsWith("## "));
+  const notes = remaining.slice(0, end < 0 ? undefined : end).join("\n").trim();
+  assert.ok(notes, "Release notes must not be empty");
+  return notes;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [manifestPath, releasePath] = process.argv.slice(2);
   const config = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const result = prepareManifest(JSON.parse(readFileSync(manifestPath, "utf8")), JSON.parse(readFileSync(releasePath, "utf8")), config.version);
+  result.notes = releaseNotes(readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8"), config.version);
   writeFileSync(manifestPath, JSON.stringify(result, null, 2) + "\n");
   console.log("Prepared public updater URLs for v" + config.version);
 }

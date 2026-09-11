@@ -27,6 +27,7 @@ export interface ProviderState {
   status: ConnectionStatus;
   message: string | null;
   lastReceivedAtMs: number | null;
+  dataStale: boolean;
 }
 
 export interface DetectedProvider {

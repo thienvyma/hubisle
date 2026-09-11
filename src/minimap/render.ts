@@ -113,6 +113,8 @@ export interface MinimapState {
   headingUnknown: string;
   /** Up to three short-lived Era combat notifications drawn over the map. */
   combatAlerts: CombatAlert[];
+  /** Warning over retained data during a transport outage. */
+  staleText: string;
 }
 
 const LABEL_MARGIN = 15;
@@ -184,6 +186,19 @@ export function render(canvas: HTMLCanvasElement, state: MinimapState): void {
   // you must still see where you are or the whole map is pointless.
   drawPlayer(ctx, state, c);
   drawCombatAlerts(ctx, state, c, radius);
+  if (state.staleText) {
+    ctx.save();
+    const width = Math.min(radius * 1.72, size - 44);
+    const top = c - radius + 27;
+    ctx.fillStyle = "rgba(3, 7, 17, 0.95)";
+    ctx.fillRect(c - width / 2, top, width, 22);
+    ctx.fillStyle = "#ffd277";
+    ctx.font = "600 10px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(truncate(ctx, state.staleText, width - 12), c, top + 11);
+    ctx.restore();
+  }
 }
 
 function drawCombatAlerts(
@@ -196,7 +211,7 @@ function drawCombatAlerts(
   const width = Math.min(radius * 1.72, state.sizePx - 44);
   const rowH = 20;
   const x = c - width / 2;
-  const y = c - radius + 27;
+  const y = c - radius + 27 + (state.staleText ? 26 : 0);
   ctx.save();
   ctx.font = "600 10px 'Segoe UI', sans-serif";
   ctx.textAlign = "left";

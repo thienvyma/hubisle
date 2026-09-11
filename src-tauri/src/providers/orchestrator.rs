@@ -115,6 +115,8 @@ fn runtime_state(runtime: &Runtime) -> ProviderState {
         status: runtime.machine.status,
         message: runtime.message.clone(),
         last_received_at_ms: runtime.last_received_at_ms,
+        data_stale: runtime.machine.status == ConnectionStatus::TemporaryError
+            && runtime.last_snapshot.is_some(),
     }
 }
 
@@ -248,7 +250,10 @@ fn set_status(
         }
         runtime.machine.status = status;
         runtime.message = message;
-        if matches!(
+        let retain_era = provider == ProviderId::Era
+            && status == ConnectionStatus::TemporaryError
+            && era::may_retain_snapshot(runtime.last_received_at_ms, chrono::Utc::now().timestamp_millis());
+        if !retain_era && matches!(
             status,
             ConnectionStatus::LoginRequired | ConnectionStatus::TemporaryError
         ) {
@@ -371,14 +376,16 @@ fn handle_era_error(app: &AppHandle, generation: u64, error: EraError) -> bool {
             false
         }
         EraError::Temporary | EraError::InvalidResponse => {
-            pipeline::clear_position(app);
-            set_status(
+            if !set_status(
                 app,
                 generation,
                 ProviderId::Era,
                 ConnectionStatus::TemporaryError,
                 Some(error.to_string()),
-            );
+            ) { return false; }
+            if current_snapshot().is_none() {
+                pipeline::clear_position(app);
+            }
             true
         }
     }
@@ -387,12 +394,14 @@ fn handle_era_error(app: &AppHandle, generation: u64, error: EraError) -> bool {
 fn run_era(app: AppHandle, generation: u64, cookie: String) {
     std::thread::spawn(move || {
         let mut previous_snapshot: Option<ProviderSnapshot> = None;
+        let mut failures: u32 = 0;
         loop {
             if !accepts(generation, ProviderId::Era) {
                 return;
             }
             match era::poll_with_events(&cookie) {
                 Ok((snapshot, mut events)) => {
+                    failures = 0;
                     if let Some(previous) = previous_snapshot.as_ref() {
                         if let Some(event) = crate::combat::infer_era_health_drop(previous, &snapshot)
                         {
@@ -409,16 +418,15 @@ fn run_era(app: AppHandle, generation: u64, cookie: String) {
                     }
                 }
                 Err(error) => {
+                    failures = failures.saturating_add(1);
                     previous_snapshot = None;
                     if !handle_era_error(&app, generation, error) {
                         return;
                     }
                 }
             }
-            // Era's game bridge currently publishes a fresh sample roughly every
-            // 12–20 seconds. Poll at five seconds so the overlay picks it up soon
-            // after publication without pretending that the source is frame-live.
-            if !interruptible_sleep(generation, ProviderId::Era, 5) {
+            // Poll at the official map's cadence, and ease off on a slow bridge.
+            if !interruptible_sleep(generation, ProviderId::Era, era::retry_delay_secs(failures)) {
                 return;
             }
         }

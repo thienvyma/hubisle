@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prepareManifest } from "./prepare-updater-manifest.mjs";
+import { prepareManifest, releaseNotes } from "./prepare-updater-manifest.mjs";
 
 const apiUrl = "https://api.github.com/repos/thienvyma/hubisle/releases/assets/123";
 const release = { isDraft: true, tagName: "v2.1.0", assets: [
@@ -8,6 +8,13 @@ const release = { isDraft: true, tagName: "v2.1.0", assets: [
   { name: "Isle.Pulse.Overlay_2.1.0_x64-setup.exe.sig" },
 ] };
 const manifest = {version: "2.1.0", platforms: {"windows-x86_64": {url: apiUrl, signature: "signed-installer"}}};
+test("updater notes include only the published version and require nonempty notes", () => {
+  const changelog = "# Changes\r\n## [2.1.1] — today\r\n\r\n- Era fix\r\n\r\n## [2.1.0]\r\n- Old notes\r\n";
+  assert.equal(releaseNotes(changelog, "2.1.1"), "- Era fix");
+  assert.equal(releaseNotes(changelog, "2.1.0"), "- Old notes");
+  assert.throws(() => releaseNotes(changelog, "2.2.0"));
+  assert.throws(() => releaseNotes("## [2.1.1]\n\n## [2.1.0]\nold", "2.1.1"));
+});
 test("draft API URL becomes a stable public download without changing signature", () => {
   const result = prepareManifest(manifest, release, "2.1.0");
   assert.equal(result.platforms["windows-x86_64"].url, "https://github.com/thienvyma/hubisle/releases/download/v2.1.0/Isle.Pulse.Overlay_2.1.0_x64-setup.exe");

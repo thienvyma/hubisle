@@ -119,6 +119,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Installer signature verification failed." }
           $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/theisle-overlay.exe"
           ./scripts/check-windows-gui-subsystem.ps1 -Executable $exe
+          $notesPath = Join-Path $manifestDir "release-notes.md"
+          $manifest.notes | Set-Content -LiteralPath $notesPath -Encoding utf8
+          gh release edit "v$version" --repo thienvyma/hubisle --notes-file $notesPath
+          if ($LASTEXITCODE -ne 0) { throw "Could not update release notes." }
           gh release upload "v$version" (Join-Path $manifestDir "latest.json") --repo thienvyma/hubisle --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload public updater manifest." }
 

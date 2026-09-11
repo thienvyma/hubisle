@@ -45,6 +45,7 @@ interface PoiLayer {
 interface ProviderState {
   provider: "isle-pilot" | "era" | "titan" | null;
   status: string;
+  dataStale: boolean;
 }
 interface ProviderStatBar {
   current?: number | null;
@@ -93,7 +94,9 @@ const LAYER_COLORS: Record<string, string> = {
 const STRINGS = {
   vi: {
     letters: ["B", "Đ", "N", "T"] as [string, string, string, string],
-    hint: "Đang chờ vị trí realtime từ server…",
+    hint: "Đang chờ vị trí từ server…",
+    retrying: "Đang kết nối lại server…",
+    stale: "Dữ liệu cũ · đang kết nối lại",
     unknown: "Chưa rõ hướng",
     combat: {
       health: "Mất máu",
@@ -110,6 +113,8 @@ const STRINGS = {
   en: {
     letters: ["N", "E", "S", "W"] as [string, string, string, string],
     hint: "Waiting for the live server position…",
+    retrying: "Reconnecting to the server…",
+    stale: "Last data · reconnecting",
     unknown: "Heading unknown",
     combat: {
       health: "Health lost",
@@ -131,6 +136,8 @@ let allPois: PoiDot[] = [];
 let poiLayers: PoiLayer[] = [];
 let settings: Settings = {};
 let providerActive = false;
+let providerRetrying = false;
+let providerStale = false;
 
 const state: MinimapState = {
   position: null,
@@ -159,6 +166,7 @@ const state: MinimapState = {
   headingLabel: "",
   headingUnknown: STRINGS.vi.unknown,
   combatAlerts: [],
+  staleText: "",
 };
 
 let lastHeadingKey: string | null = null;
@@ -179,7 +187,8 @@ function applySettings(s: Settings) {
   state.questLang = lang;
   recomputeQuestsH();
   state.compassLetters = STRINGS[lang].letters;
-  state.hintText = STRINGS[lang].hint;
+  state.hintText = providerRetrying ? STRINGS[lang].retrying : STRINGS[lang].hint;
+  state.staleText = providerStale ? STRINGS[lang].stale : "";
   state.headingUnknown = STRINGS[lang].unknown;
   refreshHeadingLabel(lang);
   refreshPoiFilter();
@@ -213,10 +222,15 @@ function clearProviderDisplay() {
 }
 
 function applyProviderState(value: ProviderState) {
+  providerRetrying = value.status === "temporary-error";
+  providerStale = providerRetrying && value.dataStale;
+  const lang = settings.language === "en" ? "en" : "vi";
+  state.hintText = providerRetrying ? STRINGS[lang].retrying : STRINGS[lang].hint;
+  state.staleText = providerStale ? STRINGS[lang].stale : "";
   providerActive =
     value.provider !== null &&
     ["authenticated-online", "authenticated-offline", "temporary-error"].includes(value.status);
-  if (value.provider === null || value.status === "temporary-error") clearProviderDisplay();
+  if (value.provider === null || (providerRetrying && !providerStale)) clearProviderDisplay();
   recomputePanelH();
   recomputeQuestsH();
 }
@@ -514,7 +528,7 @@ async function init() {
   ]);
   settings = initialSettings;
   applyProviderState(initialProvider);
-  if (initialProvider.status !== "temporary-error") applyProviderSnapshot(initialSnapshot);
+  if (initialProvider.status !== "temporary-error" || initialProvider.dataStale) applyProviderSnapshot(initialSnapshot);
   applySettings(settings);
 
   applyMapInfo(await invoke<MapInfoPayload>("get_map_info"));
