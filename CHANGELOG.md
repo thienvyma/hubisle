@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.1.2] — 2026-09-11
+
 - Tách sự kiện góc quay khỏi tọa độ; góc cục bộ không còn tạo sự kiện vị trí hoặc gọi tính waypoint theo mỗi frame.
 - Chủ động phát trạng thái hết hạn góc từ luồng Rust kể cả khi server im lặng; ngăn phản hồi cũ khôi phục góc đã hết hạn.
 - Phân biệt góc server với hướng di chuyển ước lượng; hiển thị đầy đủ Bắc/Đông/Nam/Tây trên minimap, kể cả khi chưa có vị trí.

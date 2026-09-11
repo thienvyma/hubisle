@@ -4815,7 +4815,7 @@ dependencies = [
 
 [[package]]
 name = "theisle-overlay"
-version = "2.1.1"
+version = "2.1.2"
 dependencies = [
  "chrono",
  "hmac",
