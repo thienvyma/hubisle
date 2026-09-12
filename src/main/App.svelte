@@ -35,17 +35,17 @@
   import ConnectionGate from "./connection/ConnectionGate.svelte";
   import IslemapLogo from "./IslemapLogo.svelte";
   import UpdateBanner from "./UpdateBanner.svelte";
-  import VoiceTab from "./voice/VoiceTab.svelte";
+  import VietnamesePatchTab from "./viethoa/VietnamesePatchTab.svelte";
 
-  type Tab = "map" | "dino" | "friends" | "voice" | "garage" | "skin" | "history" | "settings";
+  type Tab = "map" | "dino" | "friends" | "garage" | "skin" | "history" | "viethoa" | "settings";
   const TAB_ITEMS: readonly [Tab, string][] = [
     ["map", "tab.map"],
     ["dino", "tab.dino"],
     ["friends", "tab.friends"],
-    ["voice", "tab.voice"],
     ["garage", "tab.garage"],
     ["skin", "tab.skin"],
     ["history", "tab.history"],
+    ["viethoa", "tab.viethoa"],
     ["settings", "tab.settings"],
   ];
   const PROVIDER_TABS: readonly Tab[] = ["map", "dino", "garage", "skin", "history"];
@@ -66,8 +66,8 @@
       '<path d="M3 3v5h5"/><path d="M3.6 15a9 9 0 1 0 .6-7.1L3 8"/><path d="M12 7v5l3 2"/><path d="m8 17 8-10"/>',
     friends:
       '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-    voice:
-      '<path d="M12 18.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 0 0-7 0v9a3.5 3.5 0 0 0 3.5 3.5Z"/><path d="M19 13v2a7 7 0 0 1-14 0v-2"/><path d="M12 22v-3.5"/>',
+    viethoa:
+      '<path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/>',
     settings:
       '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   };
@@ -85,10 +85,10 @@
     map: "fullmap_open",
     dino: "dino_tab_open",
     friends: null,
-    voice: null,
     garage: "islepilot_garage",
     skin: null,
     history: null,
+    viethoa: null,
     settings: "settings_open",
   };
   // The first run of this effect is where the app OPENED — the default tab,
@@ -115,14 +115,12 @@
   let visitedGarage = $state(false);
   let visitedSkin = $state(false);
   let visitedFriends = $state(false);
-  let visitedVoice = $state(false);
   $effect(() => {
     if (tab === "map") visitedMap = true;
     if (tab === "dino") visitedDino = true;
     if (tab === "garage") visitedGarage = true;
     if (tab === "skin") visitedSkin = true;
     if (tab === "friends") visitedFriends = true;
-    if (tab === "voice") visitedVoice = true;
   });
   let dataStatus = $state<DataStatus | null>(null);
   let exclusiveFullscreen = $state(false);
@@ -254,6 +252,8 @@
       <div class="h-full overflow-y-auto"><Settings /></div>
     {:else if tab === "history"}
       <div class="h-full overflow-y-auto"><CombatHistory /></div>
+    {:else if tab === "viethoa"}
+      <div class="h-full overflow-y-auto"><VietnamesePatchTab /></div>
     {/if}
     <!-- Kept-alive tabs (see visitedMap/visitedDino/visitedGarage above).
          All are error-isolated: a Leaflet throw, a failure in the IslePilot
@@ -342,19 +342,6 @@
           {#snippet failed(_error, reset)}
             <div class="mx-auto max-w-lg p-8">
               <p class="mb-3 text-sm" style="color: #ff8a80">{$t("friends.error")}</p>
-              <button class="cursor-pointer rounded border px-3 py-1 text-sm" style="border-color: var(--color-border)" onclick={reset}>{$t("btn.retry")}</button>
-            </div>
-          {/snippet}
-        </svelte:boundary>
-      </div>
-    {/if}
-    {#if ready && visitedVoice}
-      <div class="h-full overflow-y-auto" style:display={tab === "voice" ? null : "none"}>
-        <svelte:boundary>
-          <VoiceTab />
-          {#snippet failed(_error, reset)}
-            <div class="mx-auto max-w-lg p-8">
-              <p class="mb-3 text-sm" style="color: #ff8a80">{$t("voice.status_error")}</p>
               <button class="cursor-pointer rounded border px-3 py-1 text-sm" style="border-color: var(--color-border)" onclick={reset}>{$t("btn.retry")}</button>
             </div>
           {/snippet}

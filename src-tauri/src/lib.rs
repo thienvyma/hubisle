@@ -12,7 +12,6 @@ pub mod events;
 pub mod fetch;
 pub mod hotkeys;
 pub mod islepilot;
-pub mod islevoip;
 pub mod local_telemetry;
 pub mod minimap;
 pub mod pipeline;
@@ -25,6 +24,7 @@ pub mod store;
 pub mod telemetry;
 pub mod translate;
 pub mod tray;
+pub mod viethoa;
 pub mod webview_mem;
 pub mod win;
 
@@ -82,8 +82,8 @@ pub fn run(replay_file: Option<PathBuf>) {
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::patch_settings,
-            commands::islevoip_status,
-            commands::islevoip_launch,
+            viethoa::viethoa_status,
+            viethoa::viethoa_launch,
             commands::get_current_position,
             commands::get_current_heading,
             commands::list_waypoints,
@@ -172,21 +172,6 @@ pub fn run(replay_file: Option<PathBuf>) {
                         });
                     }
                 });
-            }
-            {
-                let state = app.state::<AppState>();
-                let auto_start = settings::get_bool(
-                    &state.settings.lock_safe(),
-                    &["voice", "auto_start"],
-                    false,
-                );
-                if auto_start {
-                    std::thread::spawn(|| {
-                        if let Err(error) = islevoip::launch() {
-                            log::warn!("IsleVOIP auto-start failed: {error}");
-                        }
-                    });
-                }
             }
             // Upgrade pois_gateway.json in place (offline, from cache) when
             // an app update added new layers.

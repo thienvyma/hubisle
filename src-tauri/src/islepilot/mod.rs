@@ -453,10 +453,9 @@ fn self_marker_index(map: &api::OverlayMap, me: &api::OverlayMe) -> Option<usize
         .map(|(index, _)| index)
 }
 
-fn overlay_map_player(
-    map: &api::OverlayMap,
-    me: &api::OverlayMe,
-) -> Option<((f64, f64, f64), Option<f64>, usize)> {
+type OverlayMapPlayer = ((f64, f64, f64), Option<f64>, usize);
+
+fn overlay_map_player(map: &api::OverlayMap, me: &api::OverlayMe) -> Option<OverlayMapPlayer> {
     if !overlay_map_available(map) {
         return None;
     }

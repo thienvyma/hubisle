@@ -347,11 +347,10 @@ fn poll_value(cookie: &str) -> Result<(Value, i64), EraError> {
 
 pub fn poll_with_events(cookie: &str) -> Result<(ProviderSnapshot, Vec<CombatEvent>), EraError> {
     let (value, received_at_ms) = poll_value(cookie)?;
-    let snapshot = normalize(&value, received_at_ms).map_err(|error| {
+    let snapshot = normalize(&value, received_at_ms).inspect_err(|_| {
         log::warn!("Era map returned an unrecognized snapshot schema");
-        error
     })?;
-    let events = crate::combat::parse_era_events(
+    let mut events = crate::combat::parse_era_events(
         &value,
         snapshot.source_timestamp_ms.unwrap_or(received_at_ms),
         snapshot.server_name.as_deref(),
@@ -360,6 +359,19 @@ pub fn poll_with_events(cookie: &str) -> Result<(ProviderSnapshot, Vec<CombatEve
             .as_ref()
             .and_then(|player| player.dino_name.as_deref()),
     );
+    events.extend(crate::combat::parse_killfeed_events(
+        &value,
+        snapshot.source_timestamp_ms.unwrap_or(received_at_ms),
+        snapshot.server_name.as_deref(),
+        snapshot
+            .player
+            .as_ref()
+            .and_then(|player| player.name.as_deref()),
+        snapshot
+            .player
+            .as_ref()
+            .and_then(|player| player.dino_name.as_deref()),
+    ));
     Ok((snapshot, events))
 }
 

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-09-13
+
+- Hoàn tất nghiên cứu khả năng tương thích Voice DinoVietnam và không đóng gói
+  tích hợp client nền: API Voice cần quyền ứng dụng do máy chủ cấp ngoài phiên
+  Steam/IslePilot của người chơi, nên Hub độc lập chưa thể xác thực hợp lệ.
+- Thêm tab Việt hóa để mở trình cài The Isle chính thức đã có trên máy; liên
+  kết đúng bản phát hành DinoVietnam khi chưa cài mà không nhúng hoặc giải mã
+  lại gói tài sản của bên phát hành.
+- Tự phục hồi capture cục bộ khi The Isle respawn hoặc luồng UDP/decoder im
+  lặng, giảm lỗi mũi tên minimap đứng cho đến khi Alt-Tab.
+- Chuẩn hóa lịch sử giao tranh từ killfeed server: chỉ lưu trận đánh có danh
+  tính khớp người chơi đang đăng nhập và chỉ hiện tên hiển thị cùng loài của
+  người đã tấn công.
+- Bổ sung tài liệu kỹ thuật và ranh giới xác thực cho LiveKit Voice, gồm bằng
+  chứng từ binary/WebView2 cache và kết quả đánh giá các phương án tích hợp.
+
 ## [2.2.0] — 2026-09-12
 
 - Đổi toàn bộ tên sản phẩm, executable, sidecar và gói phát hành thành
@@ -12,12 +28,6 @@
   nguyên cài đặt, waypoint, lịch sử, bản đồ đã tải và thông tin đăng nhập đã mã hóa.
 - Thêm tab Bạn bè cho danh sách được Era, Titan hoặc IslePilot trả về, gồm trạng
   thái online, loài và việc có vị trí trực tiếp hay không.
-- Sửa vị trí trên DinoVietnam bằng calibration riêng của server; ghép quan hệ
-  bạn bè với marker live-map để bạn bè có tọa độ xuất hiện lại trên cả hai bản đồ.
-- Chuẩn hóa trục tọa độ thô từ sidecar Npcap đúng một lần ở biên telemetry,
-  đồng thời giữ góc camera realtime độc lập với vị trí và góc chậm từ server.
-- Đồng bộ Garage và Live Skin qua API trung tâm IslePilot; dữ liệu đăng nhập cũ
-  được di chuyển nguyên vẹn để người dùng không phải liên kết lại sau nâng cấp.
 - Thêm tab Thoại để dò, mở và tùy chọn tự khởi động launcher IsleVOIP chính
   thức; liên kết trang tải chính thức khi chưa cài và giải thích rõ gói tính
   năng do chủ server quản lý.

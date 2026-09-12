@@ -78,7 +78,7 @@ pub fn combat_history() -> Vec<CombatEvent> {
         .lock()
         .unwrap_or_else(|error| error.into_inner());
     let mut events = read_history_unlocked();
-    events.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
+    events.sort_by_key(|event| std::cmp::Reverse(event.timestamp_ms));
     events.truncate(MAX_HISTORY);
     events
 }
@@ -109,7 +109,7 @@ pub fn ingest(app: &AppHandle, incoming: Vec<CombatEvent>) {
         if added.is_empty() {
             return;
         }
-        events.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
+        events.sort_by_key(|event| std::cmp::Reverse(event.timestamp_ms));
         events.truncate(MAX_HISTORY);
         if let Err(error) = write_history_unlocked(&events) {
             log::warn!("save combat history failed: {error}");
@@ -150,6 +150,9 @@ fn timestamp_ms(item: &Value, fallback: i64) -> i64 {
         .or_else(|| item.get("timestamp_ms"))
         .or_else(|| item.get("timestamp"))
         .or_else(|| item.get("ts"))
+        .or_else(|| item.get("emittedAt"))
+        .or_else(|| item.get("emitted_at"))
+        .or_else(|| item.get("createdAt"))
     else {
         return fallback;
     };
@@ -165,6 +168,123 @@ fn timestamp_ms(item: &Value, fallback: i64) -> i64 {
         .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok())
         .map(|value| value.timestamp_millis())
         .unwrap_or(fallback)
+}
+
+fn identity_matches(
+    candidate_id: Option<&str>,
+    candidate_name: Option<&str>,
+    root: &Value,
+    self_name: Option<&str>,
+) -> bool {
+    let own_id = [
+        root.get("steamId"),
+        root.get("steam_id"),
+        root.get("player").and_then(|value| value.get("steamId")),
+        root.get("dino").and_then(|value| value.get("steamId")),
+        root.get("me").and_then(|value| value.get("steamId")),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(|value| value.as_str())
+    .map(str::trim)
+    .find(|value| !value.is_empty());
+    if let (Some(candidate), Some(own)) = (candidate_id.map(str::trim), own_id) {
+        if !candidate.is_empty() && candidate == own {
+            return true;
+        }
+    }
+    matches!(
+        (candidate_name.map(str::trim), self_name.map(str::trim)),
+        (Some(candidate), Some(own)) if !candidate.is_empty() && candidate.eq_ignore_ascii_case(own)
+    )
+}
+
+/// Parse the killfeed contract used by IslePilot-derived server hubs.  The
+/// feed can contain every fight on the server, so an entry is accepted only
+/// when its victim/killer identity explicitly matches the signed-in player.
+/// This keeps another player's kill from ever appearing as a local alert.
+pub fn parse_killfeed_events(
+    root: &Value,
+    fallback_timestamp_ms: i64,
+    server_name: Option<&str>,
+    self_name: Option<&str>,
+    self_species: Option<&str>,
+) -> Vec<CombatEvent> {
+    let arrays = [
+        root.get("killfeed"),
+        root.get("killFeed"),
+        root.get("combatHistory"),
+        root.get("data").and_then(|value| value.get("killfeed")),
+        root.get("player").and_then(|value| value.get("killfeed")),
+    ];
+    let Some(items) = arrays.into_iter().flatten().find_map(|value| {
+        value
+            .as_array()
+            .or_else(|| value.get("kills").and_then(Value::as_array))
+            .or_else(|| value.get("entries").and_then(Value::as_array))
+    }) else {
+        return Vec::new();
+    };
+
+    items
+        .iter()
+        .filter_map(|item| {
+            let victim_id = first_string(item, &["victimSteamId", "victim_steam_id"]);
+            let victim_name = first_string(item, &["victimName", "victim_name"]);
+            let killer_id = first_string(item, &["killerSteamId", "killer_steam_id"]);
+            let killer_name = first_string(item, &["killerName", "killer_name"]);
+            let lost = identity_matches(
+                victim_id.as_deref(),
+                victim_name.as_deref(),
+                root,
+                self_name,
+            );
+            let won = identity_matches(
+                killer_id.as_deref(),
+                killer_name.as_deref(),
+                root,
+                self_name,
+            );
+            if !lost && !won {
+                return None;
+            }
+
+            let (direction, opponent_name, opponent_species) = if lost {
+                (
+                    CombatDirection::Death,
+                    killer_name,
+                    first_string(item, &["killerSpecies", "killer_species"]),
+                )
+            } else {
+                (
+                    CombatDirection::Outgoing,
+                    victim_name,
+                    first_string(item, &["victimSpecies", "victim_species"]),
+                )
+            };
+            let timestamp_ms = timestamp_ms(item, fallback_timestamp_ms);
+            let id = first_string(item, &["id", "eventId", "event_id"]).unwrap_or_else(|| {
+                stable_id(&[
+                    "killfeed".to_string(),
+                    timestamp_ms.to_string(),
+                    format!("{direction:?}"),
+                    opponent_name.clone().unwrap_or_default(),
+                    opponent_species.clone().unwrap_or_default(),
+                ])
+            });
+            Some(CombatEvent {
+                id: format!("server-killfeed:{id}"),
+                timestamp_ms,
+                direction,
+                self_species: self_species.map(str::to_string),
+                opponent_name,
+                opponent_species,
+                damage: None,
+                source: "server-killfeed".to_string(),
+                server_name: server_name.map(str::to_string),
+            })
+        })
+        .collect()
 }
 
 fn parse_direction(item: &Value) -> Option<CombatDirection> {
@@ -410,6 +530,32 @@ mod tests {
         assert_eq!(event.opponent_name, None);
         assert_eq!(event.opponent_species, None);
         assert_eq!(event.source, "health-delta");
+    }
+
+    #[test]
+    fn killfeed_imports_only_the_signed_in_players_fights() {
+        let value = json!({
+            "steamId": "me-1",
+            "killfeed": {"kills": [
+                {
+                    "id": "lost-1", "victimSteamId": "me-1", "victimName": "Me",
+                    "victimSpecies": "Stegosaurus", "killerSteamId": "other-1",
+                    "killerName": "RaptorVN", "killerSpecies": "Omniraptor",
+                    "emittedAt": "2026-09-13T01:02:03Z"
+                },
+                {
+                    "id": "unrelated", "victimSteamId": "other-2",
+                    "killerSteamId": "other-3", "killerName": "Someone"
+                }
+            ]}
+        });
+        let events =
+            parse_killfeed_events(&value, 0, Some("Titan"), Some("Me"), Some("Stegosaurus"));
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].direction, CombatDirection::Death);
+        assert_eq!(events[0].opponent_name.as_deref(), Some("RaptorVN"));
+        assert_eq!(events[0].opponent_species.as_deref(), Some("Omniraptor"));
+        assert_eq!(events[0].timestamp_ms, 1_789_261_323_000);
     }
 
     #[test]

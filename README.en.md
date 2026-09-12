@@ -2,9 +2,9 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**islemap-thienvyma 2.2.0** is developed by **Huỳnh Vỹ**. Its in-game minimap
-uses the bundled Npcap sidecar for realtime position and the server account
-website for data and position fallback. Adapters currently support **Era Gaming VN**, **The Real Server VN
+**islemap-thienvyma 2.4.0** is developed by **Huỳnh Vỹ**. Its in-game minimap
+reads the player's coordinates automatically from the server's account
+website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
 
 On first launch, enter the server website and sign in in the separate window.
@@ -37,14 +37,12 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
   minimap. Missing provider fields remain empty rather than being fabricated.
 - **Provider friends**: the Friends tab lists accepted friends returned by Era,
   Titan, or IslePilot, including online state, species, and whether a live
-  position is available. For IslePilot, relationship data is joined with the
-  server's calibrated live-map markers, so positioned friends appear on both maps.
-- **Official IsleVOIP launcher**: the Voice tab detects the per-user install,
-  reports whether it is running, starts it on request, and can start it with the
-  hub. When absent, the app opens the official download page at
-  [isle-voip.com](https://isle-voip.com/). IsleVOIP handles Steam login, server
-  discovery, nearby players, and voice transport. Server owners choose the
-  service plan; the hub does not unlock server-side 3D or range features.
+  position is available. Friends with positions still appear on the full map
+  and minimap; the app does not invent entries when a provider omits the list.
+- **The Isle Vietnamese translation**: a dedicated tab opens the official
+  installer already installed by DinoVietnam. If it is absent, the Hub links
+  to the public release; this project does not embed, copy or decrypt the
+  encrypted package.
 - **Multi-provider Garage**: IslePilot keeps its 3D cards and Park/Restore/
   Rename/Sell flow; Era and Titan get five official API slots with store,
   restore, delete, connection gating, and server job progress.
@@ -127,7 +125,6 @@ map disabled the option locks itself off.
 - https://sdvn.islepilot.eu
 - https://sdvn2.islepilot.eu
 - https://khunglong.islepilot.eu
-- https://dinovietnam.islepilot.eu
 - https://islepilot.eu/p/sbtcisland
 
 ## Things to know
@@ -176,9 +173,8 @@ inject code, or modify the game process:
   telemetry sidecar on every hub launch.
 - Hotkeys use `RegisterHotKey` (Windows' cooperative API), **not** a keyboard
   hook.
-- Stats, accepted friends, Garage, skins, and fallback position come over **HTTPS
-  from the exact verified provider** (Era, Titan or IslePilot). Realtime local
-  position and heading come from the bundled Npcap packet sidecar.
+- Stats, position, accepted friends, Garage and skins come over **HTTPS from the
+  exact verified provider** (Era, Titan or IslePilot), without reading game memory.
 - The `` ` `` shortcut uses `SendInput` only to send the fixed `/unstuck` chat
   command after verifying that The Isle is foreground. The app does not inject
   DLLs or hook DirectX.

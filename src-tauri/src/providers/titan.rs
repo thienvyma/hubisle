@@ -494,7 +494,11 @@ fn valid_hex_color(value: &str) -> bool {
         && value.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit)
 }
 
-pub fn poll(cookie: &str, origin: &str, server_id: &str) -> Result<ProviderSnapshot, TitanError> {
+pub fn poll_with_events(
+    cookie: &str,
+    origin: &str,
+    server_id: &str,
+) -> Result<(ProviderSnapshot, Vec<crate::combat::CombatEvent>), TitanError> {
     if server_id.trim().is_empty() || server_id.len() > 512 {
         return Err(TitanError::MissingServer);
     }
@@ -507,7 +511,26 @@ pub fn poll(cookie: &str, origin: &str, server_id: &str) -> Result<ProviderSnaps
     let value = serde_json::from_str::<Value>(&body).map_err(|_| TitanError::InvalidResponse)?;
     let mut snapshot = normalize(&value, chrono::Utc::now().timestamp_millis())?;
     snapshot.server_id = Some(server_id.to_string());
-    Ok(snapshot)
+    let events = crate::combat::parse_killfeed_events(
+        &value,
+        snapshot
+            .source_timestamp_ms
+            .unwrap_or(snapshot.received_at_ms),
+        snapshot.server_name.as_deref(),
+        snapshot
+            .player
+            .as_ref()
+            .and_then(|player| player.name.as_deref()),
+        snapshot
+            .player
+            .as_ref()
+            .and_then(|player| player.dino_name.as_deref()),
+    );
+    Ok((snapshot, events))
+}
+
+pub fn poll(cookie: &str, origin: &str, server_id: &str) -> Result<ProviderSnapshot, TitanError> {
+    poll_with_events(cookie, origin, server_id).map(|(snapshot, _)| snapshot)
 }
 
 /// Consume Titan's official high-frequency location/camera stream. Returning
@@ -521,44 +544,50 @@ where
     url.set_path("/api/nguoi-choi/overlay/stream");
     let cookie = HeaderValue::from_str(cookie).map_err(|_| TitanError::LoginRequired)?;
     tauri::async_runtime::block_on(async {
-    let mut response = reqwest::Client::builder()
-        .redirect(Policy::none())
-        .connect_timeout(Duration::from_secs(10))
-        .read_timeout(Duration::from_secs(5))
-        .build()
-        .map_err(|_| TitanError::Temporary)?
-        .get(url)
-        .header(ACCEPT, "text/event-stream")
-        .header(COOKIE, cookie)
-        .send()
-        .await
-        .map_err(|_| TitanError::Temporary)?;
+        let mut response = reqwest::Client::builder()
+            .redirect(Policy::none())
+            .connect_timeout(Duration::from_secs(10))
+            .read_timeout(Duration::from_secs(5))
+            .build()
+            .map_err(|_| TitanError::Temporary)?
+            .get(url)
+            .header(ACCEPT, "text/event-stream")
+            .header(COOKIE, cookie)
+            .send()
+            .await
+            .map_err(|_| TitanError::Temporary)?;
 
-    if response.status() == StatusCode::UNAUTHORIZED || response.status().is_redirection() {
-        return Err(TitanError::LoginRequired);
-    }
-    if !response.status().is_success() {
-        return Err(TitanError::Temporary);
-    }
-
-    let mut pending = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|_| TitanError::Temporary)? {
-        if !on_sample(None) { return Ok(()); }
-        pending.extend_from_slice(&chunk);
-        // Bound a broken server's unterminated event buffer.
-        if pending.len() > 128 * 1024 { return Err(TitanError::InvalidResponse); }
-        while let Some(end) = pending.iter().position(|byte| *byte == b'\n') {
-            let line = String::from_utf8_lossy(&pending[..end]);
-            let sample = line.strip_prefix("data:").and_then(|data| parse_stream_sample(data.trim()));
-            if let Some(sample) = sample {
-                if !on_sample(Some(sample)) {
-                    return Ok(());
-                }
-            }
-            pending.drain(..=end);
+        if response.status() == StatusCode::UNAUTHORIZED || response.status().is_redirection() {
+            return Err(TitanError::LoginRequired);
         }
-    }
-    Err(TitanError::Temporary)
+        if !response.status().is_success() {
+            return Err(TitanError::Temporary);
+        }
+
+        let mut pending = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| TitanError::Temporary)? {
+            if !on_sample(None) {
+                return Ok(());
+            }
+            pending.extend_from_slice(&chunk);
+            // Bound a broken server's unterminated event buffer.
+            if pending.len() > 128 * 1024 {
+                return Err(TitanError::InvalidResponse);
+            }
+            while let Some(end) = pending.iter().position(|byte| *byte == b'\n') {
+                let line = String::from_utf8_lossy(&pending[..end]);
+                let sample = line
+                    .strip_prefix("data:")
+                    .and_then(|data| parse_stream_sample(data.trim()));
+                if let Some(sample) = sample {
+                    if !on_sample(Some(sample)) {
+                        return Ok(());
+                    }
+                }
+                pending.drain(..=end);
+            }
+        }
+        Err(TitanError::Temporary)
     })
 }
 
@@ -642,7 +671,10 @@ mod tests {
         let mut last_camera = None;
         let first =
             parse_stream_sample(r#"{"loc":[1.0,2.0,3.0],"yaw":-30.0,"cam":-10.0}"#).unwrap();
-        assert_eq!(preferred_live_heading(&mut last_camera, &first, 0), Some(80.0));
+        assert_eq!(
+            preferred_live_heading(&mut last_camera, &first, 0),
+            Some(80.0)
+        );
 
         let sparse = parse_stream_sample(r#"{"loc":[1.0,2.0,3.0],"yaw":120.0}"#).unwrap();
         assert_eq!(
@@ -650,10 +682,19 @@ mod tests {
             Some(80.0),
             "body yaw must not replace the player's view direction"
         );
-        assert_eq!(preferred_live_heading(&mut last_camera, &sparse, 1_001), Some(210.0));
-        assert_eq!(last_camera, None, "expired camera must not survive a respawn");
+        assert_eq!(
+            preferred_live_heading(&mut last_camera, &sparse, 1_001),
+            Some(210.0)
+        );
+        assert_eq!(
+            last_camera, None,
+            "expired camera must not survive a respawn"
+        );
         let fresh = parse_stream_sample(r#"{"loc":[4,5,6],"cam":0}"#).unwrap();
-        assert_eq!(preferred_live_heading(&mut last_camera, &fresh, 1_050), Some(90.0));
+        assert_eq!(
+            preferred_live_heading(&mut last_camera, &fresh, 1_050),
+            Some(90.0)
+        );
     }
 
     #[test]

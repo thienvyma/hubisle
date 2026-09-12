@@ -87,39 +87,41 @@ fn migrate_data_dir(legacy: &Path, current: &Path) -> std::io::Result<()> {
     if !legacy.is_dir() {
         return Ok(());
     }
-
-    // The new executable can create its destination before migration runs
-    // (for example a logger may create a cache directory). Merge every
-    // missing legacy entry instead of abandoning the whole migration. A file
-    // already present in the new tree always wins; the legacy copy remains in
-    // place so the player can recover it manually.
     if !current.exists() {
-        if std::fs::rename(legacy, current).is_ok() {
-            return Ok(());
-        }
-        std::fs::create_dir_all(current)?;
-    } else if !current.is_dir() {
+        return std::fs::rename(legacy, current);
+    }
+    if !current.is_dir() {
         return Ok(());
     }
+    merge_missing_files(legacy, current)?;
+    if std::fs::read_dir(legacy)?.next().is_none() {
+        std::fs::remove_dir(legacy)?;
+    }
+    Ok(())
+}
 
-    for entry in std::fs::read_dir(legacy)? {
+fn merge_missing_files(source: &Path, destination: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(destination)?;
+    for entry in std::fs::read_dir(source)? {
         let entry = entry?;
-        let source = entry.path();
-        let destination = current.join(entry.file_name());
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
         let file_type = entry.file_type()?;
-
         if file_type.is_dir() {
-            migrate_data_dir(&source, &destination)?;
-        } else if !destination.exists() {
-            if std::fs::rename(&source, &destination).is_err() {
-                std::fs::copy(&source, &destination)?;
-                std::fs::remove_file(&source)?;
+            if destination_path.exists() {
+                if destination_path.is_dir() {
+                    merge_missing_files(&source_path, &destination_path)?;
+                    if std::fs::read_dir(&source_path)?.next().is_none() {
+                        std::fs::remove_dir(&source_path)?;
+                    }
+                }
+            } else {
+                std::fs::rename(&source_path, &destination_path)?;
             }
+        } else if file_type.is_file() && !destination_path.exists() {
+            std::fs::rename(&source_path, &destination_path)?;
         }
     }
-
-    // Conflicting files intentionally keep this directory non-empty.
-    let _ = std::fs::remove_dir(legacy);
     Ok(())
 }
 
@@ -211,9 +213,6 @@ pub fn default_settings() -> Value {
         // stripped from crash text before it is sent.
         "telemetry": {
             "enabled": true,
-        },
-        "voice": {
-            "auto_start": false,
         },
         "number_format": "auto",         // auto | us | eu
         "language": "vi",                // vi | en
@@ -492,10 +491,6 @@ mod tests {
         assert!(merged["provider"]["id"].is_null());
         assert!(merged["provider"]["website"].is_null());
         assert_eq!(merged["provider"]["automatic_position"], true);
-        assert_eq!(
-            merged["voice"]["auto_start"], false,
-            "legacy settings gain the safe opt-in voice default"
-        );
         assert_eq!(
             active_source(&merged),
             overlay_core::MapSource::Vulnona,

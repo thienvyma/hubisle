@@ -2,9 +2,8 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**islemap-thienvyma 2.2.0** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
-game và lấy vị trí realtime từ sidecar Npcap, với website quản lý của server làm
-nguồn dữ liệu và vị trí dự phòng. Ứng dụng có adapter
+**islemap-thienvyma 2.4.0** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
 Lần đầu mở app, nhập website server và đăng nhập trong cửa sổ riêng. Phiên đăng
@@ -35,13 +34,11 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 - **Đường đã đi**: tự ghi theo phiên, khôi phục lại đường đi của phiên trước.
 - **Bạn bè cùng server**: tab Bạn bè hiển thị danh sách đã chấp nhận từ Era,
   Titan hoặc IslePilot, gồm trạng thái online, loài và việc có vị trí trực tiếp
-  hay không. Với IslePilot, app ghép danh sách quan hệ với marker live-map và
-  calibration riêng của server; bạn có vị trí hiện trên bản đồ lớn và minimap.
-- **Thoại qua IsleVOIP chính thức**: tab Thoại dò bản cài theo người dùng, báo
-  trạng thái chạy, mở launcher và có thể tự mở launcher cùng hub. Nếu chưa cài,
-  app mở trang tải chính thức tại [isle-voip.com](https://isle-voip.com/).
-  Launcher IsleVOIP phụ trách Steam, server, người chơi ở gần và truyền giọng
-  nói. Chủ server chọn gói dịch vụ; app không mở khóa 3D/range cho server.
+  hay không. Bạn có vị trí vẫn hiện trên bản đồ lớn và minimap; app không dựng
+  thêm bản ghi khi provider ẩn hoặc không gửi danh sách.
+- **Việt hóa The Isle**: tab Việt hóa mở trình cài chính thức đã được
+  DinoVietnam cài trên máy. Nếu chưa có, Hub dẫn tới đúng bản phát hành công
+  khai; gói mã hóa không bị nhúng, sao chép hoặc giải mã lại trong dự án này.
 - **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
   chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
   cung cấp sẽ để trống, không dựng dữ liệu giả.
@@ -125,7 +122,6 @@ dùng được):
 - https://sdvn.islepilot.eu
 - https://sdvn2.islepilot.eu
 - https://khunglong.islepilot.eu
-- https://dinovietnam.islepilot.eu
 - https://islepilot.eu/p/sbtcisland
 
 ## Lưu ý cần biết

@@ -620,8 +620,8 @@ fn run_titan(
                 }
             }
             if let Some(id) = server_id.as_deref() {
-                match titan::poll(&cookie, &origin, id) {
-                    Ok(mut snapshot) => {
+                match titan::poll_with_events(&cookie, &origin, id) {
+                    Ok((mut snapshot, events)) => {
                         let stream_is_fresh = chrono::Utc::now().timestamp_millis()
                             - last_stream_sample_ms.load(Ordering::SeqCst)
                             < 1_500;
@@ -635,7 +635,9 @@ fn run_titan(
                         }
                         let publish_position = !stream_is_fresh
                             || snapshot.status != ConnectionStatus::AuthenticatedOnline;
-                        publish_snapshot(&app, generation, snapshot, publish_position);
+                        if publish_snapshot(&app, generation, snapshot, publish_position) {
+                            crate::combat::ingest(&app, events);
+                        }
                     }
                     Err(TitanError::MissingServer | TitanError::InvalidResponse) => {
                         server_id = None;

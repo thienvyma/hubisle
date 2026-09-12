@@ -153,9 +153,6 @@ export type Settings = Record<string, unknown> & {
     show_overlay_panel: boolean;
     show_quests_panel: boolean;
   };
-  voice?: {
-    auto_start: boolean;
-  };
 };
 
 export const onPositionUpdate = (
@@ -238,19 +235,15 @@ export const getSettings = () => invoke<Settings>("get_settings");
 export const patchSettings = (patch: object) =>
   invoke<Settings>("patch_settings", { patch });
 
-export interface IsleVoipStatus {
+export interface VietHoaStatus {
   installed: boolean;
-  running: boolean;
+  version: string | null;
   executablePath: string | null;
+  officialReleaseUrl: string;
 }
 
-/** Status of the official IsleVOIP desktop launcher. */
-export const islevoipStatus = () =>
-  invoke<IsleVoipStatus>("islevoip_status");
-
-/** Start the official IsleVOIP desktop launcher when it is installed. */
-export const islevoipLaunch = () =>
-  invoke<IsleVoipStatus>("islevoip_launch");
+export const viethoaStatus = () => invoke<VietHoaStatus>("viethoa_status");
+export const viethoaLaunch = () => invoke<VietHoaStatus>("viethoa_launch");
 
 /** Last known position (null before the first sample) — for initial paint. */
 export const getCurrentPosition = () =>

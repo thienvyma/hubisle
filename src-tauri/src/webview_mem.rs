@@ -16,7 +16,10 @@
 //! controller-hidden again, and it logs loudly if that assumption breaks.
 
 use std::collections::HashMap;
-use std::sync::{atomic::{AtomicBool, Ordering}, LazyLock, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    LazyLock, Mutex,
+};
 use std::time::Duration;
 
 use tauri::WebviewWindow;
@@ -115,7 +118,9 @@ pub fn on_shown(window: &WebviewWindow) {
 /// thread is busy; do not accumulate compositor nudges behind a hung renderer.
 pub fn refresh_overlay(window: &WebviewWindow) {
     static PENDING: AtomicBool = AtomicBool::new(false);
-    if PENDING.swap(true, Ordering::AcqRel) { return; }
+    if PENDING.swap(true, Ordering::AcqRel) {
+        return;
+    }
     let result = window.with_webview(move |webview| unsafe {
         if crate::win::vis::is_visible("minimap") != Some(true) {
             PENDING.store(false, Ordering::Release);
@@ -137,7 +142,9 @@ pub fn refresh_overlay(window: &WebviewWindow) {
         }
         PENDING.store(false, Ordering::Release);
     });
-    if result.is_err() { PENDING.store(false, Ordering::Release); }
+    if result.is_err() {
+        PENDING.store(false, Ordering::Release);
+    }
 }
 
 /// Sentinel: no webview should ever be suspended or controller-hidden while
@@ -150,7 +157,11 @@ pub fn spawn_watchdog(app: tauri::AppHandle) {
         for (label, window) in app.webview_windows() {
             let registry_label = if label == "minimap" || label.starts_with("minimap-") {
                 "minimap"
-            } else if label == "main" { "main" } else { continue };
+            } else if label == "main" {
+                "main"
+            } else {
+                continue;
+            };
             if crate::win::vis::is_visible(registry_label) != Some(true) {
                 continue;
             }

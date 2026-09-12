@@ -47,7 +47,7 @@ chối mọi bản cập nhật bị sửa hoặc được ký bằng khóa khá
 ## Tạo phiên bản mới
 
 1. Sửa cùng một số phiên bản trong `package.json`, `src-tauri/Cargo.toml` và
-   `src-tauri/tauri.conf.json` và các lockfile, ví dụ `2.2.0`.
+   `src-tauri/tauri.conf.json` và các lockfile, ví dụ `2.4.0`.
 2. Ghi thay đổi vào `CHANGELOG.md`.
 3. Chạy kiểm tra phiên bản:
 
@@ -58,9 +58,9 @@ chối mọi bản cập nhật bị sửa hoặc được ký bằng khóa khá
 4. Commit, tạo tag trùng số phiên bản rồi push repository và tag:
 
    ```powershell
-   git tag v2.2.0
+   git tag v2.4.0
    git push origin main
-   git push origin v2.2.0
+   git push origin v2.4.0
    ```
 
 Workflow `Release islemap-thienvyma` chỉ chạy phát hành trong

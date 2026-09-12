@@ -62,8 +62,7 @@ impl Calibration {
     /// The embedded Gateway calibration.
     pub fn gateway() -> &'static Calibration {
         static GATEWAY: LazyLock<Calibration> = LazyLock::new(|| {
-            Calibration::from_json(CALIBRATION_JSON)
-                .expect("embedded calibration.json must parse")
+            Calibration::from_json(CALIBRATION_JSON).expect("embedded calibration.json must parse")
         });
         &GATEWAY
     }

@@ -11,6 +11,14 @@ public sealed class NpcapLocalMovementSource : ILocalMovementSource
     public const string DefaultGameProcessName = "TheIsleClient-Win64-Shipping";
     private static readonly TimeSpan ProcessPollInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan MinimumObservationInterval = TimeSpan.FromMilliseconds(25);
+    // The game keeps sending outbound UDP while a pawn is alive, including
+    // while it is standing still.  A completely quiet capture normally means
+    // Npcap lost the adapter/flow after a map load, respawn or network change.
+    private static readonly TimeSpan CaptureSilenceRestart = TimeSpan.FromSeconds(8);
+    // A respawn can change the packed Unreal movement layout while the UDP
+    // socket and process id stay the same.  Re-bootstrap the decoder instead
+    // of holding the previous pawn's layout forever.
+    private static readonly TimeSpan DecoderSilenceReset = TimeSpan.FromSeconds(3);
     private const int CaptureReadTimeoutMilliseconds = 25;
 
     private readonly string _processName;
@@ -20,6 +28,9 @@ public sealed class NpcapLocalMovementSource : ILocalMovementSource
     private readonly CancellationTokenSource _disposeCancellation = new();
     private int _watchStarted;
     private int _disposed;
+    private long _lastOutboundPacketUnixMs;
+    private long _lastMovementUnixMs;
+    private long _lastDecoderResetUnixMs;
 
     public NpcapLocalMovementSource(
         string processName = DefaultGameProcessName,
@@ -139,6 +150,10 @@ public sealed class NpcapLocalMovementSource : ILocalMovementSource
             writer,
             cancellationToken);
         var devices = OpenCaptureDevices(ports, rawPackets);
+        var startedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        Interlocked.Exchange(ref _lastOutboundPacketUnixMs, startedAtMs);
+        Interlocked.Exchange(ref _lastMovementUnixMs, startedAtMs);
+        Interlocked.Exchange(ref _lastDecoderResetUnixMs, startedAtMs);
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -148,6 +163,30 @@ public sealed class NpcapLocalMovementSource : ILocalMovementSource
                     || !_portResolver.GetOwnedPorts(processId).SetEquals(ports))
                 {
                     return;
+                }
+
+                var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var lastPacketMs = Interlocked.Read(ref _lastOutboundPacketUnixMs);
+                if (nowMs - lastPacketMs >= CaptureSilenceRestart.TotalMilliseconds)
+                {
+                    // Closing and reopening every capture device is the only
+                    // reliable recovery when WinPcap/Npcap silently loses the
+                    // active adapter while the game's socket remains present.
+                    ResetTracker();
+                    return;
+                }
+
+                var lastMovementMs = Interlocked.Read(ref _lastMovementUnixMs);
+                var lastResetMs = Interlocked.Read(ref _lastDecoderResetUnixMs);
+                if (nowMs - lastPacketMs < ProcessPollInterval.TotalMilliseconds * 2
+                    && nowMs - lastMovementMs >= DecoderSilenceReset.TotalMilliseconds
+                    && nowMs - lastResetMs >= DecoderSilenceReset.TotalMilliseconds)
+                {
+                    ResetTracker();
+                    Interlocked.Exchange(ref _lastDecoderResetUnixMs, nowMs);
+                    // Give the fresh hypotheses a full bootstrap window before
+                    // considering another reset.
+                    Interlocked.Exchange(ref _lastMovementUnixMs, nowMs);
                 }
             }
         }
@@ -249,6 +288,10 @@ public sealed class NpcapLocalMovementSource : ILocalMovementSource
                 return;
             }
 
+            Interlocked.Exchange(
+                ref _lastOutboundPacketUnixMs,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+
             _ = rawPackets.TryEnqueue(new CapturedUdpDatagram(
                 DateTimeOffset.UtcNow,
                 ip?.SourceAddress.ToString(),
@@ -299,6 +342,9 @@ public sealed class NpcapLocalMovementSource : ILocalMovementSource
                 packet.ObservedAt,
                 movement,
                 serverEndpoint));
+            Interlocked.Exchange(
+                ref _lastMovementUnixMs,
+                packet.ObservedAt.ToUnixTimeMilliseconds());
         }
         catch
         {

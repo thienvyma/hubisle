@@ -42,8 +42,9 @@ fn parse_source() -> Result<MapSource, String> {
         Some(i) => {
             let value = args.get(i + 1).ok_or("--source needs a value")?;
             // Accept both spellings; the settings key uses '_'.
-            MapSource::try_from_key(&value.replace('-', "_"))
-                .ok_or_else(|| format!("unknown source {value:?} (vulnona | islemaps-light | islemaps-dark)"))
+            MapSource::try_from_key(&value.replace('-', "_")).ok_or_else(|| {
+                format!("unknown source {value:?} (vulnona | islemaps-light | islemaps-dark)")
+            })
         }
     }
 }
@@ -117,13 +118,20 @@ fn main() -> std::process::ExitCode {
         };
         for (name, layer) in layers {
             let (mut ocean, mut total) = (0u64, 0u64);
-            for it in layer.get("items").and_then(|i| i.as_array()).unwrap_or(&Vec::new()) {
+            for it in layer
+                .get("items")
+                .and_then(|i| i.as_array())
+                .unwrap_or(&Vec::new())
+            {
                 let pts: Vec<(f64, f64)> = match it.get("points").and_then(|p| p.as_array()) {
                     Some(points) if !points.is_empty() => points
                         .iter()
                         .filter_map(|p| Some((p.get(0)?.as_f64()?, p.get(1)?.as_f64()?)))
                         .collect(),
-                    _ => match (it.get("x").and_then(|v| v.as_f64()), it.get("y").and_then(|v| v.as_f64())) {
+                    _ => match (
+                        it.get("x").and_then(|v| v.as_f64()),
+                        it.get("y").and_then(|v| v.as_f64()),
+                    ) {
                         (Some(x), Some(y)) => vec![(x, y)],
                         _ => Vec::new(),
                     },
@@ -162,10 +170,18 @@ fn main() -> std::process::ExitCode {
         println!("  {name:<11} {o:>3}/{n:<4} = {pct:5.1}%{mark}");
     }
 
-    let overall = if g_total > 0 { 100.0 * g_ocean as f64 / g_total as f64 } else { 0.0 };
+    let overall = if g_total > 0 {
+        100.0 * g_ocean as f64 / g_total as f64
+    } else {
+        0.0
+    };
     let b_ocean: u64 = bad.iter().map(|(_, o, _)| o).sum();
     let b_total: u64 = bad.iter().map(|(_, _, n)| n).sum();
-    let swapped = if b_total > 0 { 100.0 * b_ocean as f64 / b_total as f64 } else { 0.0 };
+    let swapped = if b_total > 0 {
+        100.0 * b_ocean as f64 / b_total as f64
+    } else {
+        0.0
+    };
 
     println!("\n  overall            {overall:5.1}%");
     println!("  with axes swapped  {swapped:5.1}%   (must be CLEARLY worse)");

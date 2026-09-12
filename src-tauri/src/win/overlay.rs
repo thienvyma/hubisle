@@ -17,7 +17,12 @@ fn hwnd(raw: isize) -> HWND {
 /// transparent background or sending synchronous paint messages to the game.
 pub fn request_redraw(raw: isize) {
     unsafe {
-        let _ = RedrawWindow(Some(hwnd(raw)), None, None, RDW_INVALIDATE | RDW_ALLCHILDREN);
+        let _ = RedrawWindow(
+            Some(hwnd(raw)),
+            None,
+            None,
+            RDW_INVALIDATE | RDW_ALLCHILDREN,
+        );
     }
 }
 

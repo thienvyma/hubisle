@@ -332,6 +332,12 @@ function combatAlert(event: CombatEvent): CombatAlert {
 }
 
 function showCombatEvent(event: CombatEvent) {
+  if (
+    event.direction === "outgoing" ||
+    (!event.opponentName && !event.opponentSpecies)
+  ) {
+    return;
+  }
   const alert = combatAlert(event);
   state.combatAlerts = [
     alert,
