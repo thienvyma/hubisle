@@ -1,7 +1,7 @@
 {
   "name": "theisle-overlay",
   "private": true,
-  "version": "2.1.2",
+  "version": "2.1.3",
   "author": "Huỳnh Vỹ",
   "homepage": "https://github.com/thienvyma/hubisle",
   "repository": {
@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "vite --configLoader runner",
     "build": "vite build --configLoader runner",
+    "build:sidecar": "powershell -ExecutionPolicy Bypass -File scripts/build-local-telemetry-sidecar.ps1",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:updater": "node scripts/check-updater.mjs",
     "test:updater": "node --experimental-strip-types --test scripts/update*.test.mjs",

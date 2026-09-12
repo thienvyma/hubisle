@@ -22,11 +22,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "src-tauri -> target"
       - run: npm ci
+      - name: Build bundled local telemetry
+        shell: pwsh
+        run: ./scripts/build-local-telemetry-sidecar.ps1
       - run: npm run check
       - run: npm run test:heading
       - run: npm run test:updater

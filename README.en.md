@@ -178,28 +178,32 @@ when new data arrives.
 
 ## Anti-cheat safety
 
-The game runs kernel-level Easy Anti-Cheat. This app is safe because it
-**never touches the game process**:
+The game runs kernel-level Easy Anti-Cheat. The app does not open game memory,
+inject code, or modify the game process:
 
-- Realtime position arrives over **HTTPS from the signed-in server management
-  site**; the clipboard remains a manual fallback when a provider has no feed.
+- Realtime position and heading are decoded from the game's own **outbound UDP**
+  through Npcap. This sidecar ships with Isle Pulse and does not depend on
+  IsleLiveMap.
+- Provider HTTPS and the clipboard remain fallbacks when Npcap is unavailable.
+  Npcap must be installed once on Windows without administrator-only mode.
 - Hotkeys use `RegisterHotKey` (Windows' cooperative API), **not** a keyboard
   hook.
 - Stats, position, accepted friends, Garage and skins come over **HTTPS from the
   exact verified provider** (Era, Titan or IslePilot), without reading game memory.
 - The `` ` `` shortcut uses `SendInput` only to send the fixed `/unstuck` chat
   command after verifying that The Isle is foreground. The app does not inject
-  DLLs, hook DirectX, or capture packets.
+  DLLs or hook DirectX.
 
 CI greps for any forbidden API call site (`scripts/check-forbidden-apis.ps1`).
 The allowed-call list lives at the top of `src-tauri/src/win/mod.rs`.
 
 ## Development
 
-Requirements: Node 22+, Rust stable (MSVC), WebView2.
+Development requirements: Node 22+, Rust stable (MSVC), .NET SDK 8, WebView2.
 
 ```powershell
 npm install
+npm run build:sidecar                # create the self-contained Windows sidecar
 npx tauri dev                        # run dev
 
 # Drive the UI without the game running:

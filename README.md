@@ -179,28 +179,31 @@ RTX 3060 Ti, Windows 11 Pro build 26200, độ phân giải 100%** — bản rel
 
 ## An toàn với anti-cheat
 
-Game chạy Easy Anti-Cheat cấp kernel. App này an toàn vì **không bao giờ đụng
-vào tiến trình game**:
+Game chạy Easy Anti-Cheat cấp kernel. App không mở bộ nhớ, chèn mã hoặc sửa
+tiến trình game:
 
-- Vị trí realtime lấy qua **HTTPS từ website quản lý đã đăng nhập của server**;
-  clipboard chỉ còn là cách dự phòng thủ công khi provider không cấp vị trí.
+- Vị trí và góc realtime lấy từ gói **UDP chiều đi của chính game** qua Npcap;
+  sidecar này được đóng gói trong Isle Pulse và không phụ thuộc IsleLiveMap.
+- HTTPS của website server và clipboard vẫn là nguồn dự phòng khi Npcap chưa
+  sẵn sàng. Npcap cần được cài một lần trên Windows và không được bật chế độ
+  chỉ cho Administrator.
 - Phím tắt dùng `RegisterHotKey` (API hợp tác của Windows), **không phải**
   keyboard hook.
 - Chỉ số, vị trí, bạn bè, Garage và skin lấy qua **HTTPS tới đúng provider đã
   xác minh** (Era, Titan hoặc IslePilot), không đọc bộ nhớ tiến trình game.
 - Phím `` ` `` chỉ dùng `SendInput` để gửi chuỗi cố định `/unstuck` sau khi xác
-  nhận The Isle đang là cửa sổ foreground. App không inject DLL, hook DirectX
-  hay bắt gói mạng.
+  nhận The Isle đang là cửa sổ foreground. App không inject DLL hay hook DirectX.
 
 CI có bước grep chặn mọi call site API cấm (`scripts/check-forbidden-apis.ps1`).
 Danh sách API được phép nằm ở đầu `src-tauri/src/win/mod.rs`.
 
 ## Phát triển
 
-Yêu cầu: Node 22+, Rust stable (MSVC), WebView2.
+Yêu cầu phát triển: Node 22+, Rust stable (MSVC), .NET SDK 8, WebView2.
 
 ```powershell
 npm install
+npm run build:sidecar                # tạo sidecar tự chứa cho Windows
 npx tauri dev                        # chạy dev
 
 # Lái UI không cần mở game:

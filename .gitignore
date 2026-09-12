@@ -11,6 +11,9 @@ src-tauri/gen/schemas/
 .tmp-*/
 .superpowers/
 src-tauri/target*/
+src-tauri/binaries/*.exe
+sidecars/**/bin/
+sidecars/**/obj/
 work/
 outputs/
 *.key

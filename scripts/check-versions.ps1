@@ -1,4 +1,4 @@
-# The version lives in three files that are bumped by hand. They must agree.
+# The version lives in the package manifests and lockfiles. They must agree.
 #
 # This used to be merely untidy. It is now load-bearing: the release workflow
 # derives the telemetry signing key from package.json's version, while the
@@ -21,7 +21,9 @@ function Get-Version($path, $pattern) {
 
 $found = [ordered]@{
     "package.json"            = Get-Version "package.json" '"version"\s*:\s*"([^"]+)"'
+    "package-lock.json"       = Get-Version "package-lock.json" '"version"\s*:\s*"([^"]+)"'
     "src-tauri/Cargo.toml"    = Get-Version "src-tauri/Cargo.toml" '(?m)^version\s*=\s*"([^"]+)"'
+    "src-tauri/Cargo.lock"    = Get-Version "src-tauri/Cargo.lock" '(?ms)^\[\[package\]\]\s*\r?\nname\s*=\s*"theisle-overlay"\s*\r?\nversion\s*=\s*"([^"]+)"'
     "src-tauri/tauri.conf.json" = Get-Version "src-tauri/tauri.conf.json" '"version"\s*:\s*"([^"]+)"'
 }
 

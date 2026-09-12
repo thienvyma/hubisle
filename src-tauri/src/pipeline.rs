@@ -2,6 +2,8 @@
 //! windows. Port of the sample-handling wiring from the original `main.py`.
 
 use overlay_core::{bearing_to_compass_key, world_to_pixel, Calibration};
+use std::sync::{LazyLock, Mutex};
+use std::time::{Duration, Instant};
 // Note: every px in these payloads is computed with state.active_calibration()
 // at emit time — nothing px-shaped is cached, so a basemap switch only needs a
 // resync to repaint everything in the new frame.
@@ -12,6 +14,9 @@ use crate::events::{
     POSITION_UPDATE, SETTINGS_CHANGED, TRAIL_CHANGED,
 };
 use crate::state::{AppState, LockExt};
+
+static LAST_LOCAL_SAMPLE: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mutex::new(None));
+const LOCAL_POSITION_PRIORITY: Duration = Duration::from_secs(1);
 
 /// Feed one accepted coordinate sample through the tracker and notify the UI.
 pub fn ingest_sample(app: &AppHandle, x: f64, y: f64, z: f64) {
@@ -28,6 +33,9 @@ pub fn ingest_sample_with_heading(
     z: f64,
     heading_deg: Option<f64>,
 ) {
+    if local_position_is_fresh() {
+        return;
+    }
     let state = app.state::<AppState>();
     let now_s = state.now_s();
     // Resolve the calibration BEFORE taking the tracker lock (active_calibration
@@ -75,10 +83,67 @@ pub fn ingest_sample_with_heading(
     }
 }
 
-/// Feed an exact camera bearing from a safe local adapter without changing
-/// the server-owned position or trail. The installed The Isle Shipping build
-/// does not currently expose such an adapter; this is the isolated boundary a
-/// future official plugin/telemetry source can call.
+/// Feed the high-frequency position and exact camera bearing decoded by the
+/// bundled local telemetry sidecar. Local bearing is kept separate so it wins
+/// over delayed provider headings without changing their connection state.
+pub fn ingest_local_sample_with_heading(app: &AppHandle, x: f64, y: f64, z: f64, heading_deg: f64) {
+    *LAST_LOCAL_SAMPLE.lock_safe() = Some(Instant::now());
+    let state = app.state::<AppState>();
+    let now_s = state.now_s();
+    let cal = state.active_calibration();
+
+    let (outcome, heading, trail) = {
+        let mut tracker = state.tracker.lock_safe();
+        let outcome = tracker.add_sample(x, y, z, now_s);
+        tracker.update_local_heading(heading_deg, now_s);
+        let heading = tracker.heading_with_source(now_s);
+        let trail = outcome
+            .trail_changed
+            .then(|| trail_payload(&tracker.segments, cal));
+        (outcome, heading, trail)
+    };
+
+    if !outcome.refreshed_only {
+        if let Some(writer) = state.trail_writer.lock_safe().as_mut() {
+            if outcome.broke_segment {
+                writer.add_break();
+            }
+            writer.add(x, y, z);
+        }
+    }
+
+    let (px, py) = world_to_pixel(x, y, cal);
+    emit_all(
+        app,
+        POSITION_UPDATE,
+        PositionUpdate {
+            x_cm: x,
+            y_cm: y,
+            z_cm: z,
+            px,
+            py,
+            heading_deg: heading.map(|(bearing, _)| bearing),
+            heading_observed_at_ms: now_s * 1000.0,
+            heading_source: heading.map(|(_, source)| source.key()),
+            compass_key: heading.map(|(bearing, _)| bearing_to_compass_key(bearing)),
+            in_bounds: overlay_core::is_in_bounds(px, py, cal),
+        },
+    );
+    if let Some(trail) = trail {
+        emit_all(app, TRAIL_CHANGED, trail);
+    }
+}
+
+fn local_position_is_fresh() -> bool {
+    LAST_LOCAL_SAMPLE
+        .lock_safe()
+        .is_some_and(|observed_at| observed_at.elapsed() <= LOCAL_POSITION_PRIORITY)
+}
+
+/// Feed an exact camera bearing from a heading-only local adapter without
+/// changing position or trail. The bundled UDP sidecar normally calls the
+/// combined position/heading path above; this boundary remains useful for
+/// frame-based adapters.
 /// `captured_at_s` must use AppState's monotonic clock, NOT receive time for a
 /// cached frame; a WGC adapter must translate its QPC timestamp first.
 pub fn ingest_local_heading(app: &AppHandle, heading_deg: f64, captured_at_s: f64) {

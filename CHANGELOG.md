@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.1.3] — 2026-09-12
+
+- Tích hợp sidecar telemetry riêng của Isle Pulse, đọc gói UDP chiều đi của
+  tiến trình game qua Npcap để lấy vị trí và góc camera realtime trên mọi
+  server; không cần cài hoặc chạy IsleLiveMap.
+- Ưu tiên góc camera cục bộ với hạn dùng 250 ms, tự mất hiệu lực và khởi động
+  lại sidecar khi nguồn capture gián đoạn, tránh giữ mũi tên ở góc cũ.
+- Đóng gói sidecar .NET tự chứa vào installer Windows và bổ sung pipeline CI
+  để mọi bản phát hành đều kiểm tra, ký và phân phối thành phần này cùng app.
+
 ## [2.1.2] — 2026-09-11
 
 - Tách sự kiện góc quay khỏi tọa độ; góc cục bộ không còn tạo sự kiện vị trí hoặc gọi tính waypoint theo mỗi frame.

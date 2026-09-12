@@ -12,6 +12,7 @@ pub mod events;
 pub mod fetch;
 pub mod hotkeys;
 pub mod islepilot;
+pub mod local_telemetry;
 pub mod minimap;
 pub mod pipeline;
 pub mod providers;
@@ -208,6 +209,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             tray::create(app.handle())?;
             clipboard::spawn(app.handle().clone());
             pipeline::spawn_heading_watchdog(app.handle().clone());
+            local_telemetry::spawn(app.handle().clone());
             webview_mem::spawn_watchdog(app.handle().clone());
             {
                 let state = app.state::<AppState>();

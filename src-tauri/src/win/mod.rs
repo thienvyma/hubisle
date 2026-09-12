@@ -11,11 +11,12 @@
 //!   - A fixed `/unstuck` chat macro (in unstuck.rs), only while the verified
 //!     The Isle window is foreground. It exposes no generic text/key surface.
 //!
-//! The game runs kernel-level Easy Anti-Cheat. This app is safe only because
-//! it never touches the game process. ABSOLUTELY NEVER add: OpenProcess /
-//! ReadProcessMemory aimed at the game, SetParent into the game window, DLL
-//! injection, DirectX hooks, arbitrary synthetic input, keybd_event /
-//! PostMessage to the game, packet capture, or low-level keyboard hooks
+//! The game runs kernel-level Easy Anti-Cheat. The bundled local telemetry
+//! sidecar may passively capture outbound UDP owned by the game through Npcap;
+//! it does not open or modify the game process. ABSOLUTELY NEVER add:
+//! OpenProcess / ReadProcessMemory aimed at the game, SetParent into the game
+//! window, DLL injection, DirectX hooks, arbitrary synthetic input,
+//! keybd_event / PostMessage to the game, or low-level keyboard hooks
 //! (SetWindowsHookEx). CI greps for those names and fails the build.
 
 pub mod game_window;
