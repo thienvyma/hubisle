@@ -1,4 +1,4 @@
-# theisle-overlay-api
+# islemap-thienvyma-api
 
 Analytics, feedback và crash report cho TheIsle Overlay. Chạy trên Cloudflare
 Workers free tier.

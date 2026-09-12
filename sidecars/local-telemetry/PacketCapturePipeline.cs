@@ -1,6 +1,6 @@
 using System.Threading.Channels;
 
-namespace IslePulse.LocalTelemetry;
+namespace IslemapThienvyma.Telemetry;
 
 internal readonly record struct CapturedUdpDatagram(
     DateTimeOffset ObservedAt,

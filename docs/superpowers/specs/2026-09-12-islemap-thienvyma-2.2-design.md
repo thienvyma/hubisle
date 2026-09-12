@@ -17,7 +17,8 @@ The NSIS pre-install hook stops both old and new processes and removes stale old
 executables before copying 2.2.0. The app accepts both the new deep-link scheme
 and the legacy `theisle-overlay` scheme so existing OAuth redirects continue to
 work. On first launch, the app migrates roaming and local data directories from
-`TheIsleOverlay` to `islemap-thienvyma`; settings, map downloads, waypoints,
+`TheIsleOverlay` to `islemap-thienvyma` for roaming data and
+`islemap-thienvyma-data` for local data; settings, map downloads, waypoints,
 history, and encrypted credentials survive the rename. Updater endpoint and
 signing public key remain unchanged.
 

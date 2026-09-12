@@ -1,4 +1,4 @@
-namespace IslePulse.LocalTelemetry;
+namespace IslemapThienvyma.Telemetry;
 
 public sealed class LocalMovementTracker
 {

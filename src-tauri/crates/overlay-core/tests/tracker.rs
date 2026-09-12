@@ -179,6 +179,65 @@ fn local_camera_wins_while_fresh_then_falls_back_to_provider_camera() {
 }
 
 #[test]
+fn slow_provider_updates_cannot_replace_a_fresh_local_camera_heading() {
+    let mut t = tracker();
+    t.add_sample_with_heading(1_000.0, 2_000.0, 0.0, Some(90.0), 10.0);
+    t.update_local_heading(225.0, 10.1);
+
+    // A slow provider may publish another coordinate and server bearing just
+    // after the local camera frame. The local source must remain authoritative
+    // for its short freshness window.
+    t.add_sample_with_heading(1_100.0, 2_000.0, 0.0, Some(135.0), 10.2);
+    assert_eq!(
+        t.heading_with_source(10.2),
+        Some((225.0, HeadingSource::LocalCamera))
+    );
+}
+
+#[test]
+fn provider_position_reset_cannot_clear_a_fresh_local_camera_heading() {
+    let mut t = tracker();
+    t.add_sample(1_000.0, 2_000.0, 0.0, 10.0);
+    t.update_local_heading(315.0, 10.1);
+
+    // A provider reconnect, respawn coordinate or changed coordinate frame can
+    // legitimately reset its position and movement trail. It does not own the
+    // independently captured Npcap camera bearing, so that fresh value stays.
+    t.clear_position();
+    assert_eq!(t.current, None);
+    assert_eq!(
+        t.heading_with_source(10.2),
+        Some((315.0, HeadingSource::LocalCamera))
+    );
+    assert_eq!(
+        t.heading_with_source(10.1 + LOCAL_HEADING_MAX_AGE_S + 0.001),
+        None,
+        "a preserved local frame must still expire normally"
+    );
+}
+
+#[test]
+fn provider_position_jump_cannot_clear_a_fresh_local_camera_heading() {
+    let mut t = tracker();
+    t.add_sample(1_000.0, 2_000.0, 0.0, 10.0);
+    t.update_local_heading(45.0, 10.1);
+
+    // A large provider jump starts a new trail segment. This must reset only
+    // provider/movement state, not a current local camera frame.
+    let outcome = t.add_sample_with_heading(10_000_000.0, 2_000.0, 0.0, Some(180.0), 10.2);
+    assert!(outcome.broke_segment);
+    assert_eq!(
+        t.heading_with_source(10.2),
+        Some((45.0, HeadingSource::LocalCamera))
+    );
+    assert_eq!(
+        t.heading_with_source(10.1 + LOCAL_HEADING_MAX_AGE_S + 0.001),
+        Some((180.0, HeadingSource::ProviderCamera)),
+        "the new provider bearing takes over after the local frame expires"
+    );
+}
+
+#[test]
 fn local_heading_expires_independently_without_another_position_packet() {
     let mut t = tracker();
     t.add_sample_with_heading(1000.0, 2000.0, 0.0, Some(90.0), 5.0);

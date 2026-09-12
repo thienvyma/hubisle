@@ -29,7 +29,11 @@ use tauri::{AppHandle, Emitter};
 use crate::settings;
 
 pub const MAP_VERSION: &str = "Gateway_v0.21.7";
-const UA: &str = "isle-pulse-overlay/1.7 (personal use)";
+const UA: &str = concat!(
+    "islemap-thienvyma/",
+    env!("CARGO_PKG_VERSION"),
+    " (personal use)"
+);
 
 fn vulnona_base() -> String {
     format!("https://vulnona.com/game/map/map/{MAP_VERSION}")

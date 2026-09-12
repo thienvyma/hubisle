@@ -1,18 +1,18 @@
 [package]
-name = "theisle-overlay"
-version = "2.1.4"
+name = "islemap-thienvyma"
+version = "2.2.0"
 description = "Map overlay for The Isle: Evrima (Gateway)"
 authors = ["Huỳnh Vỹ"]
 homepage = "https://github.com/thienvyma/hubisle"
 repository = "https://github.com/thienvyma/hubisle.git"
 edition = "2021"
-default-run = "theisle-overlay"
+default-run = "islemap-thienvyma"
 
 [workspace]
 members = ["crates/overlay-core"]
 
 [lib]
-name = "theisle_overlay_lib"
+name = "islemap_thienvyma_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
@@ -25,7 +25,7 @@ path = "src/bin/verify_data.rs"
 required-features = ["devtools"]
 
 [[bin]]
-name = "theisle-overlay"
+name = "islemap-thienvyma"
 path = "src/main.rs"
 
 [build-dependencies]

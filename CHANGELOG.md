@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-09-12
+
+- Đổi toàn bộ tên sản phẩm, executable, sidecar và gói phát hành thành
+  `islemap-thienvyma`; vẫn nhận deep link `theisle-overlay://` cũ để các luồng
+  đăng nhập hiện có tiếp tục hoạt động.
+- Tự chuyển một lần dữ liệu roaming từ `TheIsleOverlay` sang
+  `islemap-thienvyma` và dữ liệu local sang `islemap-thienvyma-data`, giữ
+  nguyên cài đặt, waypoint, lịch sử, bản đồ đã tải và thông tin đăng nhập đã mã hóa.
+- Thêm tab Bạn bè cho danh sách được Era, Titan hoặc IslePilot trả về, gồm trạng
+  thái online, loài và việc có vị trí trực tiếp hay không.
+- Sửa vị trí trên DinoVietnam bằng calibration riêng của server; ghép quan hệ
+  bạn bè với marker live-map để bạn bè có tọa độ xuất hiện lại trên cả hai bản đồ.
+- Chuẩn hóa trục tọa độ thô từ sidecar Npcap đúng một lần ở biên telemetry,
+  đồng thời giữ góc camera realtime độc lập với vị trí và góc chậm từ server.
+- Đồng bộ Garage và Live Skin qua API trung tâm IslePilot; dữ liệu đăng nhập cũ
+  được di chuyển nguyên vẹn để người dùng không phải liên kết lại sau nâng cấp.
+- Thêm tab Thoại để dò, mở và tùy chọn tự khởi động launcher IsleVOIP chính
+  thức; liên kết trang tải chính thức khi chưa cài và giải thích rõ gói tính
+  năng do chủ server quản lý.
+- Bộ cài dừng và dọn cả executable cũ/mới, đồng thời xóa thư mục chương trình
+  `Isle Pulse Overlay` cũ mà không xóa dữ liệu người dùng.
+- Chuẩn hóa tài liệu phát hành 2.2.0 thành bản chỉ có văn bản và xóa ảnh hướng
+  dẫn, ảnh chụp không còn được tham chiếu.
+
 ## [2.1.4] — 2026-09-12
 
 - Kiểm tra Npcap bằng thiết bị capture thật khi hub mở, phát hiện cả trường
@@ -41,7 +65,7 @@
 - Bật skin IslePilot bằng endpoint overlay mới `/api/overlay/skin`; tab Skin đọc danh sách vùng màu động từ server DinoVietnam và chỉ gửi lệnh apply khi người dùng bấm áp dụng.
 - Dò endpoint DinoVietnam VIP: `/api/overlay/friends`, `/api/overlay/garage`, `/api/overlay/skin` đều trả dữ liệu hợp lệ. Bạn bè chỉ hiện trên bản đồ khi server trả kèm tọa độ; mẫu hiện tại chỉ có quan hệ bạn bè, chưa có vị trí.
 
-Mọi thay đổi đáng chú ý của Isle Pulse Overlay được ghi tại đây, theo định dạng
+Mọi thay đổi đáng chú ý của islemap-thienvyma được ghi tại đây, theo định dạng
 [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và đánh số phiên bản
 [SemVer](https://semver.org/lang/vi/). Mã trong ngoặc là commit tương ứng.
 

@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace IslePulse.LocalTelemetry;
+namespace IslemapThienvyma.Telemetry;
 
 public enum NpcapSetupStage
 {
@@ -47,7 +47,7 @@ public sealed class NpcapSetupService
         IProgress<NpcapSetupProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var downloadDirectory = Path.Combine(Path.GetTempPath(), "IslePulseOverlay", "Npcap");
+        var downloadDirectory = Path.Combine(Path.GetTempPath(), "islemap-thienvyma-telemetry", "Npcap");
         var installerPath = Path.Combine(
             downloadDirectory,
             $"npcap-{InstallerVersion}-{Guid.NewGuid():N}.exe");
@@ -241,7 +241,7 @@ public sealed class NpcapSetupService
         {
             // These are ordinary graphical-installer defaults. The user still
             // sees and controls the official Npcap setup window. Explicitly
-            // request boot-start and unrestricted capture so Isle Pulse keeps
+            // request boot-start and unrestricted capture so islemap-thienvyma keeps
             // working after a Windows restart and without elevation.
             Arguments = "/npf_startup=yes /admin_only=no",
             UseShellExecute = true,

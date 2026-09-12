@@ -202,9 +202,11 @@ pub fn clear_local_heading(app: &AppHandle) {
     emit_all(app, HEADING_UPDATE, current_heading(&state));
 }
 
-/// Remove the active marker and heading while preserving completed trail
-/// segments. The next accepted sample starts a new segment, so switching
-/// servers can never draw a line across unrelated positions.
+/// Remove the active marker plus provider/movement heading while preserving
+/// completed trail segments and any still-fresh local camera bearing. The
+/// local adapter owns that bearing and clears it explicitly on capture loss.
+/// The next accepted position starts a new segment, so switching servers can
+/// never draw a line across unrelated positions.
 pub fn clear_position(app: &AppHandle) {
     let state = app.state::<AppState>();
     let cal = state.active_calibration();

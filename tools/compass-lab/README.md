@@ -1,6 +1,6 @@
 # Lưu trữ nghiên cứu hướng camera từ la bàn Q
 
-Cập nhật hiện tại: Isle Pulse 2.1.4 đã dùng sidecar Npcap riêng để giải mã góc
+Cập nhật hiện tại: islemap-thienvyma 2.2.0 dùng sidecar Npcap riêng để giải mã góc
 camera từ UDP chiều đi của game. Phần dưới là hồ sơ nghiên cứu lịch sử về phương
 án nhận dạng la bàn Q trên nền 2.1.1; bộ nhận dạng ảnh Q không được đưa vào app.
 

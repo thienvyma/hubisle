@@ -17,7 +17,7 @@
       disabled={["checking", "downloading", "installing"].includes($updateState.status)}
       onclick={() => void updates.checkNow(true)}
     >{$updateState.status === "checking" ? $t("update.checking") : $t("update.check")}</button>
-    <span>ISLE//PULSE · {$t("footer.developed_by")} <em>Huỳnh Vỹ</em></span>
+    <span>islemap-thienvyma · {$t("footer.developed_by")} <em>Huỳnh Vỹ</em></span>
     <button
       class="cursor-pointer underline-offset-2 hover:underline"
       onclick={() => void openUrl(FACEBOOK_URL)}

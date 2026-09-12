@@ -1,6 +1,6 @@
 using SharpPcap;
 
-namespace IslePulse.LocalTelemetry;
+namespace IslemapThienvyma.Telemetry;
 
 public readonly record struct NpcapAvailability(bool IsAvailable, string? ErrorMessage = null);
 

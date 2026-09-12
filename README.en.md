@@ -1,27 +1,15 @@
-# Isle Pulse Overlay
+# islemap-thienvyma
 
 [Tiếng Việt](README.md) · **English**
 
-**Isle Pulse Overlay 2.1.4** is developed by **Huỳnh Vỹ**. Its in-game minimap
-reads the player's coordinates automatically from the server's account
-website. Adapters currently support **Era Gaming VN**, **The Real Server VN
+**islemap-thienvyma 2.2.0** is developed by **Huỳnh Vỹ**. Its in-game minimap
+uses the bundled Npcap sidecar for realtime position and the server account
+website for data and position fallback. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
 
 On first launch, enter the server website and sign in in the separate window.
 The session is encrypted on this computer. Unsupported sites require a specific
 adapter; the app never guesses an API or sends cookies to an unknown domain.
-
-![Minimap with a friend marker, stat bars, Prime quests and the voice strip over the running game — the dino wears a skin just changed in the app](docs/screenshot-ingame.jpg)
-
-![Full map with place names and POI layers](docs/screenshot-fullmap.png)
-
-![Your Dino tab with stats and Prime progress](docs/screenshot-dino.png)
-
-![Garage (Gacha) tab: a parked dino in 3D with growth, stats and a Restore button](docs/screenshot-garage.png)
-
-![Per-region skin palette applied directly to the current dino](docs/screenshot-skin.png)
-
-![Voice tab: proximity voice over IsleVOIP, device pickers and who is in earshot](docs/screenshot-voip.png)
 
 ## Features
 
@@ -47,9 +35,16 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
 - **Realtime position and stats**: coordinates, growth, health, hunger, thirst,
   and stamina are normalized from the selected provider and rendered by the same
   minimap. Missing provider fields remain empty rather than being fabricated.
-- **Provider friends**: accepted friends from Era, Titan, or IslePilot appear on
-  the map when they share a position; the Dino tab explains when the provider
-  returns no accepted friends or no shared positions.
+- **Provider friends**: the Friends tab lists accepted friends returned by Era,
+  Titan, or IslePilot, including online state, species, and whether a live
+  position is available. For IslePilot, relationship data is joined with the
+  server's calibrated live-map markers, so positioned friends appear on both maps.
+- **Official IsleVOIP launcher**: the Voice tab detects the per-user install,
+  reports whether it is running, starts it on request, and can start it with the
+  hub. When absent, the app opens the official download page at
+  [isle-voip.com](https://isle-voip.com/). IsleVOIP handles Steam login, server
+  discovery, nearby players, and voice transport. Server owners choose the
+  service plan; the hub does not unlock server-side 3D or range features.
 - **Multi-provider Garage**: IslePilot keeps its 3D cards and Park/Restore/
   Rename/Sell flow; Era and Titan get five official API slots with store,
   restore, delete, connection gating, and server job progress.
@@ -69,8 +64,11 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
 Run the NSIS installer built from this custom branch.
 On first launch the app downloads the map data (~3 MB) to your machine.
 It is safe to run a newer installer over an older build: the installer stops
-the hub and sidecar, removes their old executables, and then writes the new
-build while preserving personal data and settings.
+both old and new processes, removes stale executables and the old `Isle Pulse
+Overlay` installation directory, and then writes the new build. On first run,
+the app moves roaming `TheIsleOverlay` data to `islemap-thienvyma` and local
+data to `islemap-thienvyma-data`, preserving settings, waypoints, history,
+downloaded maps, and encrypted login credentials.
 
 Requires **Windows 10/11 64-bit**. WebView2 is already present on most Windows 11
 installs; the installer fetches it if missing.
@@ -101,7 +99,8 @@ closes itself when done. Do this **once** — no server link needed, it works on
 **every IslePilot server**, and switching servers in game follows automatically.
 This login also unlocks the **Garage (Gacha)** tab and the **server POI** map
 layer. If the window fails to catch the token, open *"Or paste the token
-manually"* and paste the token (or the whole `theisle-overlay://…` link).
+manually"* and paste the token (or the whole `islemap-thienvyma://…` link; the
+legacy `theisle-overlay://…` scheme remains accepted during upgrades).
 
 **Method 2 — Legacy: server link + cookie** (only when method 1 does not work;
 the cookie is stored per server, so switching servers means doing it again).
@@ -112,16 +111,10 @@ click Steam login there; if that still fails, paste the cookie manually:
    **F12** (or right-click → **Inspect**) and open the **Application** tab
    (Chrome) / **Storage** (Firefox).
 
-   ![Open DevTools and pick the Application tab](docs/guide-dino-1-devtools.png)
-
 2. Pick **Cookies** → the server's domain → click the **`islepilot_player`**
    cookie → copy the whole **Value**.
 
-   ![Copy the islepilot_player cookie value](docs/guide-dino-2-copy-cookie.jpg)
-
 3. In the app: paste it into the cookie box → click **Verify & save cookie**.
-
-   ![Enter the server link, paste the cookie and save](docs/guide-dino-3-paste-app.jpg)
 
 If the server runs a **live map**, the app detects it and enables automatic
 position — no manual coordinate copying needed; when the server has the live
@@ -134,39 +127,19 @@ map disabled the option locks itself off.
 - https://sdvn.islepilot.eu
 - https://sdvn2.islepilot.eu
 - https://khunglong.islepilot.eu
+- https://dinovietnam.islepilot.eu
 - https://islepilot.eu/p/sbtcisland
-
-## How light is it?
-
-Measured on a real machine: **Intel Core i5-14400F (10 cores / 16 threads), 32 GB
-RAM, RTX 3060 Ti, Windows 11 Pro build 26200, 100% display scaling** — release
-build v1.0.0:
-
-| Item | Size |
-|---|---|
-| Installer | **4.3 MB** |
-| Installed executable | 17.8 MB |
-| Map data downloaded on first run | 2.9 MB (2.6 MB basemap + 0.3 MB point data) |
-| **Total disk footprint** | **~21 MB** |
-
-| At runtime | RAM (working set) | Idle CPU |
-|---|---|---|
-| Full map **and** minimap open | **522 MB** (8 processes) | 0.18% |
-| Full map hidden with `Ctrl+Alt+F` (the while-playing scenario) | **448 MB** | 0.08% |
-
-**CPU is essentially zero** because the app has no repaint loop — it draws only
-when new data arrives.
 
 ## Things to know
 
 1. **Game display mode**: no out-of-process overlay can draw over **Exclusive
    Fullscreen** — a Windows limitation. Use **Windowed** or **Borderless
    Fullscreen**. The app reads your game config and warns you if the mode is wrong.
-2. **Position does not update by itself**: you press `Tab` → **Asset Location** in
-   game whenever you want a position update. This is *deliberate* — see the
-   anti-cheat section below.
-3. **Heading needs two coordinate copies** at least 20 m apart; samples older than
-   10 minutes expire so the arrow never points the wrong way.
+2. **Position sources depend on the machine and server**: the Npcap sidecar
+   supplies realtime position and heading when packet capture is available.
+   Provider HTTPS and copied **Asset Location** coordinates remain fallbacks.
+3. **Movement-derived fallback heading** needs two coordinate samples at least
+   20 m apart; samples older than 10 minutes expire.
 4. **Only one instance can run** — global hotkeys are system-exclusive, so two
    copies would fight over them.
 5. **Low-RAM machines**: hide the full map with `Ctrl+Alt+F` while playing —
@@ -195,16 +168,17 @@ The game runs kernel-level Easy Anti-Cheat. The app does not open game memory,
 inject code, or modify the game process:
 
 - Realtime position and heading are decoded from the game's own **outbound UDP**
-  through Npcap. This sidecar ships with Isle Pulse and does not depend on
+  through Npcap. This sidecar ships with islemap-thienvyma and does not depend on
   IsleLiveMap.
 - Provider HTTPS and the clipboard remain fallbacks when Npcap is unavailable.
   Npcap must be installed once on Windows without administrator-only mode. Its
-  driver starts with Windows, while Isle Pulse starts and reconnects its bundled
+  driver starts with Windows, while islemap-thienvyma starts and reconnects its bundled
   telemetry sidecar on every hub launch.
 - Hotkeys use `RegisterHotKey` (Windows' cooperative API), **not** a keyboard
   hook.
-- Stats, position, accepted friends, Garage and skins come over **HTTPS from the
-  exact verified provider** (Era, Titan or IslePilot), without reading game memory.
+- Stats, accepted friends, Garage, skins, and fallback position come over **HTTPS
+  from the exact verified provider** (Era, Titan or IslePilot). Realtime local
+  position and heading come from the bundled Npcap packet sidecar.
 - The `` ` `` shortcut uses `SendInput` only to send the fixed `/unstuck` chat
   command after verifying that The Isle is foreground. The app does not inject
   DLLs or hook DirectX.
@@ -234,7 +208,7 @@ cargo clippy --workspace -- -D warnings
 cargo run --bin verify_data --features devtools -- --source vulnona
 cargo run --bin verify_data --features devtools -- --source islemaps-light
 cargo run --bin verify_data --features devtools -- --source islemaps-dark
-cargo test -p theisle-overlay --lib -- --ignored parse_real_cache
+cargo test -p islemap-thienvyma --lib -- --ignored parse_real_cache
 ```
 
 Note: `.cargo/config.toml` moves the `target-dir` outside the OneDrive-synced

@@ -7,7 +7,7 @@
 //!      so game terms stay right ("Get nested in" is not machine-translatable);
 //!   2. template rules — numeric variants ("Visit 3 Patrol zones") so a
 //!      different count never falls through to the network;
-//!   3. persistent cache (%LOCALAPPDATA%\TheIsleOverlay\quest_translations.json),
+//!   3. persistent cache (%LOCALAPPDATA%\islemap-thienvyma-data\quest_translations.json),
 //!      filled by the MyMemory web API for strings the first two layers miss.
 //!      Each unknown string costs ONE api call ever.
 //!

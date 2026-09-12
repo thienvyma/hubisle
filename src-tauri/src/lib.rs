@@ -1,4 +1,4 @@
-//! Isle Pulse Overlay multi-provider Tauri application shell.
+//! islemap-thienvyma multi-provider Tauri application shell.
 //!
 //! Position flows ONE way: selected provider (or the manual clipboard
 //! fallback) -> tracker -> both windows.
@@ -12,6 +12,7 @@ pub mod events;
 pub mod fetch;
 pub mod hotkeys;
 pub mod islepilot;
+pub mod islevoip;
 pub mod local_telemetry;
 pub mod minimap;
 pub mod pipeline;
@@ -34,13 +35,14 @@ use tauri::Manager;
 use crate::state::{AppState, LockExt};
 
 pub fn run(replay_file: Option<PathBuf>) {
+    settings::ensure_dirs().expect("failed to prepare islemap-thienvyma data directories");
     let builder = tauri::Builder::default()
         // Must be the FIRST plugin: RegisterHotKey is system-exclusive, so a
         // second instance would silently lose half its hotkeys. The old app
         // used a named mutex for the same reason.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // The "deep-link" feature forwards any theisle-overlay:// URL in
-            // the second instance's argv to on_open_url automatically.
+            // The "deep-link" feature forwards islemap-thienvyma:// URLs and
+            // legacy theisle-overlay:// URLs from a second instance.
             tray::show_main(app);
         }))
         .plugin(tauri_plugin_deep_link::init())
@@ -80,6 +82,8 @@ pub fn run(replay_file: Option<PathBuf>) {
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::patch_settings,
+            commands::islevoip_status,
+            commands::islevoip_launch,
             commands::get_current_position,
             commands::get_current_heading,
             commands::list_waypoints,
@@ -142,12 +146,11 @@ pub fn run(replay_file: Option<PathBuf>) {
 
     builder
         .setup(move |app| {
-            settings::ensure_dirs()?;
-            // Own protocol: theisle-overlay:// (HKCU, this exe — works for
-            // dev builds too). A clicked theisle-overlay://?sid=..&token=..
-            // link logs the token in, exactly like the paste box. Distinct
-            // from the official app's isle-overlay:// scheme on purpose —
-            // we never take that one over.
+            // Own protocols: islemap-thienvyma:// and the legacy
+            // theisle-overlay:// scheme (HKCU, this exe — works for dev builds
+            // too). A clicked URL with sid/token logs the token in, exactly
+            // like the paste box. We never take over the official app's
+            // isle-overlay:// scheme.
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 if let Err(e) = app.deep_link().register_all() {
@@ -169,6 +172,21 @@ pub fn run(replay_file: Option<PathBuf>) {
                         });
                     }
                 });
+            }
+            {
+                let state = app.state::<AppState>();
+                let auto_start = settings::get_bool(
+                    &state.settings.lock_safe(),
+                    &["voice", "auto_start"],
+                    false,
+                );
+                if auto_start {
+                    std::thread::spawn(|| {
+                        if let Err(error) = islevoip::launch() {
+                            log::warn!("IsleVOIP auto-start failed: {error}");
+                        }
+                    });
+                }
             }
             // Upgrade pois_gateway.json in place (offline, from cache) when
             // an app update added new layers.

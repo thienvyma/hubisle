@@ -24,6 +24,18 @@ test("an actual fresh server or local update recovers from expiry", () => {
   assert.equal(acceptHeading(expired, sample(17000, 0, "local-camera")).headingDeg, 0);
 });
 
+test("a delayed provider position cannot replace a newer local camera heading", () => {
+  const local = acceptHeading(emptyHeading(), sample(2000, 225, "local-camera"));
+  const delayedProviderPosition = {
+    ...sample(1000, 90, "provider-camera"),
+    xCm: 300,
+    yCm: 500,
+    px: 700,
+    py: 900,
+  };
+  assert.equal(acceptHeading(local, delayedProviderPosition), local);
+});
+
 test("heading events have no position/trail properties", () => {
   const position = { ...sample(1000), xCm: 10, yCm: 20, segments: [[1, 2]] };
   assert.deepEqual(Object.keys(acceptHeading(emptyHeading(), position)).sort(),

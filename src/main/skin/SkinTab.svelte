@@ -92,12 +92,23 @@
   });
 
   function storageKey(current: ProviderId) {
+    return `islemap-thienvyma.skin.${current}.v1`;
+  }
+  function legacyStorageKey(current: ProviderId) {
     return `isle-pulse.skin.${current}.v1`;
+  }
+  function readStored(current: ProviderId, suffix = "") {
+    const key = `${storageKey(current)}${suffix}`;
+    const currentValue = localStorage.getItem(key);
+    if (currentValue !== null) return currentValue;
+    const legacyValue = localStorage.getItem(`${legacyStorageKey(current)}${suffix}`);
+    if (legacyValue !== null) localStorage.setItem(key, legacyValue);
+    return legacyValue;
   }
   function loadDraft(current: ProviderId): string[] {
     const fallback = current === "era" ? ERA_DEFAULT : current === "titan" ? TITAN_DEFAULT : ISLEPILOT_DEFAULT;
     try {
-      const value = JSON.parse(localStorage.getItem(storageKey(current)) ?? "null");
+      const value = JSON.parse(readStored(current) ?? "null");
       if (Array.isArray(value) && value.length === fallback.length && value.every(validColor)) {
         return value.map((color) => color.toUpperCase());
       }
@@ -105,7 +116,7 @@
     return [...fallback];
   }
   function loadVariation(current: ProviderId): number {
-    const value = Number(localStorage.getItem(`${storageKey(current)}.variation`) ?? 0);
+    const value = Number(readStored(current, ".variation") ?? 0);
     return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
   }
   function saveDraft() {

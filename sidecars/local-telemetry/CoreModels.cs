@@ -1,4 +1,4 @@
-namespace IslePulse.LocalTelemetry;
+namespace IslemapThienvyma.Telemetry;
 
 public readonly record struct WorldLocation
 {

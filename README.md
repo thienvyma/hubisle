@@ -1,27 +1,16 @@
-# Isle Pulse Overlay
+# islemap-thienvyma
 
 **Tiếng Việt** · [English](README.en.md)
 
-**Isle Pulse Overlay 2.1.4** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
-game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
+**islemap-thienvyma 2.2.0** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+game và lấy vị trí realtime từ sidecar Npcap, với website quản lý của server làm
+nguồn dữ liệu và vị trí dự phòng. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
 Lần đầu mở app, nhập website server và đăng nhập trong cửa sổ riêng. Phiên đăng
 nhập được mã hóa trên máy; app tiếp tục cập nhật vị trí, hướng đi và chỉ số trên
 minimap khi chơi. Website chưa được hỗ trợ cần thêm adapter xác định — app không
 gửi cookie sang domain lạ hoặc đoán cấu trúc API.
-
-![Minimap có chấm bạn bè, thanh chỉ số, nhiệm vụ Prime và thanh Thoại đè lên game — con dino đang mang skin vừa đổi trong app](docs/screenshot-ingame.jpg)
-
-![Bản đồ lớn với tên địa danh và các lớp POI](docs/screenshot-fullmap.png)
-
-![Tab Khủng long của bạn với chỉ số và Prime progress](docs/screenshot-dino.png)
-
-![Tab Garage (Gacha): dino đã gửi kho, xem 3D, growth và chỉ số, nút Restore](docs/screenshot-garage.png)
-
-![Bảng phối màu skin theo từng vùng và áp trực tiếp lên dino](docs/screenshot-skin.png)
-
-![Tab Thoại: nói theo khoảng cách qua IsleVOIP, chọn micro và người trong tầm nghe](docs/screenshot-voip.png)
 
 ## Tính năng
 
@@ -44,9 +33,15 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 - **Tìm kiếm & điều hướng**: ô tìm địa danh/waypoint, dán tọa độ để nhảy tới,
   chế độ bám vị trí với mũi tên mép màn hình dẫn về chỗ đứng.
 - **Đường đã đi**: tự ghi theo phiên, khôi phục lại đường đi của phiên trước.
-- **Bạn bè cùng server**: tự hiển thị những người đã chấp nhận kết bạn và đang
-  online khi Era, Titan hoặc IslePilot cấp vị trí; tab Dino báo rõ số bản ghi
-  provider trả về, minimap giữ số bạn ở mép vòng khi ở xa.
+- **Bạn bè cùng server**: tab Bạn bè hiển thị danh sách đã chấp nhận từ Era,
+  Titan hoặc IslePilot, gồm trạng thái online, loài và việc có vị trí trực tiếp
+  hay không. Với IslePilot, app ghép danh sách quan hệ với marker live-map và
+  calibration riêng của server; bạn có vị trí hiện trên bản đồ lớn và minimap.
+- **Thoại qua IsleVOIP chính thức**: tab Thoại dò bản cài theo người dùng, báo
+  trạng thái chạy, mở launcher và có thể tự mở launcher cùng hub. Nếu chưa cài,
+  app mở trang tải chính thức tại [isle-voip.com](https://isle-voip.com/).
+  Launcher IsleVOIP phụ trách Steam, server, người chơi ở gần và truyền giọng
+  nói. Chủ server chọn gói dịch vụ; app không mở khóa 3D/range cho server.
 - **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
   chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
   cung cấp sẽ để trống, không dựng dữ liệu giả.
@@ -68,8 +63,11 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 
 Chạy file cài đặt NSIS được tạo từ nhánh tùy chỉnh này.
 Lần đầu mở app sẽ tải dữ liệu bản đồ (~3 MB) về máy.
-Có thể chạy trực tiếp bộ cài mới trên bản cũ: installer sẽ đóng hub và sidecar,
-xóa executable cũ rồi ghi bản mới; dữ liệu cá nhân và cài đặt vẫn được giữ.
+Có thể chạy trực tiếp bộ cài mới trên bản cũ: installer sẽ đóng cả tiến trình
+cũ/mới, xóa executable và thư mục cài `Isle Pulse Overlay` cũ rồi ghi bản mới.
+Lần mở đầu tiên chuyển dữ liệu roaming `TheIsleOverlay` sang
+`islemap-thienvyma` và dữ liệu local sang `islemap-thienvyma-data`, giữ nguyên
+cài đặt, waypoint, lịch sử, bản đồ đã tải và thông tin đăng nhập đã mã hóa.
 
 Yêu cầu: **Windows 10/11 64-bit**. WebView2 (thường đã có sẵn trên Windows 11;
 nếu thiếu, installer tự tải về).
@@ -99,7 +97,8 @@ tự đóng khi xong. Chỉ cần làm **một lần duy nhất** — không c�
 server, dùng cho **mọi server IslePilot**, đổi server trong game là dữ liệu tự
 đổi theo. Cách này còn mở thêm tab **Garage (Gacha)** và lớp **POI server**
 trên bản đồ. Nếu cửa sổ không tự bắt được token, mở mục *"Hoặc dán token thủ
-công"* và dán token (hoặc nguyên link `theisle-overlay://…`).
+công"* và dán token (hoặc nguyên link `islemap-thienvyma://…`; link cũ
+`theisle-overlay://…` vẫn được chấp nhận khi nâng cấp).
 
 **Cách 2 — Cách cũ: nhập server + cookie** (chỉ khi cách 1 không hoạt động;
 cookie lưu riêng từng server, đổi server phải làm lại). Mở mục **"Cách cũ"**
@@ -110,16 +109,10 @@ vẫn không được thì dán cookie thủ công:
    (hoặc chuột phải → **Inspect**) rồi chọn tab **Application** (Chrome) /
    **Storage** (Firefox).
 
-   ![Mở DevTools và chọn tab Application](docs/guide-dino-1-devtools.png)
-
 2. Chọn **Cookies** → domain của server → bấm cookie tên **`islepilot_player`**
    → copy toàn bộ **Value**.
 
-   ![Copy giá trị cookie islepilot_player](docs/guide-dino-2-copy-cookie.jpg)
-
 3. Trong app: dán vào ô cookie → bấm **Kiểm tra & lưu cookie**.
-
-   ![Nhập link server, dán cookie và lưu trong app](docs/guide-dino-3-paste-app.jpg)
 
 Server có **live map** thì app tự nhận và bật "lấy vị trí tự động" — khỏi cần
 copy tọa độ thủ công; server tắt live map thì tùy chọn này tự khóa.
@@ -132,26 +125,8 @@ dùng được):
 - https://sdvn.islepilot.eu
 - https://sdvn2.islepilot.eu
 - https://khunglong.islepilot.eu
+- https://dinovietnam.islepilot.eu
 - https://islepilot.eu/p/sbtcisland
-
-## Nhẹ cỡ nào?
-
-Số đo thật trên máy: **Intel Core i5-14400F (10 nhân/16 luồng), 32 GB RAM,
-RTX 3060 Ti, Windows 11 Pro build 26200, độ phân giải 100%** — bản release v1.0.0:
-
-| Hạng mục | Dung lượng |
-|---|---|
-| File cài đặt | **4,3 MB** |
-| File chạy sau khi cài | 17,8 MB |
-| Dữ liệu bản đồ tải lần đầu | 2,9 MB (ảnh nền 2,6 MB + dữ liệu điểm 0,3 MB) |
-| **Tổng chiếm ổ cứng** | **~21 MB** |
-
-| Lúc chạy | RAM (working set) | CPU lúc rảnh |
-|---|---|---|
-| Mở cả bản đồ lớn + minimap | **522 MB** (8 tiến trình) | 0,18% |
-| Ẩn bản đồ lớn bằng `Ctrl+Alt+F` (kịch bản khi đang chơi) | **448 MB** | 0,08% |
-
-**CPU gần như bằng 0** vì app không có vòng lặp vẽ lại — chỉ vẽ khi có dữ liệu mới.
 
 ## Lưu ý cần biết
 
@@ -159,11 +134,11 @@ RTX 3060 Ti, Windows 11 Pro build 26200, độ phân giải 100%** — bản rel
    độc quyền (Exclusive Fullscreen)** — đây là giới hạn của Windows với mọi
    overlay ngoài tiến trình. Hãy dùng **Cửa sổ** hoặc **Toàn màn hình không viền**.
    App tự đọc cấu hình game và cảnh báo nếu bạn đang để sai chế độ.
-2. **Vị trí không tự động cập nhật**: bạn phải tự bấm `Tab` → **Asset Location**
-   trong game mỗi khi muốn cập nhật vị trí. Đây là *chủ đích*, không phải thiếu sót
-   — xem mục an toàn anti-cheat bên dưới.
-3. **Hướng đi cần hai lần chép tọa độ** cách nhau ít nhất 20 m; mẫu cũ quá 10 phút
-   thì hướng hết hạn để tránh chỉ sai.
+2. **Nguồn vị trí phụ thuộc máy và server**: sidecar Npcap cung cấp vị trí và
+   hướng realtime khi capture khả dụng. HTTPS provider và thao tác chép
+   **Asset Location** là nguồn dự phòng.
+3. **Hướng dự phòng từ chuyển động** cần hai mẫu tọa độ cách nhau ít nhất 20 m;
+   mẫu cũ quá 10 phút thì hướng hết hạn để tránh chỉ sai.
 4. **Không mở được hai bản cùng lúc** — phím tắt toàn cục mang tính độc quyền,
    hai bản chạy song song sẽ tranh nhau.
 5. **Máy ít RAM**: ẩn bản đồ lớn bằng `Ctrl+Alt+F` khi vào game — app tự giảm
@@ -193,11 +168,11 @@ Game chạy Easy Anti-Cheat cấp kernel. App không mở bộ nhớ, chèn mã 
 tiến trình game:
 
 - Vị trí và góc realtime lấy từ gói **UDP chiều đi của chính game** qua Npcap;
-  sidecar này được đóng gói trong Isle Pulse và không phụ thuộc IsleLiveMap.
+  sidecar này được đóng gói trong islemap-thienvyma và không phụ thuộc IsleLiveMap.
 - HTTPS của website server và clipboard vẫn là nguồn dự phòng khi Npcap chưa
   sẵn sàng. Npcap cần được cài một lần trên Windows, driver được đặt nạp lúc
-  Windows khởi động và không bật chế độ chỉ cho Administrator. Sidecar Isle
-  Pulse tự chạy mỗi lần mở hub và tự nối lại nếu capture bị gián đoạn.
+  Windows khởi động và không bật chế độ chỉ cho Administrator. Sidecar
+  islemap-thienvyma tự chạy mỗi lần mở hub và tự nối lại nếu capture bị gián đoạn.
 - Phím tắt dùng `RegisterHotKey` (API hợp tác của Windows), **không phải**
   keyboard hook.
 - Chỉ số, vị trí, bạn bè, Garage và skin lấy qua **HTTPS tới đúng provider đã
@@ -230,7 +205,7 @@ cargo clippy --workspace -- -D warnings
 cargo run --bin verify_data --features devtools -- --source vulnona
 cargo run --bin verify_data --features devtools -- --source islemaps-light
 cargo run --bin verify_data --features devtools -- --source islemaps-dark
-cargo test -p theisle-overlay --lib -- --ignored parse_real_cache
+cargo test -p islemap-thienvyma --lib -- --ignored parse_real_cache
 ```
 
 Lưu ý: `.cargo/config.toml` đặt `target-dir` ra ngoài thư mục OneDrive.

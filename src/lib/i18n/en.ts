@@ -4,7 +4,7 @@
 import type { MsgKey } from "./vi";
 
 export const en: Record<MsgKey, string> = {
-  "app.title": "The Isle Map",
+  "app.title": "islemap-thienvyma",
   "app.minimap_title": "Minimap",
   "app.fullmap_title": "Gateway Map",
 
@@ -14,6 +14,8 @@ export const en: Record<MsgKey, string> = {
   "tab.garage": "Garage",
   "tab.skin": "Skin",
   "tab.history": "History",
+  "tab.friends": "Friends",
+  "tab.voice": "Voice",
 
   "history.title": "Combat history",
   "history.subtitle":
@@ -50,6 +52,41 @@ export const en: Record<MsgKey, string> = {
   "friends.provider_no_position":
     "The friend list is available, but nobody is online and sharing a position.",
   "friends.provider_visible": "Showing {count} friends with live positions on the map.",
+  "friends.title": "Friends",
+  "friends.subtitle": "Friends verified by the current server.",
+  "friends.connect": "Connect to a server to view the friends it provides.",
+  "friends.loading": "Loading friends…",
+  "friends.waiting": "The server has not supplied a friends snapshot yet.",
+  "friends.error": "Could not read the friends list right now.",
+  "friends.dino_unknown": "Species unavailable",
+  "friends.online": "Online",
+  "friends.offline": "Offline",
+  "friends.position_available": "Live position available",
+  "friends.position_unavailable": "Position unavailable",
+  "friends.positioned": "{count}/{total} positioned",
+  "friends.updated": "Updated {time}",
+
+  "voice.title": "IsleVOIP",
+  "voice.subtitle": "The official voice launcher for supported servers.",
+  "voice.checking": "Checking IsleVOIP…",
+  "voice.installed": "IsleVOIP is installed",
+  "voice.running": "The launcher is running.",
+  "voice.not_running": "The launcher is not running.",
+  "voice.start": "Start IsleVOIP",
+  "voice.starting": "Starting…",
+  "voice.auto_start": "Start IsleVOIP when islemap-thienvyma opens",
+  "voice.auto_start_hint": "This preference is saved on this computer.",
+  "voice.not_installed": "IsleVOIP is not installed",
+  "voice.install_hint": "Install the official launcher to sign in through Steam and join voice on supported servers.",
+  "voice.install": "Open install page",
+  "voice.refresh": "Check again",
+  "voice.help": "Official site",
+  "voice.status_error": "Could not check IsleVOIP status.",
+  "voice.launch_error": "Could not start IsleVOIP. Check the launcher and try again.",
+  "voice.setting_error": "Could not save the auto-start preference.",
+  "voice.link_error": "Could not open the browser. Visit isle-voip.com.",
+  "voice.pro_title": "About IsleVOIP Pro",
+  "voice.pro_body": "Players do not need to buy Pro. The server owner chooses its IsleVOIP plan; free servers provide basic voice, while proximity/range 3D voice is available only when that server enables the matching plan.",
 
   "pos.none": "No position yet",
   "pos.hint":
@@ -249,7 +286,7 @@ export const en: Record<MsgKey, string> = {
   "dino.token_paste": "Or paste the token manually",
   "dino.token_paste_hint":
     "If the login window fails to catch the token: paste the overlay token (or the whole " +
-    "theisle-overlay://… / isle-overlay://… link) here.",
+    "islemap-thienvyma://… link; legacy theisle-overlay://… / isle-overlay://… links still work) here.",
   "dino.token_save": "Verify & save token",
   "dino.token_checking": "Checking token…",
   "dino.token_bad": "Token invalid — double-check the pasted string.",
@@ -393,7 +430,7 @@ export const en: Record<MsgKey, string> = {
 
   "update.available": "Update {version} is available",
   "update.body": "Official update channel: thienvyma/hubisle.",
-  "update.title": "Isle Pulse Overlay updates",
+  "update.title": "islemap-thienvyma updates",
   "update.check": "Check for updates",
   "update.manual_hint": "Always checks the thienvyma/hubisle release channel directly.",
   "update.checking": "Checking for updates…",

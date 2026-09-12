@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace IslePulse.LocalTelemetry;
+namespace IslemapThienvyma.Telemetry;
 
 /// <summary>
 /// Decodes the FVector_NetQuantize100 location and compressed control yaw from

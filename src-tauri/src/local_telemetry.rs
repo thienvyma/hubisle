@@ -1,5 +1,5 @@
 //! Starts the bundled local telemetry sidecar and feeds its verified movement
-//! stream into the existing tracker. The sidecar is an Isle Pulse component;
+//! stream into the existing tracker. The sidecar is an islemap-thienvyma component;
 //! it has no runtime dependency on IsleLiveMap or a server website.
 
 use std::{
@@ -32,6 +32,38 @@ struct SidecarMessage {
     message: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct InternalMovement {
+    x_cm: f64,
+    y_cm: f64,
+    z_cm: f64,
+    heading_deg: f64,
+}
+
+/// Convert the sidecar's native Unreal axes to this app's established
+/// Lat/Long axis convention.
+///
+/// The Npcap decoder emits the raw Unreal vector used by IsleLiveMap:
+/// Unreal X runs horizontally over the Gateway texture and Unreal Y runs
+/// vertically. The rest of this app intentionally follows the coordinate
+/// strings and IslePilot adapters instead: internal X is Lat/vertical and
+/// internal Y is Long/horizontal. Swapping once at this boundary keeps every
+/// existing provider, trail, waypoint, and basemap calibration in one frame.
+/// Camera bearing is already north-up and must pass through unchanged.
+fn normalize_sidecar_movement(
+    unreal_x_cm: f64,
+    unreal_y_cm: f64,
+    unreal_z_cm: f64,
+    heading_deg: f64,
+) -> InternalMovement {
+    InternalMovement {
+        x_cm: unreal_y_cm,
+        y_cm: unreal_x_cm,
+        z_cm: unreal_z_cm,
+        heading_deg,
+    }
+}
+
 pub fn spawn(app: AppHandle) {
     std::thread::spawn(move || {
         let Some(sidecar) = find_sidecar(&app) else {
@@ -62,7 +94,7 @@ fn ensure_npcap(app: &AppHandle, sidecar: &PathBuf) {
     let install = app
         .dialog()
         .message(
-            "Isle Pulse cần Npcap để đọc vị trí và góc camera realtime trên mọi server. "
+            "islemap-thienvyma cần Npcap để đọc vị trí và góc camera realtime trên mọi server. "
                 .to_owned()
                 + "App sẽ tải Npcap 1.88 từ npcap.com, kiểm tra mã băm và chữ ký số trước khi mở bộ cài.\n\n"
                 + "Trong cửa sổ Npcap, đừng chọn chế độ chỉ cho Administrator.",
@@ -92,7 +124,7 @@ fn ensure_npcap(app: &AppHandle, sidecar: &PathBuf) {
     let (kind, message) = match outcome {
         Ok(status) if status.success() => (
             MessageDialogKind::Info,
-            "Npcap đã sẵn sàng. Isle Pulse sẽ tự bắt đầu telemetry realtime.",
+            "Npcap đã sẵn sàng. islemap-thienvyma sẽ tự bắt đầu telemetry realtime.",
         ),
         Ok(status) if status.code() == Some(4) => (
             MessageDialogKind::Warning,
@@ -100,11 +132,11 @@ fn ensure_npcap(app: &AppHandle, sidecar: &PathBuf) {
         ),
         Ok(status) if status.code() == Some(3) => (
             MessageDialogKind::Warning,
-            "Cài đặt Npcap đã bị hủy. Isle Pulse vẫn dùng dữ liệu dự phòng từ server.",
+            "Cài đặt Npcap đã bị hủy. islemap-thienvyma vẫn dùng dữ liệu dự phòng từ server.",
         ),
         _ => (
             MessageDialogKind::Error,
-            "Chưa cài được Npcap. Kiểm tra mạng rồi mở lại Isle Pulse để thử lại.",
+            "Chưa cài được Npcap. Kiểm tra mạng rồi mở lại islemap-thienvyma để thử lại.",
         ),
     };
     app.dialog()
@@ -160,13 +192,28 @@ fn run_once(app: &AppHandle, sidecar: &PathBuf) -> Result<(), String> {
 
         match message.kind.as_str() {
             "movement" => {
-                let (Some(x), Some(y), Some(z), Some(heading_deg)) =
+                let (Some(unreal_x_cm), Some(unreal_y_cm), Some(unreal_z_cm), Some(heading_deg)) =
                     (message.x, message.y, message.z, message.heading_deg)
                 else {
                     continue;
                 };
-                if [x, y, z, heading_deg].iter().all(|value| value.is_finite()) {
-                    crate::pipeline::ingest_local_sample_with_heading(app, x, y, z, heading_deg);
+                if [unreal_x_cm, unreal_y_cm, unreal_z_cm, heading_deg]
+                    .iter()
+                    .all(|value| value.is_finite())
+                {
+                    let movement = normalize_sidecar_movement(
+                        unreal_x_cm,
+                        unreal_y_cm,
+                        unreal_z_cm,
+                        heading_deg,
+                    );
+                    crate::pipeline::ingest_local_sample_with_heading(
+                        app,
+                        movement.x_cm,
+                        movement.y_cm,
+                        movement.z_cm,
+                        movement.heading_deg,
+                    );
                 }
             }
             "status" => {
@@ -193,8 +240,8 @@ fn run_once(app: &AppHandle, sidecar: &PathBuf) -> Result<(), String> {
 }
 
 fn find_sidecar(app: &AppHandle) -> Option<PathBuf> {
-    const INSTALLED_NAME: &str = "isle-pulse-local-telemetry.exe";
-    const BUILD_NAME: &str = "isle-pulse-local-telemetry-x86_64-pc-windows-msvc.exe";
+    const INSTALLED_NAME: &str = "islemap-thienvyma-telemetry.exe";
+    const BUILD_NAME: &str = "islemap-thienvyma-telemetry-x86_64-pc-windows-msvc.exe";
 
     let mut candidates = Vec::new();
     if let Ok(resource_dir) = app.path().resource_dir() {
@@ -214,4 +261,46 @@ fn find_sidecar(app: &AppHandle) -> Option<PathBuf> {
     );
 
     candidates.into_iter().find(|path| path.is_file())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_sidecar_movement;
+    use overlay_core::{world_to_pixel, Calibration};
+
+    fn assert_close(actual: f64, expected: f64, tolerance: f64) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "got {actual}, expected {expected} (+/- {tolerance})"
+        );
+    }
+
+    #[test]
+    fn sidecar_unreal_axes_land_at_the_gateway_texture_center() {
+        // IsleLiveMap's audited GatewayMapProjection center is Unreal
+        // X=51,000 and Y=-49,000. In this app's Lat/Long convention that is
+        // internal X=-49,000 (vertical) and Y=51,000 (horizontal).
+        let movement = normalize_sidecar_movement(51_000.0, -49_000.0, 12_345.0, 261.5);
+        let calibration = Calibration::gateway();
+        let (px, py) = world_to_pixel(movement.x_cm, movement.y_cm, calibration);
+
+        assert_close(px, calibration.image_width_px as f64 / 2.0, 1e-9);
+        assert_close(py, calibration.image_height_px as f64 / 2.0, 1e-9);
+        assert_eq!(movement.z_cm, 12_345.0);
+        assert_eq!(movement.heading_deg, 261.5);
+    }
+
+    #[test]
+    fn dinovietnam_capture_matches_the_reference_gateway_projection() {
+        // Captured from DinoVietnam (31.58.143.164:7777). The reference
+        // projection places raw Unreal X on the horizontal axis and raw
+        // Unreal Y on the vertical axis. The bridge must produce that same
+        // pixel while retaining the independently decoded camera bearing.
+        let movement = normalize_sidecar_movement(232_414.14, -17_468.84, 23_732.46, 2.0);
+        let (px, py) = world_to_pixel(movement.x_cm, movement.y_cm, Calibration::gateway());
+
+        assert_close(px, 5_172.51, 0.01);
+        assert_close(py, 4_129.36, 0.01);
+        assert_eq!(movement.heading_deg, 2.0);
+    }
 }

@@ -1,4 +1,4 @@
-name: Release Isle Pulse Overlay
+name: Release islemap-thienvyma
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: isle-pulse-release
+  group: islemap-thienvyma-release
   cancel-in-progress: false
 
 jobs:
@@ -88,9 +88,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: v__VERSION__
-          releaseName: Isle Pulse Overlay v__VERSION__
+          releaseName: islemap-thienvyma v__VERSION__
           releaseBody: |
-            Bản phát hành chính thức của Isle Pulse Overlay.
+            Bản phát hành chính thức của islemap-thienvyma.
             Kênh cập nhật: https://github.com/thienvyma/hubisle/releases
             Xem CHANGELOG.md trong repository để biết chi tiết thay đổi.
           generateReleaseNotes: true
@@ -106,7 +106,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
-          $manifestDir = Join-Path $env:RUNNER_TEMP "isle-pulse-updater"
+          $manifestDir = Join-Path $env:RUNNER_TEMP "islemap-thienvyma-updater"
           gh release download "v$version" --repo thienvyma/hubisle --pattern latest.json --dir $manifestDir --clobber
           if ($LASTEXITCODE -ne 0) { throw "Missing latest.json in draft release." }
           $release = gh release view "v$version" --repo thienvyma/hubisle --json assets,isDraft,tagName | ConvertFrom-Json
@@ -128,7 +128,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Cannot download signed installer for verification." }
           node scripts/verify-signed-installer.mjs (Join-Path $manifestDir $assetName) (Join-Path $manifestDir "$assetName.sig") src-tauri/tauri.conf.json (Join-Path $manifestDir "latest.json")
           if ($LASTEXITCODE -ne 0) { throw "Installer signature verification failed." }
-          $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/theisle-overlay.exe"
+          $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/islemap-thienvyma.exe"
           ./scripts/check-windows-gui-subsystem.ps1 -Executable $exe
           $notesPath = Join-Path $manifestDir "release-notes.md"
           $manifest.notes | Set-Content -LiteralPath $notesPath -Encoding utf8

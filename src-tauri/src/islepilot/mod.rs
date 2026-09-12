@@ -107,7 +107,7 @@ fn now_ms() -> u64 {
 
 pub(crate) fn http_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
-        .user_agent(concat!("theisle-overlay/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("islemap-thienvyma/", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())
@@ -407,6 +407,153 @@ fn overlay_friends_to_update(friends: api::OverlayFriends) -> Vec<FriendUpdate> 
             })
         })
         .collect()
+}
+
+fn overlay_map_available(map: &api::OverlayMap) -> bool {
+    map.live_map_enabled != Some(false) && map.allowed != Some(false)
+}
+
+fn self_marker_index(map: &api::OverlayMap, me: &api::OverlayMe) -> Option<usize> {
+    let candidates = map
+        .markers
+        .iter()
+        .enumerate()
+        .filter(|(_, marker)| marker.position_cm3(map.calibration.as_ref()).is_some())
+        .collect::<Vec<_>>();
+    candidates
+        .iter()
+        .find(|(_, marker)| marker.is_self)
+        .or_else(|| {
+            candidates.iter().find(|(_, marker)| {
+                me.steam_id
+                    .as_deref()
+                    .is_some_and(|steam_id| marker.steam_id.as_deref() == Some(steam_id))
+            })
+        })
+        .or_else(|| {
+            candidates.iter().find(|(_, marker)| {
+                marker
+                    .label
+                    .as_deref()
+                    .is_some_and(|label| label.eq_ignore_ascii_case("you"))
+            })
+        })
+        .or_else(|| {
+            candidates.iter().find(|(_, marker)| {
+                me.name.as_deref().is_some_and(|name| {
+                    marker
+                        .label
+                        .as_deref()
+                        .is_some_and(|label| label.eq_ignore_ascii_case(name))
+                })
+            })
+        })
+        .copied()
+        .or_else(|| (candidates.len() == 1).then(|| candidates[0]))
+        .map(|(index, _)| index)
+}
+
+fn overlay_map_player(
+    map: &api::OverlayMap,
+    me: &api::OverlayMe,
+) -> Option<((f64, f64, f64), Option<f64>, usize)> {
+    if !overlay_map_available(map) {
+        return None;
+    }
+    let index = self_marker_index(map, me)?;
+    let marker = &map.markers[index];
+    Some((
+        marker.position_cm3(map.calibration.as_ref())?,
+        marker.heading_deg(map.calibration.as_ref()),
+        index,
+    ))
+}
+
+/// Merge the relationship endpoint with live map markers. The relationship
+/// list carries names/species but often omits coordinates; `/api/overlay/map`
+/// is the server-authorized source that DinoVietnam's own map uses for those
+/// positions. Unmatched non-self markers are still shown because older
+/// backends expose friends only through this map response.
+fn overlay_friends_with_map(
+    relationships: api::OverlayFriends,
+    map: Option<&api::OverlayMap>,
+    me: &api::OverlayMe,
+) -> Vec<FriendUpdate> {
+    let Some(map) = map.filter(|map| overlay_map_available(map)) else {
+        return overlay_friends_to_update(relationships);
+    };
+    let self_index = self_marker_index(map, me);
+    let mut used = vec![false; map.markers.len()];
+    if let Some(index) = self_index {
+        used[index] = true;
+    }
+
+    let mut updates = Vec::new();
+    for (relation_index, friend) in relationships.friends.into_iter().enumerate() {
+        let marker_index = map.markers.iter().enumerate().position(|(index, marker)| {
+            !used[index]
+                && (friend
+                    .steam_id
+                    .as_deref()
+                    .is_some_and(|steam_id| marker.steam_id.as_deref() == Some(steam_id))
+                    || friend
+                        .id
+                        .as_deref()
+                        .is_some_and(|id| marker.steam_id.as_deref() == Some(id))
+                    || friend.name.as_deref().is_some_and(|name| {
+                        marker
+                            .label
+                            .as_deref()
+                            .is_some_and(|label| label.eq_ignore_ascii_case(name))
+                    }))
+        });
+        let marker_position = marker_index.and_then(|index| {
+            used[index] = true;
+            map.markers[index].position_cm3(map.calibration.as_ref())
+        });
+        let relation_position = friend.position_cm3_with_calibration(map.calibration.as_ref());
+        let online = marker_position.is_some()
+            || friend.online.unwrap_or_else(|| {
+                friend
+                    .status
+                    .as_deref()
+                    .is_some_and(|status| status.eq_ignore_ascii_case("online"))
+            });
+        let name = friend
+            .name
+            .or(friend.steam_id)
+            .or(friend.id)
+            .unwrap_or_else(|| format!("Friend {}", relation_index + 1));
+        updates.push(FriendUpdate {
+            slot: u8::try_from(relation_index + 1).ok(),
+            name,
+            dino_name: friend.dino_name.or(friend.species),
+            online,
+            position_cm: marker_position.or(relation_position),
+        });
+    }
+
+    for (index, marker) in map.markers.iter().enumerate() {
+        if used[index] {
+            continue;
+        }
+        let Some(position_cm) = marker.position_cm3(map.calibration.as_ref()) else {
+            continue;
+        };
+        used[index] = true;
+        updates.push(FriendUpdate {
+            slot: u8::try_from(updates.len() + 1).ok(),
+            name: marker
+                .label
+                .clone()
+                .or_else(|| marker.steam_id.clone())
+                .unwrap_or_else(|| format!("Friend {}", updates.len() + 1)),
+            dino_name: None,
+            online: true,
+            position_cm: Some(position_cm),
+        });
+    }
+    updates
 }
 
 /// Keep `use_map_position` truthful to the server's capability: no live map
@@ -712,19 +859,54 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                     if lang_vi && !player.prime_quests.is_empty() {
                         crate::translate::translate_quests(&mut player.prime_quests, &client);
                     }
-                    let position = api::position_cm3(&me);
-                    let heading = api::position_heading_deg(&me);
-                    let friends = match api::get_friends(&client, &tok.token) {
-                        Ok(friends) => overlay_friends_to_update(friends),
+                    // DinoVietnam and newer IslePilot deployments publish the
+                    // authoritative player/friend coordinates plus the exact
+                    // server calibration in the map response. Prefer it over
+                    // `/me.position`, which can be delayed and is expressed
+                    // in a server-specific frame.
+                    let overlay_map = match api::get_map(&client, &tok.token) {
+                        Ok(map) => {
+                            *OVERLAY_MAP_CACHE.lock_safe() = Some((Instant::now(), map.clone()));
+                            Some(map)
+                        }
                         Err(e) => {
-                            log::debug!("islepilot friends unavailable: {e}");
-                            Vec::new()
+                            log::debug!("islepilot live map unavailable: {e}");
+                            None
                         }
                     };
-                    // Position availability doubles as the live-map probe.
-                    // Only trust it while the API actually has data.
-                    if me.has_data {
-                        let available = position.is_some();
+                    let map_player = overlay_map
+                        .as_ref()
+                        .and_then(|map| overlay_map_player(map, &me));
+                    let source_calibration = overlay_map
+                        .as_ref()
+                        .and_then(|map| map.calibration.as_ref());
+                    let position = map_player
+                        .as_ref()
+                        .map(|(position, _, _)| *position)
+                        .or_else(|| api::position_cm3_with_calibration(&me, source_calibration));
+                    let heading = map_player
+                        .as_ref()
+                        .and_then(|(_, heading, _)| *heading)
+                        .or_else(|| {
+                            api::position_heading_with_calibration(&me, source_calibration)
+                        });
+                    let relationships = match api::get_friends(&client, &tok.token) {
+                        Ok(friends) => friends,
+                        Err(e) => {
+                            log::debug!("islepilot friends unavailable: {e}");
+                            api::OverlayFriends::default()
+                        }
+                    };
+                    let friends =
+                        overlay_friends_with_map(relationships, overlay_map.as_ref(), &me);
+                    // Use explicit map capability flags where available. An
+                    // older response without a map still falls back to the
+                    // presence of a usable `/me.position`.
+                    if me.has_data || overlay_map.is_some() {
+                        let available = overlay_map
+                            .as_ref()
+                            .map(overlay_map_available)
+                            .unwrap_or_else(|| position.is_some());
                         if live_map != Some(available) {
                             live_map = Some(available);
                             sync_map_pref(&app, available);
@@ -1305,7 +1487,11 @@ const SKINVIEWER_CDN: &str = "https://islepilot.eu/cdn/skinviewer/";
 /// request timeout — just a connect timeout so a dead host still fails fast.
 fn cdn_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
-        .user_agent("theisle-overlay/2.0 (your-dino panel reader; personal use)")
+        .user_agent(concat!(
+            "islemap-thienvyma/",
+            env!("CARGO_PKG_VERSION"),
+            " (your-dino panel reader; personal use)"
+        ))
         .connect_timeout(Duration::from_secs(15))
         .build()
         .map_err(|e| e.to_string())
@@ -1530,6 +1716,71 @@ mod tests {
         ]}"#;
         assert_eq!(parse_own_marker(two, Some("zz")).unwrap(), None);
         assert!(parse_own_marker("not json", None).is_err());
+    }
+
+    #[test]
+    fn central_map_markers_supply_self_and_friend_positions() {
+        let me = api::OverlayMe {
+            has_data: true,
+            steam_id: Some("self-id".into()),
+            name: Some("Player".into()),
+            online: Some(true),
+            ..api::OverlayMe::default()
+        };
+        let map: api::OverlayMap = serde_json::from_value(serde_json::json!({
+            "liveMapEnabled": true,
+            "allowed": true,
+            "calibration": {
+                "a": {"worldX": -505000.0, "worldY": -607000.0, "u": 0.0, "v": 0.0},
+                "b": {"worldX": 607000.0, "worldY": 509000.0, "u": 1.0, "v": 1.0}
+            },
+            "markers": [
+                {"steamId": "self-id", "label": "You", "self": true,
+                 "x": 232414.14, "y": -17468.84, "yaw": 0.0},
+                {"steamId": "friend-id", "label": "Friend One",
+                 "x": 100000.0, "y": 200000.0}
+            ]
+        }))
+        .unwrap();
+        let player = overlay_map_player(&map, &me).expect("self marker");
+        let pixel = overlay_core::world_to_pixel(
+            player.0 .0,
+            player.0 .1,
+            overlay_core::Calibration::gateway(),
+        );
+        assert!((pixel.0 - 5_172.51).abs() < 0.02);
+        assert!((pixel.1 - 4_129.36).abs() < 0.02);
+        assert!((player.1.unwrap() - 90.0).abs() < 1e-6);
+
+        let relationships: api::OverlayFriends = serde_json::from_value(serde_json::json!({
+            "friends": [{"steamId": "friend-id", "name": "Friend One", "species": "Rex"}]
+        }))
+        .unwrap();
+        let friends = overlay_friends_with_map(relationships, Some(&map), &me);
+        assert_eq!(friends.len(), 1);
+        assert_eq!(friends[0].name, "Friend One");
+        assert_eq!(friends[0].dino_name.as_deref(), Some("Rex"));
+        assert!(friends[0].online);
+        assert!(friends[0].position_cm.is_some());
+    }
+
+    #[test]
+    fn central_map_only_friend_is_not_lost_when_relationship_endpoint_is_empty() {
+        let me = api::OverlayMe {
+            steam_id: Some("self-id".into()),
+            ..api::OverlayMe::default()
+        };
+        let map: api::OverlayMap = serde_json::from_value(serde_json::json!({
+            "markers": [
+                {"steamId": "self-id", "self": true, "x": 1.0, "y": 2.0},
+                {"steamId": "friend-id", "label": "Map Friend", "x": 3.0, "y": 4.0}
+            ]
+        }))
+        .unwrap();
+        let friends = overlay_friends_with_map(api::OverlayFriends::default(), Some(&map), &me);
+        assert_eq!(friends.len(), 1);
+        assert_eq!(friends[0].name, "Map Friend");
+        assert_eq!(friends[0].position_cm, Some((4.0, 3.0, 0.0)));
     }
 
     /// Live check of the markers API through the exact production path

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Diagnostics;
-using IslePulse.LocalTelemetry;
+using IslemapThienvyma.Telemetry;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 var json = new JsonSerializerOptions

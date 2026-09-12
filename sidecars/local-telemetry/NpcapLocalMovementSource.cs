@@ -4,7 +4,7 @@ using System.Threading.Channels;
 using PacketDotNet;
 using SharpPcap;
 
-namespace IslePulse.LocalTelemetry;
+namespace IslemapThienvyma.Telemetry;
 
 public sealed class NpcapLocalMovementSource : ILocalMovementSource
 {

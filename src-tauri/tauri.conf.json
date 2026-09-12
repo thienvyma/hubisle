@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Isle Pulse Overlay",
-  "version": "2.1.4",
-  "identifier": "vn.huynhvy.isle-pulse-overlay",
+  "productName": "islemap-thienvyma",
+  "version": "2.2.0",
+  "identifier": "vn.huynhvy.islemap-thienvyma",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Isle Pulse Overlay",
+        "title": "islemap-thienvyma",
         "url": "index.html",
         "width": 1200,
         "height": 800,
@@ -25,14 +25,14 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$LOCALDATA/TheIsleOverlay/**"]
+        "scope": ["$LOCALDATA/islemap-thienvyma-data/**"]
       }
     }
   },
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["theisle-overlay"]
+        "schemes": ["islemap-thienvyma", "theisle-overlay"]
       }
     },
     "updater": {
@@ -48,7 +48,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "externalBin": ["binaries/isle-pulse-local-telemetry"],
+    "externalBin": ["binaries/islemap-thienvyma-telemetry"],
     "resources": {
       "../sidecars/local-telemetry/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.local-telemetry.md"
     },

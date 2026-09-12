@@ -42,7 +42,7 @@ fn client() -> &'static reqwest::blocking::Client {
     static CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::blocking::Client::builder()
-            .user_agent(concat!("TheIsleOverlay/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("islemap-thienvyma/", env!("CARGO_PKG_VERSION")))
             .timeout(TIMEOUT)
             .connect_timeout(Duration::from_secs(3))
             .gzip(true)

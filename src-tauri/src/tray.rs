@@ -47,7 +47,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .clone();
     TrayIconBuilder::with_id("main")
         .icon(icon)
-        .tooltip("Isle Pulse Overlay")
+        .tooltip("islemap-thienvyma")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {

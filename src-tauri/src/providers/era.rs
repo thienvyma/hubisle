@@ -280,7 +280,7 @@ static CLIENT: LazyLock<Result<Client, EraError>> = LazyLock::new(|| {
         .redirect(Policy::none())
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(35))
-        .user_agent(concat!("Isle-Pulse-Overlay/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("islemap-thienvyma/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| EraError::Temporary)
 });
@@ -314,7 +314,11 @@ fn poll_value(cookie: &str) -> Result<(Value, i64), EraError> {
         .header(reqwest::header::CACHE_CONTROL, "no-cache")
         .send()
         .map_err(|error| {
-            log::warn!("Era map request failed (timeout={}, connect={})", error.is_timeout(), error.is_connect());
+            log::warn!(
+                "Era map request failed (timeout={}, connect={})",
+                error.is_timeout(),
+                error.is_connect()
+            );
             EraError::Temporary
         })?;
 
@@ -322,9 +326,15 @@ fn poll_value(cookie: &str) -> Result<(Value, i64), EraError> {
         return Err(EraError::LoginRequired);
     }
     if response.status().is_server_error()
-        || matches!(response.status(), StatusCode::TOO_MANY_REQUESTS | StatusCode::REQUEST_TIMEOUT)
+        || matches!(
+            response.status(),
+            StatusCode::TOO_MANY_REQUESTS | StatusCode::REQUEST_TIMEOUT
+        )
     {
-        log::warn!("Era map temporarily unavailable (HTTP {})", response.status().as_u16());
+        log::warn!(
+            "Era map temporarily unavailable (HTTP {})",
+            response.status().as_u16()
+        );
         return Err(EraError::Temporary);
     }
     if !response.status().is_success() {
@@ -335,9 +345,7 @@ fn poll_value(cookie: &str) -> Result<(Value, i64), EraError> {
     Ok((value, chrono::Utc::now().timestamp_millis()))
 }
 
-pub fn poll_with_events(
-    cookie: &str,
-) -> Result<(ProviderSnapshot, Vec<CombatEvent>), EraError> {
+pub fn poll_with_events(cookie: &str) -> Result<(ProviderSnapshot, Vec<CombatEvent>), EraError> {
     let (value, received_at_ms) = poll_value(cookie)?;
     let snapshot = normalize(&value, received_at_ms).map_err(|error| {
         log::warn!("Era map returned an unrecognized snapshot schema");
@@ -546,7 +554,10 @@ mod tests {
 
     #[test]
     fn era_backoff_is_bounded_and_retained_data_expires() {
-        assert_eq!((0..5).map(retry_delay_secs).collect::<Vec<_>>(), vec![12, 20, 40, 60, 60]);
+        assert_eq!(
+            (0..5).map(retry_delay_secs).collect::<Vec<_>>(),
+            vec![12, 20, 40, 60, 60]
+        );
         assert_eq!(retry_delay_secs(u32::MAX), 60);
         assert!(may_retain_snapshot(Some(1000), 91_000));
         assert!(!may_retain_snapshot(Some(1000), 91_001));

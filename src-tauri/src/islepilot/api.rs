@@ -11,7 +11,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use overlay_core::map_yaw_to_bearing_deg;
+use overlay_core::{map_yaw_to_bearing_deg, pixel_to_world, Calibration};
 
 use super::parser::{Nutrition, PlayerStats, QuestStatus, StatBar};
 
@@ -213,6 +213,29 @@ pub fn position_cm3(me: &OverlayMe) -> Option<(f64, f64, f64)> {
     Some((pos.y?, pos.x?, pos.z.unwrap_or(0.0)))
 }
 
+pub fn position_cm3_with_calibration(
+    me: &OverlayMe,
+    calibration: Option<&OverlayCalibration>,
+) -> Option<(f64, f64, f64)> {
+    let pos = me.position?;
+    let (x_cm, y_cm) = world_point_cm(calibration, pos.x?, pos.y?)?;
+    Some((x_cm, y_cm, pos.z.filter(|z| z.is_finite()).unwrap_or(0.0)))
+}
+
+pub fn position_heading_with_calibration(
+    me: &OverlayMe,
+    calibration: Option<&OverlayCalibration>,
+) -> Option<f64> {
+    let pos = me.position?;
+    let yaw = pos.yaw?;
+    match (calibration, pos.x, pos.y) {
+        (Some(cal), Some(x), Some(y)) => cal
+            .heading_deg(x, y, yaw)
+            .or_else(|| map_yaw_to_bearing_deg(yaw)),
+        _ => map_yaw_to_bearing_deg(yaw),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // /api/overlay/friends — relationship list, with optional live positions
 // ---------------------------------------------------------------------------
@@ -250,6 +273,24 @@ impl OverlayFriend {
             return Some((pos.y?, pos.x?, pos.z.unwrap_or(0.0)));
         }
         Some((self.y?, self.x?, self.z.unwrap_or(0.0)))
+    }
+
+    pub fn position_cm3_with_calibration(
+        &self,
+        calibration: Option<&OverlayCalibration>,
+    ) -> Option<(f64, f64, f64)> {
+        let position = self.position.unwrap_or(OverlayPosition {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            yaw: self.yaw,
+        });
+        let (x_cm, y_cm) = world_point_cm(calibration, position.x?, position.y?)?;
+        Some((
+            x_cm,
+            y_cm,
+            position.z.filter(|z| z.is_finite()).unwrap_or(0.0),
+        ))
     }
 
     pub fn heading_deg(&self) -> Option<f64> {
@@ -300,8 +341,22 @@ pub struct OverlayMap {
     pub live_map_enabled: Option<bool>,
     pub allowed: Option<bool>,
     pub calibration: Option<OverlayCalibration>,
+    pub markers: Vec<OverlayMarker>,
     pub pois: Vec<OverlayPoi>,
     pub categories: Vec<OverlayCategory>,
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OverlayMarker {
+    pub steam_id: Option<String>,
+    pub label: Option<String>,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub z: Option<f64>,
+    pub yaw: Option<f64>,
+    #[serde(rename = "self")]
+    pub is_self: bool,
 }
 
 #[derive(Deserialize, Debug, Clone, Copy, Default)]
@@ -353,16 +408,101 @@ pub fn get_map(client: &reqwest::blocking::Client, token: &str) -> Result<Overla
 }
 
 impl OverlayCalibration {
-    /// Their-map (u,v 0..1) -> world (their axes). Two independent linear
-    /// interpolations, exactly what the official app does.
-    fn uv_to_world(&self, u: f64, v: f64) -> Option<(f64, f64)> {
+    /// Server world coordinates -> the normalized map frame the server uses.
+    /// IslePilot servers may deploy their own calibration, so treating every
+    /// raw X/Y pair as the stock Gateway frame can place DinoVietnam markers
+    /// hundreds of metres away from the website's own map.
+    fn world_to_uv(&self, world_x: f64, world_y: f64) -> Option<(f64, f64)> {
         let (a, b) = (self.a, self.b);
-        if (b.u - a.u).abs() < f64::EPSILON || (b.v - a.v).abs() < f64::EPSILON {
+        let dx = b.world_x - a.world_x;
+        let dy = b.world_y - a.world_y;
+        if ![world_x, world_y, dx, dy]
+            .iter()
+            .all(|value| value.is_finite())
+            || dx.abs() < f64::EPSILON
+            || dy.abs() < f64::EPSILON
+        {
             return None;
         }
-        let world_x = a.world_x + (u - a.u) / (b.u - a.u) * (b.world_x - a.world_x);
-        let world_y = a.world_y + (v - a.v) / (b.v - a.v) * (b.world_y - a.world_y);
-        Some((world_x, world_y))
+        let u = a.u + (world_x - a.world_x) / dx * (b.u - a.u);
+        let v = a.v + (world_y - a.world_y) / dy * (b.v - a.v);
+        [u, v]
+            .iter()
+            .all(|value| value.is_finite())
+            .then_some((u, v))
+    }
+
+    pub fn heading_deg(&self, world_x: f64, world_y: f64, yaw: f64) -> Option<f64> {
+        if !yaw.is_finite() {
+            return None;
+        }
+        let radians = yaw.to_radians();
+        let (u0, v0) = self.world_to_uv(world_x, world_y)?;
+        let (u1, v1) = self.world_to_uv(
+            world_x + 1_000.0 * radians.cos(),
+            world_y + 1_000.0 * radians.sin(),
+        )?;
+        let du = u1 - u0;
+        let dv = v1 - v0;
+        if du.hypot(dv) < f64::EPSILON {
+            return None;
+        }
+        Some(du.atan2(-dv).to_degrees().rem_euclid(360.0))
+    }
+}
+
+fn normalized_to_internal_cm(u: f64, v: f64) -> Option<(f64, f64)> {
+    if !u.is_finite()
+        || !v.is_finite()
+        || !(-0.25..=1.25).contains(&u)
+        || !(-0.25..=1.25).contains(&v)
+    {
+        return None;
+    }
+    let gateway = Calibration::gateway();
+    Some(pixel_to_world(
+        u * gateway.image_width_px as f64,
+        v * gateway.image_height_px as f64,
+        gateway,
+    ))
+}
+
+/// Normalize an IslePilot server's native world frame into this app's
+/// established internal Lat/Long convention. Calibration wins when present;
+/// older responses without it retain the proven raw-axis swap fallback.
+pub fn world_point_cm(
+    calibration: Option<&OverlayCalibration>,
+    world_x: f64,
+    world_y: f64,
+) -> Option<(f64, f64)> {
+    if !world_x.is_finite() || !world_y.is_finite() {
+        return None;
+    }
+    if let Some((u, v)) = calibration.and_then(|cal| cal.world_to_uv(world_x, world_y)) {
+        return normalized_to_internal_cm(u, v);
+    }
+    Some((world_y, world_x))
+}
+
+impl OverlayMarker {
+    pub fn position_cm3(
+        &self,
+        calibration: Option<&OverlayCalibration>,
+    ) -> Option<(f64, f64, f64)> {
+        let world_x = self.x?;
+        let world_y = self.y?;
+        let (x_cm, y_cm) = world_point_cm(calibration, world_x, world_y)?;
+        Some((x_cm, y_cm, self.z.filter(|z| z.is_finite()).unwrap_or(0.0)))
+    }
+
+    pub fn heading_deg(&self, calibration: Option<&OverlayCalibration>) -> Option<f64> {
+        let yaw = self.yaw?;
+        match (calibration, self.x, self.y) {
+            (Some(cal), Some(x), Some(y)) => cal
+                .heading_deg(x, y, yaw)
+                .or_else(|| map_yaw_to_bearing_deg(yaw)),
+            _ => map_yaw_to_bearing_deg(yaw),
+        }
     }
 }
 
@@ -371,12 +511,11 @@ impl OverlayCalibration {
 /// disambiguate by magnitude: |coord| <= 1.5 can only be a fraction (1.5 cm
 /// off the world origin is not a real POI).
 pub fn poi_point_cm(cal: Option<&OverlayCalibration>, p: OverlayPoint) -> Option<(f64, f64)> {
-    let (their_x, their_y) = if p.x.abs() <= 1.5 && p.y.abs() <= 1.5 {
-        cal?.uv_to_world(p.x, p.y)?
+    if p.x.abs() <= 1.5 && p.y.abs() <= 1.5 {
+        normalized_to_internal_cm(p.x, p.y)
     } else {
-        (p.x, p.y)
-    };
-    Some((their_y, their_x)) // their x = our y
+        world_point_cm(cal, p.x, p.y)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -544,15 +683,31 @@ mod tests {
                 world_y: 200_000.0,
             },
         };
-        // uv fraction: center of the map -> world origin -> swapped ours.
-        assert_eq!(
-            poi_point_cm(Some(&cal), OverlayPoint { x: 0.5, y: 0.5 }),
-            Some((0.0, 0.0))
-        );
-        // Raw world cm passes through (with the axis swap).
+        // Fractions stay at the same normalized pixel in our canonical map.
+        let gateway = Calibration::gateway();
+        let centre = poi_point_cm(Some(&cal), OverlayPoint { x: 0.5, y: 0.5 }).unwrap();
+        let centre_px = overlay_core::world_to_pixel(centre.0, centre.1, gateway);
+        assert!((centre_px.0 - gateway.image_width_px as f64 * 0.5).abs() < 1e-6);
+        assert!((centre_px.1 - gateway.image_height_px as f64 * 0.5).abs() < 1e-6);
+
+        // A raw point is projected through the server calibration first:
+        // x=50k -> u=.75 and y=-30k -> v=.425.
+        let raw = poi_point_cm(
+            Some(&cal),
+            OverlayPoint {
+                x: 50_000.0,
+                y: -30_000.0,
+            },
+        )
+        .unwrap();
+        let raw_px = overlay_core::world_to_pixel(raw.0, raw.1, gateway);
+        assert!((raw_px.0 - gateway.image_width_px as f64 * 0.75).abs() < 1e-6);
+        assert!((raw_px.1 - gateway.image_height_px as f64 * 0.425).abs() < 1e-6);
+
+        // Older uncalibrated world responses keep the established axis swap.
         assert_eq!(
             poi_point_cm(
-                Some(&cal),
+                None,
                 OverlayPoint {
                     x: 50_000.0,
                     y: -30_000.0
@@ -560,8 +715,47 @@ mod tests {
             ),
             Some((-30_000.0, 50_000.0))
         );
-        // Fraction without calibration: unusable.
-        assert_eq!(poi_point_cm(None, OverlayPoint { x: 0.5, y: 0.5 }), None);
+        // An already-normalized point does not require calibration metadata.
+        let uncalibrated_centre = poi_point_cm(None, OverlayPoint { x: 0.5, y: 0.5 }).unwrap();
+        assert_eq!(uncalibrated_centre, centre);
+    }
+
+    #[test]
+    fn map_markers_deserialize_and_follow_server_calibration() {
+        let map: OverlayMap = serde_json::from_value(serde_json::json!({
+            "liveMapEnabled": true,
+            "allowed": true,
+            "calibration": {
+                "a": {"worldX": -505000.0, "worldY": -607000.0, "u": 0.0, "v": 0.0},
+                "b": {"worldX": 607000.0, "worldY": 509000.0, "u": 1.0, "v": 1.0}
+            },
+            "markers": [{
+                "steamId": "76561198000000001",
+                "label": "You",
+                "self": true,
+                "x": 232414.14,
+                "y": -17468.84,
+                "z": 23732.46,
+                "yaw": 0.0
+            }]
+        }))
+        .unwrap();
+        assert_eq!(map.markers.len(), 1);
+        assert!(map.markers[0].is_self);
+        let position = map.markers[0]
+            .position_cm3(map.calibration.as_ref())
+            .unwrap();
+        let pixel = overlay_core::world_to_pixel(position.0, position.1, Calibration::gateway());
+        assert!((pixel.0 - 5_172.51).abs() < 0.02);
+        assert!((pixel.1 - 4_129.36).abs() < 0.02);
+        assert!(
+            (map.markers[0]
+                .heading_deg(map.calibration.as_ref())
+                .unwrap()
+                - 90.0)
+                .abs()
+                < 1e-6
+        );
     }
 
     #[test]

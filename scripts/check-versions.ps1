@@ -23,7 +23,7 @@ $found = [ordered]@{
     "package.json"            = Get-Version "package.json" '"version"\s*:\s*"([^"]+)"'
     "package-lock.json"       = Get-Version "package-lock.json" '"version"\s*:\s*"([^"]+)"'
     "src-tauri/Cargo.toml"    = Get-Version "src-tauri/Cargo.toml" '(?m)^version\s*=\s*"([^"]+)"'
-    "src-tauri/Cargo.lock"    = Get-Version "src-tauri/Cargo.lock" '(?ms)^\[\[package\]\]\s*\r?\nname\s*=\s*"theisle-overlay"\s*\r?\nversion\s*=\s*"([^"]+)"'
+    "src-tauri/Cargo.lock"    = Get-Version "src-tauri/Cargo.lock" '(?ms)^\[\[package\]\]\s*\r?\nname\s*=\s*"islemap-thienvyma"\s*\r?\nversion\s*=\s*"([^"]+)"'
     "src-tauri/tauri.conf.json" = Get-Version "src-tauri/tauri.conf.json" '"version"\s*:\s*"([^"]+)"'
 }
 

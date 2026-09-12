@@ -29,7 +29,7 @@
 {#if $updateState.visible}
   <section class="update-card" aria-label={$t("update.title")}>
     <div class="copy" role="status" aria-live="polite">
-      <small>ISLE PULSE · v{__APP_VERSION__}</small>
+      <small>islemap-thienvyma · v{__APP_VERSION__}</small>
       <strong>
         {#if $updateState.status === "checking"}{$t("update.checking")}
         {:else if $updateState.status === "check-error"}{$t("update.check_failed")}

@@ -4,19 +4,21 @@
 //! lives outside any OneDrive-synced folder:
 //!
 //! ```text
-//! %APPDATA%\TheIsleOverlay\        settings, waypoints, trails  (small -> roaming)
-//! %LOCALAPPDATA%\TheIsleOverlay\   basemap images, download cache, generated POI data
+//! %APPDATA%\islemap-thienvyma\        settings, waypoints, trails  (small -> roaming)
+//! %LOCALAPPDATA%\islemap-thienvyma-data\  basemap images, cache, generated POI data
 //! ```
 //!
-//! Paths and file formats are IDENTICAL to the original Python app so an
-//! existing user's settings, waypoints, trails, and downloaded basemap carry
-//! over with zero migration.
+//! File formats remain compatible with the original Python app. On first run,
+//! the legacy `TheIsleOverlay` directories are renamed so existing settings,
+//! waypoints, trails, credentials, and downloaded maps carry over.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-pub const APP_DIR_NAME: &str = "TheIsleOverlay";
+pub const APP_DIR_NAME: &str = "islemap-thienvyma";
+const LOCAL_APP_DIR_NAME: &str = "islemap-thienvyma-data";
+const LEGACY_APP_DIR_NAME: &str = "TheIsleOverlay";
 pub const GAME_PROCESS_NAME: &str = "TheIsleClient-Win64-Shipping.exe";
 
 fn env_dir(var: &str) -> PathBuf {
@@ -30,8 +32,12 @@ pub fn roaming_dir() -> PathBuf {
     env_dir("APPDATA").join(APP_DIR_NAME)
 }
 
+fn local_dir_from_root(root: &Path) -> PathBuf {
+    root.join(LOCAL_APP_DIR_NAME)
+}
+
 pub fn local_dir() -> PathBuf {
-    env_dir("LOCALAPPDATA").join(APP_DIR_NAME)
+    local_dir_from_root(&env_dir("LOCALAPPDATA"))
 }
 
 pub fn cache_dir() -> PathBuf {
@@ -77,7 +83,58 @@ pub fn game_config_path() -> PathBuf {
         .join("GameUserSettings.ini")
 }
 
+fn migrate_data_dir(legacy: &Path, current: &Path) -> std::io::Result<()> {
+    if !legacy.is_dir() {
+        return Ok(());
+    }
+
+    // The new executable can create its destination before migration runs
+    // (for example a logger may create a cache directory). Merge every
+    // missing legacy entry instead of abandoning the whole migration. A file
+    // already present in the new tree always wins; the legacy copy remains in
+    // place so the player can recover it manually.
+    if !current.exists() {
+        if std::fs::rename(legacy, current).is_ok() {
+            return Ok(());
+        }
+        std::fs::create_dir_all(current)?;
+    } else if !current.is_dir() {
+        return Ok(());
+    }
+
+    for entry in std::fs::read_dir(legacy)? {
+        let entry = entry?;
+        let source = entry.path();
+        let destination = current.join(entry.file_name());
+        let file_type = entry.file_type()?;
+
+        if file_type.is_dir() {
+            migrate_data_dir(&source, &destination)?;
+        } else if !destination.exists() {
+            if std::fs::rename(&source, &destination).is_err() {
+                std::fs::copy(&source, &destination)?;
+                std::fs::remove_file(&source)?;
+            }
+        }
+    }
+
+    // Conflicting files intentionally keep this directory non-empty.
+    let _ = std::fs::remove_dir(legacy);
+    Ok(())
+}
+
 pub fn ensure_dirs() -> std::io::Result<()> {
+    let roaming_root = env_dir("APPDATA");
+    let local_root = env_dir("LOCALAPPDATA");
+    migrate_data_dir(
+        &roaming_root.join(LEGACY_APP_DIR_NAME),
+        &roaming_root.join(APP_DIR_NAME),
+    )?;
+    migrate_data_dir(
+        &local_root.join(LEGACY_APP_DIR_NAME),
+        &local_root.join(LOCAL_APP_DIR_NAME),
+    )?;
+
     for d in [
         roaming_dir(),
         local_dir(),
@@ -154,6 +211,9 @@ pub fn default_settings() -> Value {
         // stripped from crash text before it is sent.
         "telemetry": {
             "enabled": true,
+        },
+        "voice": {
+            "auto_start": false,
         },
         "number_format": "auto",         // auto | us | eu
         "language": "vi",                // vi | en
@@ -293,6 +353,106 @@ pub fn get_str<'a>(settings: &'a Value, path: &[&str], default: &'a str) -> &'a 
 mod tests {
     use super::*;
 
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let unique = format!(
+            "islemap-thienvyma-{name}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        std::env::temp_dir().join(unique)
+    }
+
+    #[test]
+    fn migration_moves_the_complete_legacy_tree_when_destination_is_absent() {
+        let root = temp_test_dir("migration-moves");
+        let legacy = root.join("TheIsleOverlay");
+        let current = root.join("islemap-thienvyma");
+        std::fs::create_dir_all(legacy.join("basemap")).unwrap();
+        std::fs::write(legacy.join("settings.json"), br#"{"language":"en"}"#).unwrap();
+        std::fs::write(legacy.join("basemap").join("light.png"), b"map bytes").unwrap();
+
+        migrate_data_dir(&legacy, &current).unwrap();
+
+        assert!(!legacy.exists(), "the legacy tree must be consumed once");
+        assert_eq!(
+            std::fs::read_to_string(current.join("settings.json")).unwrap(),
+            r#"{"language":"en"}"#
+        );
+        assert_eq!(
+            std::fs::read(current.join("basemap").join("light.png")).unwrap(),
+            b"map bytes"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn migration_never_overwrites_an_existing_destination() {
+        let root = temp_test_dir("migration-preserves-current");
+        let legacy = root.join("TheIsleOverlay");
+        let current = root.join("islemap-thienvyma");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::create_dir_all(&current).unwrap();
+        std::fs::write(legacy.join("settings.json"), b"legacy").unwrap();
+        std::fs::write(current.join("settings.json"), b"current").unwrap();
+
+        migrate_data_dir(&legacy, &current).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(legacy.join("settings.json")).unwrap(),
+            "legacy"
+        );
+        assert_eq!(
+            std::fs::read_to_string(current.join("settings.json")).unwrap(),
+            "current"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn local_data_uses_a_directory_distinct_from_the_install_root() {
+        assert_eq!(
+            local_dir_from_root(Path::new(r"C:\Users\player\AppData\Local")),
+            PathBuf::from(r"C:\Users\player\AppData\Local\islemap-thienvyma-data")
+        );
+    }
+
+    #[test]
+    fn migration_merges_missing_legacy_files_into_an_existing_destination() {
+        let root = temp_test_dir("migration-merges");
+        let legacy = root.join("TheIsleOverlay");
+        let current = root.join("islemap-thienvyma-data");
+        std::fs::create_dir_all(legacy.join("basemap")).unwrap();
+        std::fs::create_dir_all(current.join("basemap")).unwrap();
+        std::fs::write(legacy.join("settings.json"), b"legacy").unwrap();
+        std::fs::write(legacy.join("basemap").join("gateway.png"), b"map").unwrap();
+        std::fs::write(current.join("settings.json"), b"current").unwrap();
+        std::fs::write(current.join("basemap").join("custom.png"), b"custom").unwrap();
+
+        migrate_data_dir(&legacy, &current).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(current.join("settings.json")).unwrap(),
+            "current"
+        );
+        assert_eq!(
+            std::fs::read(current.join("basemap").join("gateway.png")).unwrap(),
+            b"map"
+        );
+        assert_eq!(
+            std::fs::read(current.join("basemap").join("custom.png")).unwrap(),
+            b"custom"
+        );
+        assert_eq!(
+            std::fs::read_to_string(legacy.join("settings.json")).unwrap(),
+            "legacy",
+            "a conflicting legacy file must remain recoverable"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn merge_keeps_user_choices_and_adds_new_defaults() {
         let base = json!({"a": {"x": 1, "y": 2}, "b": 3});
@@ -332,6 +492,10 @@ mod tests {
         assert!(merged["provider"]["id"].is_null());
         assert!(merged["provider"]["website"].is_null());
         assert_eq!(merged["provider"]["automatic_position"], true);
+        assert_eq!(
+            merged["voice"]["auto_start"], false,
+            "legacy settings gain the safe opt-in voice default"
+        );
         assert_eq!(
             active_source(&merged),
             overlay_core::MapSource::Vulnona,

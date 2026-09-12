@@ -190,10 +190,11 @@ impl PositionTracker {
         self.previous = self.current;
         if outcome.broke_segment {
             // A respawn/teleport must not use the dead character as the origin
-            // for a movement heading. Keep only an exact angle in this sample.
+            // for a movement heading. Reset the provider angle because this
+            // sample owns that source, but keep an independently captured local
+            // camera frame until its short freshness deadline expires.
             self.previous = None;
             self.provider_heading = None;
-            self.local_heading = None;
             self.update_provider_heading_if_some(heading_deg, now_s);
         }
         self.current = Some(sample);
@@ -244,7 +245,10 @@ impl PositionTracker {
         self.current = None;
         self.previous = None;
         self.provider_heading = None;
-        self.local_heading = None;
+        // Provider connection and position state do not own the local camera
+        // stream. Capture loss calls `clear_local_heading` explicitly; keeping
+        // this value here prevents a slow/reconnecting server from blanking a
+        // fresh Npcap bearing between local frames.
     }
 
     pub fn config(&self) -> &TrailConfig {

@@ -14,5 +14,5 @@ fn main() {
             replay = args.next().map(PathBuf::from);
         }
     }
-    theisle_overlay_lib::run(replay);
+    islemap_thienvyma_lib::run(replay);
 }

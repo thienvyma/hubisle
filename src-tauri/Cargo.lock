@@ -2110,6 +2110,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "islemap-thienvyma"
+version = "2.2.0"
+dependencies = [
+ "chrono",
+ "hmac",
+ "image",
+ "log",
+ "overlay-core",
+ "regex",
+ "reqwest 0.12.28",
+ "scraper",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "uuid",
+ "webview2-com",
+ "windows 0.62.2",
+ "windows-core 0.61.2",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4811,35 +4840,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fed54709c5b3a53d09bb1c113ea4f5ceafd1e772ddcb0030a82e1d56c087b08"
 dependencies = [
  "new_debug_unreachable",
-]
-
-[[package]]
-name = "theisle-overlay"
-version = "2.1.4"
-dependencies = [
- "chrono",
- "hmac",
- "image",
- "log",
- "overlay-core",
- "regex",
- "reqwest 0.12.28",
- "scraper",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "uuid",
- "webview2-com",
- "windows 0.62.2",
- "windows-core 0.61.2",
 ]
 
 [[package]]

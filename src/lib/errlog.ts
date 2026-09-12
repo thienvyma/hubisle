@@ -1,4 +1,4 @@
-// Global error capture -> the app's log file (%LOCALAPPDATA%\TheIsleOverlay\
+// Global error capture -> the app's log file (%LOCALAPPDATA%\islemap-thienvyma\
 // logs) and, when telemetry is on, the crash endpoint. Webviews have no
 // devtools in the field, so without this every uncaught error and unhandled
 // rejection simply vanishes.

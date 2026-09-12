@@ -1,4 +1,4 @@
-# Lưu trữ: góc camera độc lập với vị trí trong Isle Pulse Overlay
+# Lưu trữ: góc camera độc lập với vị trí trong islemap-thienvyma
 
 La bàn Q là ứng viên phù hợp để lấy hướng tại máy khi API vị trí cập nhật chậm.
 Tuy nhiên, một bộ đọc đáng tin cần chứng minh ba việc riêng biệt: nhận đúng dấu
@@ -8,7 +8,7 @@ minh ba điều đó đã đạt được.
 
 Tài liệu này ghi lại phân tích trên code 2.1.1 ngày 11/09/2026. Phần nhận dạng
 hình ảnh Q không được tích hợp. Từ 2.1.3, app dùng sidecar Npcap riêng để lấy
-góc camera realtime từ UDP chiều đi của game; 2.1.4 bổ sung kiểm tra driver và
+góc camera realtime từ UDP chiều đi của game; 2.2.0 giữ kiểm tra driver và
 tự phục hồi sidecar. Các bảng bên dưới được giữ làm hồ sơ của phương án cũ.
 
 ## Chức năng Q và mức độ chắc chắn

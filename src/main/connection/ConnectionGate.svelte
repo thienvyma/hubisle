@@ -9,7 +9,7 @@
   } from "$lib/api";
   import { t } from "$lib/i18n";
   import { providerLabel } from "$lib/provider-ui";
-  import PulseLogo from "../PulseLogo.svelte";
+  import IslemapLogo from "../IslemapLogo.svelte";
 
   let { connection }: { connection: ProviderState } = $props();
   let website = $state("");
@@ -60,7 +60,7 @@
 <div class="link-station flex h-full min-h-[520px] items-center justify-center p-6">
   <section class="connection-console w-full max-w-2xl">
     <div class="console-head">
-      <PulseLogo size={62} />
+      <IslemapLogo size={62} />
       <div class="scanner"><i></i><span></span></div>
     </div>
     <div class="console-title">

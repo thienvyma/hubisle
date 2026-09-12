@@ -4,7 +4,7 @@
 
 export const vi = {
   // --- chung ---
-  "app.title": "Bản đồ The Isle",
+  "app.title": "islemap-thienvyma",
   "app.minimap_title": "Bản đồ nhỏ",
   "app.fullmap_title": "Bản đồ Gateway",
 
@@ -15,6 +15,8 @@ export const vi = {
   "tab.garage": "Garage",
   "tab.skin": "Đổi skin",
   "tab.history": "Lịch sử",
+  "tab.friends": "Bạn bè",
+  "tab.voice": "Thoại",
 
   // --- lịch sử giao tranh Era ---
   "history.title": "Lịch sử giao tranh",
@@ -52,6 +54,41 @@ export const vi = {
   "friends.provider_no_position":
     "Đã nhận danh sách bạn bè nhưng chưa ai online và chia sẻ vị trí.",
   "friends.provider_visible": "Đang hiển thị {count} bạn bè có vị trí trên bản đồ.",
+  "friends.title": "Bạn bè",
+  "friends.subtitle": "Danh sách bạn bè được server hiện tại xác nhận.",
+  "friends.connect": "Kết nối một server để xem danh sách bạn bè mà server cung cấp.",
+  "friends.loading": "Đang đọc danh sách bạn bè…",
+  "friends.waiting": "Server chưa gửi ảnh chụp danh sách bạn bè.",
+  "friends.error": "Không thể đọc danh sách bạn bè lúc này.",
+  "friends.dino_unknown": "Chưa rõ loài",
+  "friends.online": "Online",
+  "friends.offline": "Offline",
+  "friends.position_available": "Có vị trí trực tiếp",
+  "friends.position_unavailable": "Không có vị trí",
+  "friends.positioned": "{count}/{total} có vị trí",
+  "friends.updated": "Cập nhật lúc {time}",
+
+  "voice.title": "IsleVOIP",
+  "voice.subtitle": "Trình khởi chạy thoại chính thức cho các server được hỗ trợ.",
+  "voice.checking": "Đang kiểm tra IsleVOIP…",
+  "voice.installed": "Đã cài IsleVOIP",
+  "voice.running": "Trình khởi chạy đang chạy.",
+  "voice.not_running": "Trình khởi chạy chưa chạy.",
+  "voice.start": "Mở IsleVOIP",
+  "voice.starting": "Đang mở…",
+  "voice.auto_start": "Tự mở IsleVOIP khi mở islemap-thienvyma",
+  "voice.auto_start_hint": "Tùy chọn này được lưu trên máy này.",
+  "voice.not_installed": "Chưa cài IsleVOIP",
+  "voice.install_hint": "Cài trình khởi chạy chính thức để đăng nhập Steam và tham gia thoại trên server hỗ trợ.",
+  "voice.install": "Mở trang cài đặt",
+  "voice.refresh": "Kiểm tra lại",
+  "voice.help": "Trang chính thức",
+  "voice.status_error": "Không thể kiểm tra trạng thái IsleVOIP.",
+  "voice.launch_error": "Không thể mở IsleVOIP. Hãy kiểm tra trình khởi chạy rồi thử lại.",
+  "voice.setting_error": "Không thể lưu tùy chọn tự mở.",
+  "voice.link_error": "Không thể mở trình duyệt. Hãy vào isle-voip.com.",
+  "voice.pro_title": "Về IsleVOIP Pro",
+  "voice.pro_body": "Người chơi không cần mua Pro. Chủ server chọn gói IsleVOIP; thoại cơ bản có trên server miễn phí, còn thoại theo khoảng cách/3D chỉ có khi server bật gói tương ứng.",
 
   // --- trạng thái vị trí ---
   "pos.none": "Chưa có vị trí",
@@ -265,7 +302,7 @@ export const vi = {
   "dino.token_paste": "Hoặc dán token thủ công",
   "dino.token_paste_hint":
     "Nếu cửa sổ đăng nhập không tự bắt được token: dán token overlay (hoặc nguyên link " +
-    "theisle-overlay://… / isle-overlay://…) vào đây.",
+    "islemap-thienvyma://…; link cũ theisle-overlay://… / isle-overlay://… vẫn dùng được) vào đây.",
   "dino.token_save": "Kiểm tra & lưu token",
   "dino.token_checking": "Đang kiểm tra token…",
   "dino.token_bad": "Token không hợp lệ — kiểm tra lại chuỗi đã dán.",
@@ -415,7 +452,7 @@ export const vi = {
   // --- cập nhật ứng dụng ---
   "update.available": "Có bản cập nhật {version}",
   "update.body": "Kênh cập nhật chính thức: thienvyma/hubisle.",
-  "update.title": "Cập nhật Isle Pulse Overlay",
+  "update.title": "Cập nhật islemap-thienvyma",
   "update.check": "Kiểm tra cập nhật",
   "update.manual_hint": "Luôn kiểm tra trực tiếp kênh phát hành thienvyma/hubisle.",
   "update.checking": "Đang kiểm tra cập nhật…",

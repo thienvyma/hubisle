@@ -9,6 +9,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
 
 use crate::events::{PositionUpdate, TrailPayload, SETTINGS_CHANGED};
+use crate::islevoip::IsleVoipStatus;
 use crate::pipeline;
 use crate::settings;
 use crate::state::{AppState, LockExt};
@@ -18,6 +19,16 @@ use crate::telemetry;
 #[tauri::command]
 pub fn get_settings(state: State<AppState>) -> Value {
     state.settings.lock_safe().clone()
+}
+
+#[tauri::command]
+pub fn islevoip_status() -> IsleVoipStatus {
+    crate::islevoip::status()
+}
+
+#[tauri::command]
+pub fn islevoip_launch() -> Result<IsleVoipStatus, String> {
+    crate::islevoip::launch()
 }
 
 /// Count the settings changes that are really feature use.

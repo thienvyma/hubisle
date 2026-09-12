@@ -1,4 +1,4 @@
-// Isle Pulse HUD palette. No display strings here (see i18n/).
+// islemap-thienvyma HUD palette. No display strings here (see i18n/).
 
 export const COLORS = {
   bg: "#030711",
