@@ -1399,7 +1399,11 @@ pub fn garage_fetch() -> Result<api::GarageState, String> {
     let tok = token_or_err()?;
     let client = http_client()?;
     let raw = api::garage_list(&client, &tok.token).map_err(|e| e.to_string())?;
-    Ok(api::garage_state(&raw))
+    let mut state = api::garage_state(&raw);
+    if let Ok(player) = api::get_me(&client, &tok.token) {
+        api::attach_garage_player_state(&mut state, &player);
+    }
+    Ok(state)
 }
 
 /// Run a garage command (park/restore/sell/rename); blocks through the

@@ -10,7 +10,7 @@
 
   onMount(() => {
     void updates.checkNow();
-    const timer = window.setInterval(() => void updates.checkNow(), 60 * 60 * 1000);
+    const timer = window.setInterval(() => void updates.checkNow(), 5 * 60 * 1000);
     const online = () => void updates.checkNow();
     window.addEventListener("online", online);
     return () => {

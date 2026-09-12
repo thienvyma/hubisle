@@ -567,6 +567,9 @@ export interface GarageState {
   sellingEnabled: boolean;
   liveSwap: boolean;
   currencyName: string | null;
+  online: boolean;
+  hasActiveDino: boolean;
+  serverName: string | null;
 }
 
 export const islepilotGarage = () => invoke<GarageState>("islepilot_garage");

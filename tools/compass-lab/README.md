@@ -1,11 +1,14 @@
-# Nghiên cứu hướng camera từ la bàn Q
+# Lưu trữ nghiên cứu hướng camera từ la bàn Q
 
-Cập nhật: [phân tích sâu và các sửa đổi trong ứng dụng](runtime-research.md).
-Bảng code bên dưới mô tả nền 2.1.1 trước các sửa đổi Unreleased.
+Cập nhật hiện tại: Isle Pulse 2.1.4 đã dùng sidecar Npcap riêng để giải mã góc
+camera từ UDP chiều đi của game. Phần dưới là hồ sơ nghiên cứu lịch sử về phương
+án nhận dạng la bàn Q trên nền 2.1.1; bộ nhận dạng ảnh Q không được đưa vào app.
+
+Xem [phân tích lưu trữ và các sửa đổi ban đầu](runtime-research.md).
 
 Ngày kiểm tra: 11/09/2026. Code ứng dụng được đối chiếu tại `e23cd3b` (2.1.1).
 
-Đây là bộ thử phép tính offline, **chưa phải tính năng đọc màn hình của hub**.
+Đây là bộ thử phép tính offline, **không phải nguồn góc hiện tại của hub**.
 Không chụp màn hình, không gửi phím Q, không đọc chuột, không kết nối game/server.
 Ứng dụng đang cài trên máy không bị thay đổi. Chưa có profile hiệu chỉnh lấy từ
 game thật, bộ nhận dạng pixel, hoặc kiểm chứng độ trễ trong game.

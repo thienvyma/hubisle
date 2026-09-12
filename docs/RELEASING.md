@@ -9,8 +9,9 @@ mà không phải nhúng GitHub token vào ứng dụng.
 
 ## Luồng thông báo
 
-- App kiểm tra khi khởi động, mỗi giờ và khi kết nối mạng trở lại.
-- Nút **Kiểm tra cập nhật** ở chân cửa sổ hoạt động cả trước khi đăng nhập server.
+- App kiểm tra khi khởi động, mỗi 5 phút và khi kết nối mạng trở lại.
+- Nút **Kiểm tra cập nhật** luôn có trong Cài đặt và hoạt động cả trước khi
+  đăng nhập server.
 - Kiểm tra tự động không bật thông báo khi không có bản mới hoặc mất mạng.
   Kiểm tra thủ công hiển thị rõ thành công hoặc lỗi.
 - **Để sau** ẩn thông báo cho cùng phiên bản trong phiên chạy hiện tại.
@@ -26,7 +27,7 @@ hoặc phát hành bản chuyển tiếp trên kênh cũ nếu vẫn quản lý 
 Giữ nguyên khóa ký đang dùng nếu muốn các bản đã cài chấp nhận bản cập nhật.
 
 Repository chính thức là **Public**. Phiên bản chuyển tiếp sang kênh cập nhật
-mới là **2.1.0**; các bản cũ vẫn trỏ kênh cũ cần cài bộ cài này một lần.
+mới là **2.1.0**; mọi bản từ 2.1.0 trở lên lấy cập nhật trực tiếp từ hubisle.
 
 ## Thiết lập một lần
 
@@ -46,7 +47,7 @@ chối mọi bản cập nhật bị sửa hoặc được ký bằng khóa khá
 ## Tạo phiên bản mới
 
 1. Sửa cùng một số phiên bản trong `package.json`, `src-tauri/Cargo.toml` và
-   `src-tauri/tauri.conf.json`, ví dụ `2.1.1`.
+   `src-tauri/tauri.conf.json` và các lockfile, ví dụ `2.1.4`.
 2. Ghi thay đổi vào `CHANGELOG.md`.
 3. Chạy kiểm tra phiên bản:
 
@@ -57,9 +58,9 @@ chối mọi bản cập nhật bị sửa hoặc được ký bằng khóa khá
 4. Commit, tạo tag trùng số phiên bản rồi push repository và tag:
 
    ```powershell
-   git tag v2.1.1
+   git tag v2.1.4
    git push origin main
-   git push origin v2.1.1
+   git push origin v2.1.4
    ```
 
 Workflow `Release Isle Pulse Overlay` chỉ chạy phát hành trong
@@ -77,9 +78,9 @@ npm run check
 npm run build
 ```
 
-Bản phát hành tiếp theo phải có số phiên bản cao hơn 2.1.0, đồng bộ cả ba
-file phiên bản và lockfile. Chuyển mục Unreleased trong CHANGELOG thành số
-phiên bản đó trước khi tạo tag.
+Bản phát hành tiếp theo phải cao hơn bản `latest.json`, đồng bộ mọi file phiên
+bản và lockfile. Chuyển mục Unreleased trong CHANGELOG thành số phiên bản đó
+trước khi tạo tag.
 
 Nếu làm mất khóa riêng, các bản đang cài sẽ không chấp nhận khóa mới. Vì vậy
 cần sao lưu `hubisle.key` ở nơi an toàn.

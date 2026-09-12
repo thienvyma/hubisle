@@ -185,7 +185,7 @@
         <button
           class="cursor-pointer rounded px-3 py-1 text-sm font-medium disabled:opacity-50"
           style="background: var(--color-accent); color: var(--color-bg)"
-          disabled={garageBusy}
+          disabled={garageBusy || garage?.online !== true || garage?.hasActiveDino !== true}
           onclick={() => void garageDo(() => islepilotGaragePark())}
         >
           {$t("garage.park")}
@@ -206,7 +206,17 @@
     {#if loadedAtMs !== null}
       <p class="text-xs" style="color: var(--color-muted)">
         {$t("garage.updated", { time: timeStr(loadedAtMs) })}
+        {#if garage?.serverName} · {garage.serverName}{/if}
       </p>
+    {/if}
+
+    {#if garage && !garage.online}
+      <section
+        class="rounded border p-3 text-sm"
+        style="border-color: #65472a; color: #ffd277; background: var(--color-panel)"
+      >
+        {$t("garage.offline_hint")}
+      </section>
     {/if}
 
     {#if garageBusy}
@@ -277,7 +287,7 @@
                     <button
                       class="cursor-pointer rounded px-2 py-0.5 text-xs font-medium disabled:opacity-50"
                       style="background: var(--color-accent); color: var(--color-bg)"
-                      disabled={garageBusy}
+                      disabled={garageBusy || garage?.online !== true}
                       onclick={() =>
                         void garageDo(
                           () => islepilotGarageRestore(id),

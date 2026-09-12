@@ -18,6 +18,7 @@
     type Settings,
   } from "$lib/api";
   import { t } from "$lib/i18n";
+  import { updates, updateState } from "$lib/updates";
   import HotkeyEditor from "./HotkeyEditor.svelte";
 
   let settings = $state<Settings | null>(null);
@@ -112,6 +113,24 @@
             {label}
           </button>
         {/each}
+      </div>
+    </section>
+
+    <!-- Updates: always reachable even when the automatic banner was closed. -->
+    <section>
+      <h2 class="mb-2 font-semibold" style="color: var(--color-accent)">
+        {$t("settings.updates")}
+      </h2>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          class="cursor-pointer rounded border px-3 py-1 text-sm disabled:opacity-50"
+          style="border-color: var(--color-border)"
+          disabled={$updateState.status === "checking" || $updateState.status === "downloading" || $updateState.status === "installing"}
+          onclick={() => void updates.checkNow(true)}
+        >
+          {$updateState.status === "checking" ? $t("update.checking") : $t("update.check")}
+        </button>
+        <span class="text-xs" style="color: var(--color-muted)">{$t("update.manual_hint")}</span>
       </div>
     </section>
 

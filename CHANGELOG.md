@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [2.1.4] — 2026-09-12
+
+- Kiểm tra Npcap bằng thiết bị capture thật khi hub mở, phát hiện cả trường
+  hợp DLL còn nhưng driver bị dừng; bộ cài Npcap đặt chế độ nạp cùng Windows
+  và cho phép hub chạy bằng tài khoản thường.
+- Lịch sử giảm máu hoạt động chung với Era, Titan và IslePilot, đồng thời vẫn
+  chỉ hiện danh tính đối phương khi server gửi sự kiện xác thực.
+- Chuẩn hóa đăng nhập IslePilot token về API trung tâm để theo người chơi qua
+  mọi server; Garage báo rõ online/Dino hiện tại, tab Dino báo số bạn bè và
+  Skin giải thích khi server tắt Live Skin.
+- Thêm nút kiểm tra cập nhật cố định trong Cài đặt, ghi lỗi updater vào log và
+  tự kiểm tra lại mỗi 5 phút.
+- Popup Prime trên minimap hoạt động chung cho Era, Titan và IslePilot: báo từng
+  điều kiện vừa xong, báo hoàn tất toàn bộ và không phát lại tiến độ cũ sau khi
+  mở app hoặc kết nối lại.
+- Bộ cài dừng cả hub lẫn sidecar, xóa các executable cũ rồi bắt buộc ghi đè;
+  nếu file còn bị khóa thì dừng cài đặt thay vì báo thành công nhưng vẫn chạy
+  phiên bản cũ.
+
 ## [2.1.3] — 2026-09-12
 
 - Tích hợp sidecar telemetry riêng của Isle Pulse, đọc gói UDP chiều đi của

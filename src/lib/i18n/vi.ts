@@ -19,11 +19,11 @@ export const vi = {
   // --- lịch sử giao tranh Era ---
   "history.title": "Lịch sử giao tranh",
   "history.subtitle":
-    "Theo dõi các lần mất máu và sự kiện tấn công do ERAGAMING cung cấp. Ba sự kiện mới nhất cũng xuất hiện tạm thời trên minimap.",
+    "Theo dõi các lần mất máu trên mọi provider đang kết nối. Sự kiện xác thực do server cấp cũng được lưu; ba sự kiện mới nhất xuất hiện tạm thời trên minimap.",
   "history.live": "THEO DÕI TRỰC TIẾP",
   "history.identity_title": "Dữ liệu danh tính",
   "history.identity_hint":
-    "API Era hiện tại chưa gửi tên và loài đối phương. Hub sẽ tự điền chính xác khi server bổ sung combatEvents; sự kiện suy ra từ giảm máu luôn ghi Không xác định.",
+    "Hub chỉ điền tên và loài đối phương khi server gửi dữ liệu xác thực. Sự kiện suy ra từ giảm máu trên Era, Titan hoặc IslePilot luôn ghi Không xác định.",
   "history.filter": "Lọc lịch sử",
   "history.filter_all": "Tất cả",
   "history.filter_incoming": "Nhận sát thương",
@@ -33,7 +33,7 @@ export const vi = {
   "history.loading": "Đang đọc lịch sử…",
   "history.error": "Không thể đọc lịch sử giao tranh.",
   "history.empty": "Chưa có sự kiện giao tranh",
-  "history.empty_hint": "Giữ hub chạy khi chơi ERAGAMING để ghi nhận các thay đổi máu.",
+  "history.empty_hint": "Giữ hub chạy và kết nối provider trong lúc chơi để ghi nhận các thay đổi máu.",
   "history.health_drop": "Phát hiện giảm máu",
   "history.incoming": "Bị người chơi tấn công",
   "history.outgoing": "Bạn đã tấn công",
@@ -45,6 +45,13 @@ export const vi = {
   "history.unknown": "Không xác định",
   "history.estimated": "Suy ra từ máu",
   "history.verified": "Era xác nhận",
+
+  "friends.provider_title": "Bạn bè do server cung cấp",
+  "friends.provider_empty":
+    "Provider hiện trả về 0 bạn bè đã chấp nhận. Hub sẽ hiển thị ngay khi server gửi danh sách.",
+  "friends.provider_no_position":
+    "Đã nhận danh sách bạn bè nhưng chưa ai online và chia sẻ vị trí.",
+  "friends.provider_visible": "Đang hiển thị {count} bạn bè có vị trí trên bản đồ.",
 
   // --- trạng thái vị trí ---
   "pos.none": "Chưa có vị trí",
@@ -141,6 +148,7 @@ export const vi = {
 
   // --- cài đặt ---
   "settings.language": "Ngôn ngữ · Language",
+  "settings.updates": "Cập nhật ứng dụng",
   "settings.minimap": "Bản đồ nhỏ",
   "settings.visible": "Hiện bản đồ nhỏ",
   "settings.require_game": "Chỉ hiện khi đang trong game (Alt-Tab ra là tự ẩn)",
@@ -328,6 +336,8 @@ export const vi = {
     "Không lấy được Garage — server bạn đang chơi có thể không hỗ trợ tính năng này.",
   "garage.updated":
     "Cập nhật lúc {time} · tự làm mới sau mỗi 10 phút — bấm Làm mới nếu cần ngay.",
+  "garage.offline_hint":
+    "IslePilot đang báo bạn offline hoặc chưa có Dino hoạt động. Hãy vào hẳn server rồi làm mới; nút cất/lấy Dino sẽ tự bật.",
 
   // --- Garage đa server ---
   "server_garage.title": "Dino Garage",
@@ -360,9 +370,11 @@ export const vi = {
   // --- đổi skin đa server ---
   "skin.title": "Đổi skin trực tiếp",
   "skin.subtitle": "Bảng phối màu theo quyền tài khoản trên {provider}.",
-  "skin.not_supported": "IslePilot chưa công bố API đổi skin cho overlay",
+  "skin.not_supported": "Server hiện tại chưa bật API đổi skin cho overlay",
   "skin.not_supported_hint":
-    "Garage IslePilot vẫn hoạt động. Mục đổi skin sẽ được mở khi có endpoint chính thức để tránh gửi dữ liệu sai tới server.",
+    "Garage IslePilot vẫn hoạt động. Mục đổi skin chỉ mở khi server bật Live Skin cho tài khoản này.",
+  "skin.server_disabled":
+    "Server đang chơi đã tắt Live Skin hoặc tài khoản chưa được cấp quyền. Hub sẽ tự mở bảng màu khi IslePilot trả về quyền sử dụng.",
   "skin.failed": "Không thể đọc hoặc áp dụng skin lúc này.",
   "skin.done": "Đã áp dụng bảng màu cho Dino đang chơi.",
   "skin.cooldown": "Đổi lại sau {time}",
@@ -405,6 +417,7 @@ export const vi = {
   "update.body": "Kênh cập nhật chính thức: thienvyma/hubisle.",
   "update.title": "Cập nhật Isle Pulse Overlay",
   "update.check": "Kiểm tra cập nhật",
+  "update.manual_hint": "Luôn kiểm tra trực tiếp kênh phát hành thienvyma/hubisle.",
   "update.checking": "Đang kiểm tra cập nhật…",
   "update.current": "Bạn đang dùng phiên bản mới nhất của kênh cập nhật.",
   "update.check_failed": "Chưa thể kiểm tra cập nhật",

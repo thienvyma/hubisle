@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**Isle Pulse Overlay 2.1.1** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**Isle Pulse Overlay 2.1.4** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
@@ -26,7 +26,8 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 ## Tính năng
 
 - **Minimap tròn** bám góc cửa sổ game, chuột bấm xuyên qua, không cản trở lúc chơi.
-  Hướng Bắc luôn ở trên, có mũi tên chỉ hướng đang đi.
+  Hướng Bắc luôn ở trên; mũi tên ưu tiên góc camera realtime từ sidecar Npcap,
+  sau đó mới dùng góc provider hoặc hướng di chuyển làm dự phòng.
 - **Bản đồ lớn**: phóng to/thu nhỏ mượt, 12 lớp bật/tắt được (nước ngọt, nguồn
   nước, mỏ muối, vũng bùn, khu bảo tồn, vùng di cư, vùng tuần tra AI, khu thức
   ăn, động vật với biểu tượng riêng từng loài 🐗🦌🐢, tên vùng, địa điểm, và
@@ -44,7 +45,8 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
   chế độ bám vị trí với mũi tên mép màn hình dẫn về chỗ đứng.
 - **Đường đã đi**: tự ghi theo phiên, khôi phục lại đường đi của phiên trước.
 - **Bạn bè cùng server**: tự hiển thị những người đã chấp nhận kết bạn và đang
-  online khi Era hoặc Titan cấp vị trí; minimap giữ số bạn ở mép vòng khi ở xa.
+  online khi Era, Titan hoặc IslePilot cấp vị trí; tab Dino báo rõ số bản ghi
+  provider trả về, minimap giữ số bạn ở mép vòng khi ở xa.
 - **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
   chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
   cung cấp sẽ để trống, không dựng dữ liệu giả.
@@ -53,13 +55,21 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
   trạng thái online/cầu nối và theo dõi tiến trình xử lý của server.
 - **Đổi skin trong hub**: 7 vùng màu theo giao thức hiện hành của Era/Titan,
   preset, lưu bản nháp trên máy, quyền 16 màu/đủ màu của Era, biến thể Titan và
-  cooldown do server xác nhận. IslePilot chưa có API overlay chính thức cho mục này.
+  cooldown do server xác nhận. IslePilot dùng API Live Skin động khi chính
+  server đang chơi bật tính năng và cấp quyền tài khoản.
+- **Lịch sử giao tranh đa provider**: ghi các lần giảm máu trên Era, Titan và
+  IslePilot; danh tính đối phương chỉ xuất hiện khi backend gửi sự kiện xác thực.
+- **Thông báo Prime trong game**: popup trên minimap xuất hiện khi một điều kiện
+  Prime vừa hoàn thành và báo riêng khi hoàn tất toàn bộ danh sách. Mốc ban đầu
+  chỉ dùng để đối chiếu nên mở lại app hoặc nối lại server không báo lặp.
 - **Phím tắt toàn cục** đổi được trong app, giao diện song ngữ Việt/Anh.
 
 ## Cài đặt
 
 Chạy file cài đặt NSIS được tạo từ nhánh tùy chỉnh này.
 Lần đầu mở app sẽ tải dữ liệu bản đồ (~3 MB) về máy.
+Có thể chạy trực tiếp bộ cài mới trên bản cũ: installer sẽ đóng hub và sidecar,
+xóa executable cũ rồi ghi bản mới; dữ liệu cá nhân và cài đặt vẫn được giữ.
 
 Yêu cầu: **Windows 10/11 64-bit**. WebView2 (thường đã có sẵn trên Windows 11;
 nếu thiếu, installer tự tải về).
@@ -74,7 +84,7 @@ Khi có phiên bản cao hơn, một bảng thông báo sẽ cho phép tải và
 ứng dụng. Mỗi gói cập nhật phải có chữ ký của Huỳnh Vỹ; gói bị sửa hoặc phát
 hành từ nguồn khác sẽ bị từ chối.
 
-App kiểm tra khi mở, mỗi giờ và khi mạng kết nối lại. Bạn cũng có thể bấm
+App kiểm tra khi mở, mỗi 5 phút và khi mạng kết nối lại. Bạn cũng có thể bấm
 **Kiểm tra cập nhật** ở chân cửa sổ để xem trạng thái hoặc thử lại khi có lỗi.
 Thông báo có nội dung bản phát hành, tiến trình tải và nút **Để sau**.
 
@@ -185,8 +195,9 @@ tiến trình game:
 - Vị trí và góc realtime lấy từ gói **UDP chiều đi của chính game** qua Npcap;
   sidecar này được đóng gói trong Isle Pulse và không phụ thuộc IsleLiveMap.
 - HTTPS của website server và clipboard vẫn là nguồn dự phòng khi Npcap chưa
-  sẵn sàng. Npcap cần được cài một lần trên Windows và không được bật chế độ
-  chỉ cho Administrator.
+  sẵn sàng. Npcap cần được cài một lần trên Windows, driver được đặt nạp lúc
+  Windows khởi động và không bật chế độ chỉ cho Administrator. Sidecar Isle
+  Pulse tự chạy mỗi lần mở hub và tự nối lại nếu capture bị gián đoạn.
 - Phím tắt dùng `RegisterHotKey` (API hợp tác của Windows), **không phải**
   keyboard hook.
 - Chỉ số, vị trí, bạn bè, Garage và skin lấy qua **HTTPS tới đúng provider đã

@@ -15,6 +15,7 @@ pub mod islepilot;
 pub mod local_telemetry;
 pub mod minimap;
 pub mod pipeline;
+pub mod prime;
 pub mod providers;
 pub mod replay;
 pub mod settings;

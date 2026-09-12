@@ -1,11 +1,11 @@
 //! Persistent combat history shared by the main hub and the minimap.
 //!
-//! Era currently exposes the signed-in player's vitals through
-//! `/api/theisle/map`.  Some deployments can additionally attach a
-//! `combatEvents` array to that response.  We accept that server-owned data
-//! when present and otherwise record only an observed health drop.  A health
-//! drop never fabricates an attacker identity: falls, bleeding and starvation
-//! can all reduce health too.
+//! Every supported provider exposes the signed-in player's health, so health
+//! loss can be recorded consistently across Era, Titan, and IslePilot. Some
+//! Era deployments can additionally attach a `combatEvents` array. We accept
+//! that server-owned data when present. An inferred health drop never
+//! fabricates an attacker identity: falls, bleeding and starvation can all
+//! reduce health too.
 
 use std::{
     collections::{hash_map::DefaultHasher, HashSet},
@@ -18,7 +18,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::{providers::model::ProviderSnapshot, settings};
+use crate::{
+    providers::model::{ConnectionStatus, ProviderSnapshot},
+    settings,
+};
 
 pub const COMBAT_NEW: &str = "combat://new";
 const MAX_HISTORY: usize = 500;
@@ -71,7 +74,9 @@ fn write_history_unlocked(events: &[CombatEvent]) -> Result<(), String> {
 
 #[tauri::command]
 pub fn combat_history() -> Vec<CombatEvent> {
-    let _guard = HISTORY_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let _guard = HISTORY_LOCK
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let mut events = read_history_unlocked();
     events.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
     events.truncate(MAX_HISTORY);
@@ -86,7 +91,9 @@ pub fn ingest(app: &AppHandle, incoming: Vec<CombatEvent>) {
     }
     let now = chrono::Utc::now().timestamp_millis();
     let added = {
-        let _guard = HISTORY_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _guard = HISTORY_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         let mut events = read_history_unlocked();
         let mut seen = events
             .iter()
@@ -200,7 +207,8 @@ pub fn parse_era_events(
         root.get("combatEvents"),
         root.get("combat_events"),
         root.get("combatHistory"),
-        root.get("player").and_then(|player| player.get("combatEvents")),
+        root.get("player")
+            .and_then(|player| player.get("combatEvents")),
     ];
     let Some(items) = arrays.into_iter().flatten().find_map(Value::as_array) else {
         return Vec::new();
@@ -213,21 +221,43 @@ pub fn parse_era_events(
             let opponent_name = match direction {
                 CombatDirection::Incoming | CombatDirection::Death => first_string(
                     item,
-                    &["opponentName", "opponent_name", "attackerName", "attacker_name"],
+                    &[
+                        "opponentName",
+                        "opponent_name",
+                        "attackerName",
+                        "attacker_name",
+                    ],
                 ),
                 CombatDirection::Outgoing => first_string(
                     item,
-                    &["opponentName", "opponent_name", "targetName", "target_name", "victimName"],
+                    &[
+                        "opponentName",
+                        "opponent_name",
+                        "targetName",
+                        "target_name",
+                        "victimName",
+                    ],
                 ),
             };
             let opponent_species = match direction {
                 CombatDirection::Incoming | CombatDirection::Death => first_string(
                     item,
-                    &["opponentSpecies", "opponent_species", "attackerSpecies", "attacker_species"],
+                    &[
+                        "opponentSpecies",
+                        "opponent_species",
+                        "attackerSpecies",
+                        "attacker_species",
+                    ],
                 ),
                 CombatDirection::Outgoing => first_string(
                     item,
-                    &["opponentSpecies", "opponent_species", "targetSpecies", "target_species", "victimSpecies"],
+                    &[
+                        "opponentSpecies",
+                        "opponent_species",
+                        "targetSpecies",
+                        "target_species",
+                        "victimSpecies",
+                    ],
                 ),
             };
             let own = first_string(item, &["selfSpecies", "self_species", "playerSpecies"])
@@ -256,13 +286,31 @@ pub fn parse_era_events(
         .collect()
 }
 
-/// Infer a single health-loss record between consecutive Era samples. This is
-/// useful immediately with today's API, while staying honest about the lack
-/// of an attacker identity.
-pub fn infer_era_health_drop(
+/// Infer a single health-loss record between consecutive samples from the
+/// same active provider session. This works with every provider that reports
+/// health while staying honest about the lack of an attacker identity.
+pub fn infer_health_drop(
     previous: &ProviderSnapshot,
     current: &ProviderSnapshot,
 ) -> Option<CombatEvent> {
+    if previous.provider != current.provider
+        || previous.status != ConnectionStatus::AuthenticatedOnline
+        || current.status != ConnectionStatus::AuthenticatedOnline
+        || current.received_at_ms <= previous.received_at_ms
+    {
+        return None;
+    }
+    if let (Some(previous_id), Some(current_id)) = (&previous.server_id, &current.server_id) {
+        if previous_id != current_id {
+            return None;
+        }
+    } else if let (Some(previous_name), Some(current_name)) =
+        (&previous.server_name, &current.server_name)
+    {
+        if previous_name != current_name {
+            return None;
+        }
+    }
     let previous_player = previous.player.as_ref()?;
     let current_player = current.player.as_ref()?;
     if previous_player.dino_name != current_player.dino_name {
@@ -277,6 +325,13 @@ pub fn infer_era_health_drop(
     Some(CombatEvent {
         id: stable_id(&[
             "health-delta".to_string(),
+            format!("{:?}", current.provider),
+            current
+                .server_id
+                .as_deref()
+                .or(current.server_name.as_deref())
+                .unwrap_or_default()
+                .to_string(),
             current.received_at_ms.to_string(),
             format!("{after:.3}"),
         ]),
@@ -349,7 +404,7 @@ mod tests {
         let before = snapshot(88.0);
         let mut after = snapshot(73.5);
         after.received_at_ms += 5_000;
-        let event = infer_era_health_drop(&before, &after).unwrap();
+        let event = infer_health_drop(&before, &after).unwrap();
         assert_eq!(event.damage, Some(14.5));
         assert_eq!(event.self_species.as_deref(), Some("Stegosaurus"));
         assert_eq!(event.opponent_name, None);
@@ -359,7 +414,22 @@ mod tests {
 
     #[test]
     fn stable_health_does_not_create_history() {
-        assert!(infer_era_health_drop(&snapshot(88.0), &snapshot(88.0)).is_none());
-        assert!(infer_era_health_drop(&snapshot(88.0), &snapshot(90.0)).is_none());
+        assert!(infer_health_drop(&snapshot(88.0), &snapshot(88.0)).is_none());
+        assert!(infer_health_drop(&snapshot(88.0), &snapshot(90.0)).is_none());
+    }
+
+    #[test]
+    fn health_drop_is_provider_generic_and_session_scoped() {
+        let before = snapshot(90.0);
+        let mut after = snapshot(65.0);
+        after.provider = ProviderId::Titan;
+        after.received_at_ms += 1_000;
+        assert!(infer_health_drop(&before, &after).is_none());
+
+        let mut before = before;
+        before.provider = ProviderId::Titan;
+        let event = infer_health_drop(&before, &after).expect("Titan health loss");
+        assert_eq!(event.damage, Some(25.0));
+        assert_eq!(event.source, "health-delta");
     }
 }

@@ -1,4 +1,4 @@
-# Góc camera độc lập với vị trí trong Isle Pulse Overlay
+# Lưu trữ: góc camera độc lập với vị trí trong Isle Pulse Overlay
 
 La bàn Q là ứng viên phù hợp để lấy hướng tại máy khi API vị trí cập nhật chậm.
 Tuy nhiên, một bộ đọc đáng tin cần chứng minh ba việc riêng biệt: nhận đúng dấu
@@ -6,10 +6,10 @@ phương hướng, quy đổi đúng hình học của thanh sang góc, và xác
 vẫn còn mới. Việc vẽ mũi tên mượt hoặc chạy một bộ thử toán học không chứng
 minh ba điều đó đã đạt được.
 
-Phần code ứng dụng đã được sửa để nhận và làm hết hạn góc độc lập với tọa độ.
-Phần nhận dạng hình ảnh Q chưa được tích hợp. Phiên bản phát hành vẫn là 2.1.1;
-các thay đổi được ghi trong mục Unreleased để tránh mô tả chúng như một bản
-camera offline đã hoàn tất.
+Tài liệu này ghi lại phân tích trên code 2.1.1 ngày 11/09/2026. Phần nhận dạng
+hình ảnh Q không được tích hợp. Từ 2.1.3, app dùng sidecar Npcap riêng để lấy
+góc camera realtime từ UDP chiều đi của game; 2.1.4 bổ sung kiểm tra driver và
+tự phục hồi sidecar. Các bảng bên dưới được giữ làm hồ sơ của phương án cũ.
 
 ## Chức năng Q và mức độ chắc chắn
 
@@ -139,16 +139,15 @@ Control chặn build helper của `httparse` (4551), không phải do lỗi biê
 được báo trong phần sửa. Workflow `Check Windows app` thực hiện kiểm tra đầy
 đủ trên runner Windows và là nơi xác nhận biên dịch tích hợp.[4]
 
-Các test la bàn dùng dữ liệu tổng hợp. Chưa đo độ chính xác nhận dạng ảnh,
-độ trễ từ camera đến overlay hoặc hiệu năng capture trong game. Chưa phát
-hành bộ cài mới mang tính năng đọc Q.
+Các test la bàn dùng dữ liệu tổng hợp. Phương án nhận dạng ảnh Q chưa được đo
+độ chính xác, độ trễ hoặc hiệu năng capture và không được đóng gói trong app.
 
 ## Nguồn
 
 1. Afterthought LLC, lập trình viên dmIV. [DevBlog #18](https://store.steampowered.com/news/posts/?appgroupname=The+Isle&appids=376210&enddate=1646104136&feed=steam_community_announcements), 29/10/2021. Hành vi Q và theo dấu.
 2. Afterthought LLC, dmIV. [DevBlog #22](https://store.steampowered.com/news/app/376210/view/3128317225041424482), 28/02/2022. Biểu tượng scent trên la bàn.
 3. ParaVixen. [The Isle Evrima: Ultimate Survival Guide, HUD Elements](https://steamcommunity.com/sharedfiles/filedetails/?id=3440690332), đăng 09/03/2025, truy cập 11/09/2026. Mô tả gameplay của người chơi; không phải đặc tả kỹ thuật.
-4. [Mã nguồn hubisle](https://github.com/thienvyma/hubisle), nền 2.1.1 `e23cd3b` và thay đổi Unreleased: `tracker.rs`, `pipeline.rs`, `events.rs`, `era.rs`, `titan.rs`, `fetch.rs`, `heading.ts`, minimap và FullMap. Kết quả test tại workspace ngày 11/09/2026.
+4. [Mã nguồn hubisle](https://github.com/thienvyma/hubisle), snapshot lịch sử 2.1.1 `e23cd3b`: `tracker.rs`, `pipeline.rs`, `events.rs`, `era.rs`, `titan.rs`, `fetch.rs`, `heading.ts`, minimap và FullMap. Kết quả test tại workspace ngày 11/09/2026; không mô tả bản phát hành hiện tại.
 5. Microsoft. [IGraphicsCaptureItemInterop::CreateForWindow](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow), truy cập 11/09/2026.
 6. Microsoft. [Screen capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture), cập nhật 23/08/2026. Timestamp, HDR và vòng đời frame.
 7. NiiightmareXD. [windows-capture README và source](https://github.com/NiiightmareXD/windows-capture), phiên bản được README công bố 2.0.1, truy cập 11/09/2026. Callback, timestamp, buffer và giới hạn nhịp cập nhật.

@@ -79,6 +79,14 @@ interface CombatEvent {
   damage: number | null;
   source: string;
 }
+interface PrimeProgressNotification {
+  id: string;
+  kind: "quest" | "complete";
+  questText: string | null;
+  questTextVi: string | null;
+  completed: number;
+  total: number;
+}
 type Settings = Record<string, any>;
 
 const LAYER_COLORS: Record<string, string> = {
@@ -106,6 +114,10 @@ const STRINGS = {
       death: "Đã chết",
       unknown: "không rõ đối thủ",
     },
+    prime: {
+      progress: "Prime tiến triển",
+      complete: "Đã hoàn tất toàn bộ Prime",
+    },
     dirs: {
       "dir.N": "Bắc", "dir.NE": "Đông Bắc", "dir.E": "Đông", "dir.SE": "Đông Nam",
       "dir.S": "Nam", "dir.SW": "Tây Nam", "dir.W": "Tây", "dir.NW": "Tây Bắc",
@@ -123,6 +135,10 @@ const STRINGS = {
       outgoing: "You attacked",
       death: "Died",
       unknown: "unknown opponent",
+    },
+    prime: {
+      progress: "Prime progress",
+      complete: "All Prime quests completed",
     },
     dirs: {
       "dir.N": "N", "dir.NE": "NE", "dir.E": "E", "dir.SE": "SE",
@@ -326,6 +342,27 @@ function showCombatEvent(event: CombatEvent) {
     state.combatAlerts = state.combatAlerts.filter((item) => item.id !== alert.id);
     draw();
   }, 15_000);
+}
+
+function showPrimeProgress(event: PrimeProgressNotification) {
+  const lang = settings.language === "en" ? "en" : "vi";
+  const quest = lang === "vi" ? (event.questTextVi ?? event.questText) : event.questText;
+  const prefix =
+    event.kind === "complete" ? STRINGS[lang].prime.complete : STRINGS[lang].prime.progress;
+  const alert: CombatAlert = {
+    id: event.id,
+    text: `${prefix} ${event.completed}/${event.total}${quest ? ` · ${quest}` : ""}`,
+    tone: event.kind === "complete" ? "prime-complete" : "prime",
+  };
+  state.combatAlerts = [
+    alert,
+    ...state.combatAlerts.filter((item) => item.id !== alert.id),
+  ].slice(0, 3);
+  draw();
+  window.setTimeout(() => {
+    state.combatAlerts = state.combatAlerts.filter((item) => item.id !== alert.id);
+    draw();
+  }, event.kind === "complete" ? 30_000 : 18_000);
 }
 
 function refreshPoiFilter() {
@@ -594,6 +631,7 @@ async function init() {
     draw();
   });
   await listen<CombatEvent>("combat://new", (e) => showCombatEvent(e.payload));
+  await listen<PrimeProgressNotification>("prime://progress", (e) => showPrimeProgress(e.payload));
 
   // First-run / re-download / silent top-up completed: pick up the new data
   // live — including overlays that did not exist at init (get_map_info again).

@@ -46,7 +46,7 @@ export interface QuestRow {
 export interface CombatAlert {
   id: string;
   text: string;
-  tone: "incoming" | "outgoing" | "death" | "estimated";
+  tone: "incoming" | "outgoing" | "death" | "estimated" | "prime" | "prime-complete";
 }
 
 export interface MinimapState {
@@ -114,7 +114,7 @@ export interface MinimapState {
   hintText: string;
   headingLabel: string; // "" when unknown -> shows headingUnknown
   headingUnknown: string;
-  /** Up to three short-lived Era combat notifications drawn over the map. */
+  /** Up to three short-lived combat or Prime notifications drawn over the map. */
   combatAlerts: CombatAlert[];
   /** Warning over retained data during a transport outage. */
   staleText: string;
@@ -179,6 +179,7 @@ export function render(canvas: HTMLCanvasElement, state: MinimapState): void {
     } else {
       drawHint(ctx, c, radius, state.hintText);
     }
+    drawCombatAlerts(ctx, state, c, radius);
     return;
   }
 
@@ -230,8 +231,12 @@ function drawCombatAlerts(
   state.combatAlerts.slice(0, 3).forEach((alert, index) => {
     const top = y + index * (rowH + 3);
     const accent =
-      alert.tone === "outgoing"
-        ? "#ffc857"
+      alert.tone === "prime-complete"
+        ? "#ffd166"
+        : alert.tone === "prime"
+          ? "#45f5a2"
+          : alert.tone === "outgoing"
+            ? "#ffc857"
         : alert.tone === "death"
           ? "#c65cff"
           : alert.tone === "estimated"

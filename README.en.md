@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**Isle Pulse Overlay 2.1.1** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**Isle Pulse Overlay 2.1.4** is developed by **Huỳnh Vỹ**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
@@ -26,7 +26,8 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
 ## Features
 
 - **Circular minimap** pinned to a corner of the game window, click-through so it
-  never blocks play. North stays up, with an arrow showing your direction of travel.
+  never blocks play. North stays up; the arrow prefers realtime camera heading
+  from the bundled Npcap sidecar, then provider or movement fallbacks.
 - **Full map**: smooth zoom/pan, 12 toggleable layers (fresh water, water, salt licks,
   mud wallows, sanctuaries, migration zones, AI patrol zones, food zones, animals
   with per-species icons 🐗🦌🐢, region names, landmarks, and a live **server
@@ -46,18 +47,30 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
 - **Realtime position and stats**: coordinates, growth, health, hunger, thirst,
   and stamina are normalized from the selected provider and rendered by the same
   minimap. Missing provider fields remain empty rather than being fabricated.
+- **Provider friends**: accepted friends from Era, Titan, or IslePilot appear on
+  the map when they share a position; the Dino tab explains when the provider
+  returns no accepted friends or no shared positions.
 - **Multi-provider Garage**: IslePilot keeps its 3D cards and Park/Restore/
   Rename/Sell flow; Era and Titan get five official API slots with store,
   restore, delete, connection gating, and server job progress.
 - **Skin editor in the hub**: seven current Era/Titan color regions, presets,
   local drafts, Era's 16-color/full-color permission, Titan variation, and a
-  server-authoritative cooldown. IslePilot has no published overlay skin API yet.
+  server-authoritative cooldown. IslePilot Live Skin appears when the current
+  server enables it; the hub shows the provider's disabled state otherwise.
+- **Combat history across providers**: server events are recorded when available,
+  with health-loss inference scoped to the current provider, server, and session.
+- **In-game Prime notifications**: the minimap shows a popup when one condition
+  becomes complete and a separate message when the whole quest list is complete.
+  Reconnect and startup baselines are silent, so old progress is not replayed.
 - **Global hotkeys** rebindable in-app and a bilingual Vietnamese/English UI.
 
 ## Install
 
 Run the NSIS installer built from this custom branch.
 On first launch the app downloads the map data (~3 MB) to your machine.
+It is safe to run a newer installer over an older build: the installer stops
+the hub and sidecar, removes their old executables, and then writes the new
+build while preserving personal data and settings.
 
 Requires **Windows 10/11 64-bit**. WebView2 is already present on most Windows 11
 installs; the installer fetches it if missing.
@@ -67,7 +80,7 @@ installs; the installer fetches it if missing.
 
 ### Automatic updates
 
-The app checks at startup, hourly, and when the network reconnects.
+The app checks at startup, every five minutes, and when the network reconnects.
 Use **Check for updates** in the footer to check manually or retry.
 The notification includes release notes, download progress, and a **Later** button.
 
@@ -185,7 +198,9 @@ inject code, or modify the game process:
   through Npcap. This sidecar ships with Isle Pulse and does not depend on
   IsleLiveMap.
 - Provider HTTPS and the clipboard remain fallbacks when Npcap is unavailable.
-  Npcap must be installed once on Windows without administrator-only mode.
+  Npcap must be installed once on Windows without administrator-only mode. Its
+  driver starts with Windows, while Isle Pulse starts and reconnects its bundled
+  telemetry sidecar on every hub launch.
 - Hotkeys use `RegisterHotKey` (Windows' cooperative API), **not** a keyboard
   hook.
 - Stats, position, accepted friends, Garage and skins come over **HTTPS from the

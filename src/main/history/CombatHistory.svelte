@@ -62,7 +62,7 @@
 <section class="history-shell">
   <div class="intro">
     <div>
-      <span class="eyebrow">ERA COMBAT LOG</span>
+      <span class="eyebrow">COMBAT LOG</span>
       <h2>{$t("history.title")}</h2>
       <p>{$t("history.subtitle")}</p>
     </div>
@@ -122,7 +122,7 @@
               </span>
             </div>
             <div class="meta">
-              <span>{event.serverName ?? "ERAGAMING"}</span>
+              <span>{event.serverName ?? "SERVER"}</span>
               <span class:estimated={event.source === "health-delta"}>
                 {event.source === "health-delta" ? $t("history.estimated") : $t("history.verified")}
               </span>

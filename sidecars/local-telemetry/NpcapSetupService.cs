@@ -239,6 +239,11 @@ public sealed class NpcapSetupService
     {
         using var process = Process.Start(new ProcessStartInfo(installerPath)
         {
+            // These are ordinary graphical-installer defaults. The user still
+            // sees and controls the official Npcap setup window. Explicitly
+            // request boot-start and unrestricted capture so Isle Pulse keeps
+            // working after a Windows restart and without elevation.
+            Arguments = "/npf_startup=yes /admin_only=no",
             UseShellExecute = true,
             Verb = "runas"
         }) ?? throw new InvalidOperationException("Windows could not start the Npcap installer.");

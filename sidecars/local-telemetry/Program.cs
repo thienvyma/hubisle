@@ -10,6 +10,16 @@ var json = new JsonSerializerOptions
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
 };
 
+if (args.Contains("--check-npcap", StringComparer.OrdinalIgnoreCase))
+{
+    var probe = NpcapAvailabilityProbe.Check(refresh: true);
+    Write(new StatusMessage(
+        probe.IsAvailable ? "status" : "error",
+        probe.IsAvailable ? "npcap-ready" : "npcap-required",
+        probe.ErrorMessage));
+    return probe.IsAvailable ? 0 : 2;
+}
+
 if (args.Contains("--install-npcap", StringComparer.OrdinalIgnoreCase))
 {
     var progress = new Progress<NpcapSetupProgress>(update =>

@@ -239,6 +239,9 @@
 
   {#if error}<div class="notice error">{error}</div>{/if}
   {#if note}<div class="notice success">{note}</div>{/if}
+  {#if provider === "isle-pilot" && raw.skinLiveEnabled === false}
+    <div class="notice warning">{$t("skin.server_disabled")}</div>
+  {/if}
 
   <section class="preview-panel">
     <div class="preview-head"><span>{$t("skin.preview")}</span><strong>{providerLabel(provider)}</strong></div>
@@ -305,7 +308,7 @@
   .tier-row span { border:1px solid var(--color-border); padding:5px 9px; color:var(--color-muted); font:9px Consolas,monospace; }
   .tier-row .good { border-color:rgba(69,245,162,.45); color:#45f5a2; } .tier-row .waiting { color:#ffd591; }
   .notice { margin:12px 0; border:1px solid var(--color-border); padding:10px 12px; font-size:12px; }
-  .notice.error { color:#ff8a80; } .notice.success { color:#72d653; }
+  .notice.error { color:#ff8a80; } .notice.success { color:#72d653; } .notice.warning { color:#ffd591; }
   .preview-panel { margin:16px 0; border:1px solid #173951; background:rgba(6,18,32,.85); padding:14px; }
   .preview-head { display:flex; justify-content:space-between; margin-bottom:9px; color:#68839b; font:9px Consolas,monospace; letter-spacing:.1em; }
   .preview-head strong { color:var(--color-accent); }

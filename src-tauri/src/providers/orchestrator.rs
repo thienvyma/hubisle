@@ -165,8 +165,8 @@ fn active_provider() -> Result<ProviderId, String> {
 pub fn garage_fetch() -> Result<ProviderFeaturePayload, String> {
     let provider = active_provider()?;
     if provider == ProviderId::IslePilot {
-        let data = serde_json::to_value(crate::islepilot::garage_fetch()?)
-            .map_err(|e| e.to_string())?;
+        let data =
+            serde_json::to_value(crate::islepilot::garage_fetch()?).map_err(|e| e.to_string())?;
         return Ok(ProviderFeaturePayload { provider, data });
     }
     let (provider, origin, cookie, _) = active_server_session()?;
@@ -228,7 +228,9 @@ pub fn skin_apply(colors: &[String], variation: f64) -> Result<ProviderFeaturePa
             .filter_map(|field| field.get("key").and_then(|key| key.as_str()))
             .enumerate()
         {
-            let Some(color) = colors.get(index) else { break };
+            let Some(color) = colors.get(index) else {
+                break;
+            };
             palette.insert(key.to_string(), serde_json::Value::String(color.clone()));
         }
         if palette.is_empty() {
@@ -287,11 +289,16 @@ fn set_status(
         runtime.message = message;
         let retain_era = provider == ProviderId::Era
             && status == ConnectionStatus::TemporaryError
-            && era::may_retain_snapshot(runtime.last_received_at_ms, chrono::Utc::now().timestamp_millis());
-        if !retain_era && matches!(
-            status,
-            ConnectionStatus::LoginRequired | ConnectionStatus::TemporaryError
-        ) {
+            && era::may_retain_snapshot(
+                runtime.last_received_at_ms,
+                chrono::Utc::now().timestamp_millis(),
+            );
+        if !retain_era
+            && matches!(
+                status,
+                ConnectionStatus::LoginRequired | ConnectionStatus::TemporaryError
+            )
+        {
             runtime.last_snapshot = None;
         }
         runtime_state(&runtime)
@@ -312,16 +319,29 @@ fn publish_snapshot(
             .position_cm
             .map(|(x, y, _)| overlay_core::world_to_pixel(x, y, calibration));
     }
-    let state = {
+    let (state, inferred_combat_event, prime_notifications) = {
         let mut runtime = RUNTIME.lock_safe();
         if !runtime.gate.accepts(generation, snapshot.provider) {
             return false;
         }
+        let inferred_combat_event = runtime
+            .last_snapshot
+            .as_ref()
+            .and_then(|previous| crate::combat::infer_health_drop(previous, &snapshot));
+        let prime_notifications = runtime
+            .last_snapshot
+            .as_ref()
+            .map(|previous| crate::prime::progress_between(previous, &snapshot))
+            .unwrap_or_default();
         runtime.machine.status = snapshot.status;
         runtime.message = None;
         runtime.last_received_at_ms = Some(snapshot.received_at_ms);
         runtime.last_snapshot = Some(snapshot.clone());
-        runtime_state(&runtime)
+        (
+            runtime_state(&runtime),
+            inferred_combat_event,
+            prime_notifications,
+        )
     };
     if let Some((x, y, z)) = snapshot.position_cm {
         pipeline::ingest_sample_with_heading(app, x, y, z, snapshot.heading_deg);
@@ -329,6 +349,12 @@ fn publish_snapshot(
         || clear_when_position_missing
     {
         pipeline::clear_position(app);
+    }
+    if let Some(event) = inferred_combat_event {
+        crate::combat::ingest(app, vec![event]);
+    }
+    for notification in prime_notifications {
+        crate::events::emit_all(app, crate::prime::PRIME_PROGRESS, notification);
     }
     crate::events::emit_all(app, PROVIDER_SNAPSHOT, snapshot);
     emit_state(app, state);
@@ -417,7 +443,9 @@ fn handle_era_error(app: &AppHandle, generation: u64, error: EraError) -> bool {
                 ProviderId::Era,
                 ConnectionStatus::TemporaryError,
                 Some(error.to_string()),
-            ) { return false; }
+            ) {
+                return false;
+            }
             if current_snapshot().is_none() {
                 pipeline::clear_position(app);
             }
@@ -428,33 +456,20 @@ fn handle_era_error(app: &AppHandle, generation: u64, error: EraError) -> bool {
 
 fn run_era(app: AppHandle, generation: u64, cookie: String) {
     std::thread::spawn(move || {
-        let mut previous_snapshot: Option<ProviderSnapshot> = None;
         let mut failures: u32 = 0;
         loop {
             if !accepts(generation, ProviderId::Era) {
                 return;
             }
             match era::poll_with_events(&cookie) {
-                Ok((snapshot, mut events)) => {
+                Ok((snapshot, events)) => {
                     failures = 0;
-                    if let Some(previous) = previous_snapshot.as_ref() {
-                        if let Some(event) = crate::combat::infer_era_health_drop(previous, &snapshot)
-                        {
-                            events.push(event);
-                        }
-                    }
-                    if snapshot.status == ConnectionStatus::AuthenticatedOnline {
-                        previous_snapshot = Some(snapshot.clone());
-                    } else {
-                        previous_snapshot = None;
-                    }
                     if publish_snapshot(&app, generation, snapshot, true) {
                         crate::combat::ingest(&app, events);
                     }
                 }
                 Err(error) => {
                     failures = failures.saturating_add(1);
-                    previous_snapshot = None;
                     if !handle_era_error(&app, generation, error) {
                         return;
                     }
@@ -511,22 +526,30 @@ fn run_titan_stream(
             // Polling keeps running while offline and discovers the new pawn.
             // Never replay samples from a stream opened for the previous life.
             if current_state().status == ConnectionStatus::AuthenticatedOffline {
-                if !interruptible_sleep(generation, ProviderId::Titan, 1) { return; }
+                if !interruptible_sleep(generation, ProviderId::Titan, 1) {
+                    return;
+                }
                 continue;
             }
             let mut last_camera_heading = None;
             let result = titan::stream(&cookie, &origin, |sample| {
                 if !accepts(generation, ProviderId::Titan)
-                    || current_state().status == ConnectionStatus::AuthenticatedOffline {
+                    || current_state().status == ConnectionStatus::AuthenticatedOffline
+                {
                     return false;
                 }
-                let Some(sample) = sample else { return true; };
+                let Some(sample) = sample else {
+                    return true;
+                };
                 let (x, y, z) = sample.position_cm;
                 // Match Titan's camera-follow mode: once a camera sample exists,
                 // keep it across sparse packets instead of jumping back to body
                 // yaw. Body yaw is only the initial fallback.
                 let heading = titan::preferred_live_heading(
-                    &mut last_camera_heading, &sample, chrono::Utc::now().timestamp_millis());
+                    &mut last_camera_heading,
+                    &sample,
+                    chrono::Utc::now().timestamp_millis(),
+                );
                 last_stream_sample_ms
                     .store(chrono::Utc::now().timestamp_millis(), Ordering::SeqCst);
                 pipeline::ingest_sample_with_heading(&app, x, y, z, heading);
@@ -675,13 +698,14 @@ pub fn detect(input: &str) -> Result<DetectedProvider, String> {
 }
 
 pub fn initialize(app: &AppHandle) {
-    let (configured_id, configured_website, automatic) = {
+    let (configured_id, mut configured_website, automatic, islepilot_auth_mode) = {
         let state = app.state::<crate::state::AppState>();
         let settings = state.settings.lock_safe();
         (
             crate::settings::get_str(&settings, &["provider", "id"], "").to_string(),
             crate::settings::get_str(&settings, &["provider", "website"], "").to_string(),
             crate::settings::get_bool(&settings, &["provider", "automatic_position"], true),
+            crate::settings::get_str(&settings, &["islepilot", "auth_mode"], "legacy").to_string(),
         )
     };
     if !automatic && configured_id.is_empty() {
@@ -689,13 +713,25 @@ pub fn initialize(app: &AppHandle) {
         return;
     }
 
+    let central_islepilot = configured_id == "isle-pilot" && islepilot_auth_mode == "token";
+    if central_islepilot {
+        configured_website = islepilot::api::API_ORIGIN.to_string();
+    }
     let configured = provider_from_key(&configured_id).and_then(|id| {
         detect_provider(&configured_website)
             .ok()
             .filter(|detected| detected.id == id)
     });
     if let Some(detected) = configured {
-        let generation = activate(app, detected.clone(), ConnectionStatus::Validating, false);
+        // Old installations could retain the last IslePilot subdomain even in
+        // token mode. Persist the central origin once so the connection follows
+        // the player across all IslePilot servers.
+        let generation = activate(
+            app,
+            detected.clone(),
+            ConnectionStatus::Validating,
+            central_islepilot,
+        );
         start_selected_worker(app, generation, detected.id, detected.origin, None);
         return;
     }

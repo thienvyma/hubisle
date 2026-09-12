@@ -438,6 +438,11 @@ pub struct GarageState {
     pub selling_enabled: bool,
     pub live_swap: bool,
     pub currency_name: Option<String>,
+    /// Current central-overlay player state. The Garage endpoint itself can
+    /// answer while the player is offline, so keep this explicit for the UI.
+    pub online: bool,
+    pub has_active_dino: bool,
+    pub server_name: Option<String>,
 }
 
 pub fn garage_state(raw: &Value) -> GarageState {
@@ -459,7 +464,16 @@ pub fn garage_state(raw: &Value) -> GarageState {
             .get("currencyName")
             .and_then(|v| v.as_str())
             .map(String::from),
+        online: false,
+        has_active_dino: false,
+        server_name: None,
     }
+}
+
+pub fn attach_garage_player_state(state: &mut GarageState, player: &OverlayMe) {
+    state.online = player.online == Some(true);
+    state.has_active_dino = player.has_data && player.species.is_some();
+    state.server_name = player.server.clone();
 }
 
 #[cfg(test)]
@@ -561,5 +575,23 @@ mod tests {
         assert!(!g.selling_enabled);
         assert_eq!(g.currency_name.as_deref(), Some("Points"));
         assert_eq!(g.dinos.as_array().unwrap().len(), 1);
+        assert!(!g.online);
+    }
+
+    #[test]
+    fn garage_state_tracks_the_active_server_from_overlay_me() {
+        let raw: Value = serde_json::json!({ "settings": {}, "dinos": [] });
+        let mut state = garage_state(&raw);
+        let player = OverlayMe {
+            has_data: true,
+            online: Some(true),
+            species: Some("Deinosuchus".to_string()),
+            server: Some("DinoVietnam VIP".to_string()),
+            ..OverlayMe::default()
+        };
+        attach_garage_player_state(&mut state, &player);
+        assert!(state.online);
+        assert!(state.has_active_dino);
+        assert_eq!(state.server_name.as_deref(), Some("DinoVietnam VIP"));
     }
 }

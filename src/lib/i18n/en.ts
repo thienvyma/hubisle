@@ -17,11 +17,11 @@ export const en: Record<MsgKey, string> = {
 
   "history.title": "Combat history",
   "history.subtitle":
-    "Tracks health loss and attack events supplied by ERAGAMING. The three newest events also appear temporarily on the minimap.",
+    "Tracks health loss on every connected provider and keeps verified server events. The three newest events also appear temporarily on the minimap.",
   "history.live": "LIVE MONITORING",
   "history.identity_title": "Identity data",
   "history.identity_hint":
-    "Era's current API does not send the opponent name or species. The hub fills them in when the server adds combatEvents; health-loss observations always remain Unknown.",
+    "The hub shows an opponent name and species only when the server supplies verified data. Health-loss observations on Era, Titan, or IslePilot always remain Unknown.",
   "history.filter": "Filter history",
   "history.filter_all": "All",
   "history.filter_incoming": "Damage received",
@@ -31,7 +31,7 @@ export const en: Record<MsgKey, string> = {
   "history.loading": "Loading history…",
   "history.error": "Could not read combat history.",
   "history.empty": "No combat events yet",
-  "history.empty_hint": "Keep the hub running while playing on ERAGAMING to record health changes.",
+  "history.empty_hint": "Keep the hub running and the provider connected while playing to record health changes.",
   "history.health_drop": "Health loss detected",
   "history.incoming": "A player attacked you",
   "history.outgoing": "You attacked a player",
@@ -43,6 +43,13 @@ export const en: Record<MsgKey, string> = {
   "history.unknown": "Unknown",
   "history.estimated": "Inferred from health",
   "history.verified": "Verified by Era",
+
+  "friends.provider_title": "Server-provided friends",
+  "friends.provider_empty":
+    "The provider currently returns 0 accepted friends. The hub will show them as soon as the server supplies the list.",
+  "friends.provider_no_position":
+    "The friend list is available, but nobody is online and sharing a position.",
+  "friends.provider_visible": "Showing {count} friends with live positions on the map.",
 
   "pos.none": "No position yet",
   "pos.hint":
@@ -128,6 +135,7 @@ export const en: Record<MsgKey, string> = {
   "hotkey.unstuck": "Open chat and send /unstuck",
 
   "settings.language": "Ngôn ngữ · Language",
+  "settings.updates": "App updates",
   "settings.minimap": "Minimap",
   "settings.visible": "Show minimap",
   "settings.require_game": "Only show while you are in the game (hides on Alt-Tab)",
@@ -312,6 +320,8 @@ export const en: Record<MsgKey, string> = {
     "Could not load the Garage — the server you are playing on may not support it.",
   "garage.updated":
     "Updated {time} · auto-refreshes every 10 minutes — press Refresh for now.",
+  "garage.offline_hint":
+    "IslePilot currently reports you offline or without an active dinosaur. Join the server fully and refresh; store/restore controls will enable automatically.",
 
   "server_garage.title": "Dino Garage",
   "server_garage.subtitle": "Live dinosaur storage from {provider}.",
@@ -342,9 +352,11 @@ export const en: Record<MsgKey, string> = {
 
   "skin.title": "Live skin editor",
   "skin.subtitle": "A color palette governed by your account permissions on {provider}.",
-  "skin.not_supported": "IslePilot has not published an overlay skin API",
+  "skin.not_supported": "The current server has not enabled the overlay skin API",
   "skin.not_supported_hint":
-    "The IslePilot Garage still works. Skin editing will unlock when an official endpoint is available.",
+    "The IslePilot Garage still works. Skin editing unlocks only when the server enables Live Skin for this account.",
+  "skin.server_disabled":
+    "The current server has disabled Live Skin or this account has no permission. The palette will open automatically when IslePilot grants access.",
   "skin.failed": "The skin could not be read or applied right now.",
   "skin.done": "The palette was applied to your current dino.",
   "skin.cooldown": "Available again in {time}",
@@ -383,6 +395,7 @@ export const en: Record<MsgKey, string> = {
   "update.body": "Official update channel: thienvyma/hubisle.",
   "update.title": "Isle Pulse Overlay updates",
   "update.check": "Check for updates",
+  "update.manual_hint": "Always checks the thienvyma/hubisle release channel directly.",
   "update.checking": "Checking for updates…",
   "update.current": "You are on the latest version available on this update channel.",
   "update.check_failed": "Unable to check for updates",

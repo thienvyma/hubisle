@@ -52,7 +52,10 @@ pub fn spawn(app: AppHandle) {
 }
 
 fn ensure_npcap(app: &AppHandle, sidecar: &PathBuf) {
-    if npcap_runtime_present() {
+    // Checking the DLLs alone misses a disabled or broken capture driver.
+    // Let the bundled sidecar ask libpcap for the device list, which verifies
+    // both the runtime files and the running Windows driver.
+    if npcap_runtime_ready(sidecar) {
         return;
     }
 
@@ -112,12 +115,17 @@ fn ensure_npcap(app: &AppHandle, sidecar: &PathBuf) {
         .blocking_show();
 }
 
-fn npcap_runtime_present() -> bool {
-    let system_root = std::env::var_os("SystemRoot")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
-    let directory = system_root.join("System32").join("Npcap");
-    directory.join("wpcap.dll").is_file() && directory.join("Packet.dll").is_file()
+fn npcap_runtime_ready(sidecar: &PathBuf) -> bool {
+    let mut command = Command::new(sidecar);
+    command
+        .arg("--check-npcap")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    command.status().is_ok_and(|status| status.success())
 }
 
 fn run_once(app: &AppHandle, sidecar: &PathBuf) -> Result<(), String> {

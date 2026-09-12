@@ -29,6 +29,10 @@
   const primeDone = $derived(
     player?.primeQuests.filter((quest) => quest.completed).length ?? 0,
   );
+  const providerFriends = $derived(snapshot?.friends ?? []);
+  const visibleFriends = $derived(
+    providerFriends.filter((friend) => friend.online && friend.positionCm !== null),
+  );
 
   onMount(() => {
     const bag = listenerBag();
@@ -242,4 +246,27 @@
       </p>
     {/if}
   </section>
+
+  {#if snapshot}
+    <section
+      class="rounded border p-4"
+      style="border-color: var(--color-border); background: var(--color-panel)"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <strong class="text-sm" style="color: var(--color-accent)">{$t("friends.provider_title")}</strong>
+        <span class="font-mono text-xs" style="color: var(--color-muted)">
+          {visibleFriends.length}/{providerFriends.length}
+        </span>
+      </div>
+      {#if providerFriends.length === 0}
+        <p class="mt-2 text-sm" style="color: var(--color-muted)">{$t("friends.provider_empty")}</p>
+      {:else if visibleFriends.length === 0}
+        <p class="mt-2 text-sm" style="color: var(--color-muted)">{$t("friends.provider_no_position")}</p>
+      {:else}
+        <p class="mt-2 text-sm" style="color: var(--color-muted)">
+          {$t("friends.provider_visible", { count: visibleFriends.length })}
+        </p>
+      {/if}
+    </section>
+  {/if}
 </div>
