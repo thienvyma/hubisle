@@ -7,7 +7,8 @@
 - Version every release-facing manifest as 2.2.0.
 - Preserve the existing GitHub updater endpoint and signing key.
 - Preserve legacy deep-link and data paths only as migration compatibility.
-- Do not copy, decompile, impersonate, or bypass the closed IsleVOIP/Pro service.
+- Integrate only through the official IsleVOIP launcher and public download page;
+  do not copy private protocols, credentials, or paid server capabilities.
 - Test behavior before implementation for new logic; configuration and prose are
   validated by builds and end-to-end consistency checks.
 
@@ -22,28 +23,25 @@ and release notes for 2.2.0.
 Verification: migration unit tests, version checker, sidecar build, frontend
 build, NSIS bundle, and inspection of output file names.
 
-## Task 2: Community core and voice UI
+## Task 2: Friends and IsleVOIP UI
 
-Create a testable community core for payload validation, server matching,
-distance/volume attenuation, and room-code normalization. Implement a singleton
-Trystero room manager with encrypted room password, muted microphone startup,
-presence exchange, audio lifecycle, master/per-peer volume, and error state.
-Add kept-alive Friends and Voice tabs with room join/leave and peer controls.
-Make these two tabs reachable even while the provider connection gate is active.
+Add kept-alive Friends and Voice tabs. Friends shows the current provider's
+accepted friend list and explains unavailable positions. Voice shows official
+IsleVOIP installation/running state, starts the launcher, links to the official
+download page, and controls the auto-start preference. Make both tabs reachable
+even while the provider connection gate is active.
 
-Verification: red-green unit tests for the pure core, TypeScript/Svelte checks,
-and production frontend build.
+Verification: TypeScript/Svelte checks and production frontend build.
 
-## Task 3: Community map projection and marker integration
+## Task 3: Official IsleVOIP launcher bridge
 
-Add a tested Rust command that projects arbitrary validated world coordinates
-through the active calibration. Convert peer positions to SharedFriend-compatible
-markers in the main window and emit `community://friends`. Merge and deduplicate
-provider/community markers in FullMap and minimap; refresh after basemap changes
-and clear markers on leave.
+Add tested Rust path discovery and process-state helpers for the official
+per-user IsleVOIP install. Expose commands to read status and start the launcher,
+plus optional auto-start during hub setup. Keep the official download in the
+frontend/system browser so installer ownership and updates stay with IsleVOIP.
 
-Verification: Rust projection tests, frontend core tests, Svelte check, and a
-production frontend build.
+Verification: red-green Rust unit tests for path precedence and process matching,
+then Rust workspace tests and an installed-launcher smoke test.
 
 ## Task 4: Integrated verification and release
 

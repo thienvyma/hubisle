@@ -3,8 +3,9 @@
 ## Goal
 
 Release version 2.2.0 as `islemap-thienvyma`, preserve the signed update path
-from Isle Pulse Overlay 2.1.4, restore a useful Friends surface, and add free
-community voice without depending on the closed IsleVOIP/Pro service.
+from Isle Pulse Overlay 2.1.4, restore a useful Friends surface, and connect the
+hub to the official IsleVOIP launcher used by supported servers without requiring
+a player-side Pro upgrade.
 
 ## Brand and upgrade compatibility
 
@@ -20,43 +21,32 @@ work. On first launch, the app migrates roaming and local data directories from
 history, and encrypted credentials survive the rename. Updater endpoint and
 signing public key remain unchanged.
 
-## Friends and community voice
+## Friends and IsleVOIP
 
-The Friends tab combines two sources without fabricating provider data:
+The Friends tab exposes accepted friends already returned by Era, Titan, or
+IslePilot, including online state, species and whether a live position is
+available. Existing provider friend markers remain on the full map and minimap.
+The hub does not invent records when a server hides or omits the friend list.
 
-1. Accepted friends returned by Era, Titan, or IslePilot.
-2. Peers in a user-created community room.
+The Voice tab integrates the official IsleVOIP desktop launcher. The backend
+detects the standard per-user installation and running process, starts it on
+request, and can auto-start it with the hub when enabled. If it is not installed,
+the UI opens the official IsleVOIP download page in the user's browser. The
+official launcher performs Steam login, supported-server discovery, nearby-player
+selection and voice transport; islemap-thienvyma does not copy private protocols,
+credentials, or paid server capabilities.
 
-Community rooms use Trystero over WebRTC. A room code supplies both a derived
-discovery identifier and session password. Presence packets contain a validated
-display name, provider/server identifiers, optional world position, and muted
-state. No subscription or IsleVOIP account is required. Everyone in a room must
-run islemap-thienvyma and enter the same code.
-
-Microphone capture starts muted. The user explicitly unmutes, can set master and
-per-peer volume, and can leave the room at any time. Leaving stops local tracks,
-disconnects the room, and removes remote audio elements. When both peers have
-positions on the same server, volume is full at close range and fades to silence
-at long range. If a provider does not expose coordinates, room voice remains
-usable without proximity attenuation and the UI explains that limitation.
-
-The backend projects community world coordinates through the active basemap
-calibration. The main window emits only normalized map markers to the minimap.
-The full map and minimap merge provider and community markers and deduplicate
-them by stable source identity. Remote payloads are bounded and treated as
-untrusted input.
+Players do not buy Pro: the server owner chooses its IsleVOIP license. Free
+servers provide the service's basic voice; 3D proximity/range behavior is
+available when that server has enabled the corresponding IsleVOIP plan. The hub
+shows this boundary clearly and never claims to unlock a server plan.
 
 ## Availability and failure handling
 
-Friends and Voice remain available even when no provider is authenticated so
-the feature works on servers without supported account APIs. Provider-specific
-map, Dino, Garage, Skin, and History behavior keeps its existing connection
-requirements. Voice reports microphone denial, peer discovery failure, and
-autoplay failure in the tab without crashing the shell.
-
-Trystero discovery uses public Nostr relays; direct WebRTC can fail on restrictive
-networks without TURN. This release reports that state clearly and does not claim
-universal connectivity.
+Friends and Voice remain visible even when no provider is authenticated. The
+Voice tab reports missing installation and process-launch failures without
+crashing the shell. Provider-specific map, Dino, Garage, Skin, and History
+behavior keeps its existing connection requirements.
 
 ## Documentation and validation
 
@@ -64,8 +54,7 @@ README.md and README.en.md contain text only and describe the real 2.2.0 feature
 set. Obsolete screenshot and guide image assets are removed when no references
 remain.
 
-Validation covers pure community normalization, distance attenuation, room-code
-derivation inputs, Rust coordinate projection and data migration, frontend type
-checking/build, Rust workspace tests, sidecar build/probe, version consistency,
-forbidden API checks, NSIS bundle generation, an installed-file smoke test, and
-GitHub release artifact/update-manifest verification.
+Validation covers IsleVOIP path discovery/process state and data migration,
+frontend type checking/build, Rust workspace tests, sidecar build/probe, version
+consistency, forbidden API checks, NSIS bundle generation, an installed-file
+smoke test, and GitHub release artifact/update-manifest verification.
