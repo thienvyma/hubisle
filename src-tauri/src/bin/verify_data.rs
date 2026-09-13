@@ -11,8 +11,8 @@
 //! axes scores BETTER, something is wrong. Run after every map update, and
 //! for every source after touching a calibration.
 
+use islemap_thienvyma_lib::settings;
 use overlay_core::{world_to_pixel, MapSource};
-use theisle_overlay_lib::settings;
 
 const STRICT_MAX_PCT: f64 = 2.0;
 
@@ -54,7 +54,7 @@ fn main() -> std::process::ExitCode {
     // first (offline), so a POIS_VERSION bump or a freshly cached source can
     // be verified without launching the app.
     if std::env::args().any(|a| a == "--reconvert") {
-        theisle_overlay_lib::fetch::ensure_pois_current();
+        islemap_thienvyma_lib::fetch::ensure_pois_current();
     }
     let source = match parse_source() {
         Ok(s) => s,
@@ -64,7 +64,7 @@ fn main() -> std::process::ExitCode {
         }
     };
     let cal = source.calibration();
-    let img_path = match theisle_overlay_lib::fetch::IslemapsVariant::for_source(source) {
+    let img_path = match islemap_thienvyma_lib::fetch::IslemapsVariant::for_source(source) {
         Some(variant) => variant.dest(),
         None => settings::basemap_dir().join("fullmap.webp"),
     };

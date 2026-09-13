@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-09-14
+
+- Thay cầu nối Voice phụ thuộc ứng dụng ngoài bằng kiến trúc provider chung cho
+  mọi server: adapter được ghép theo đúng HTTPS origin của server hiện tại.
+- Chuẩn bị đầy đủ luồng đăng nhập trình duyệt, callback có `state` dùng một lần,
+  phiên đăng nhập tách theo provider/server và quyền vào phòng có thời hạn ngắn.
+- Phiên Voice lưu bằng Windows DPAPI; token phòng chỉ tồn tại trong bộ nhớ và
+  không được đưa ra frontend, log, settings hoặc localStorage.
+- Tab Thoại hiển thị cùng một bộ trạng thái cho mọi server. Server chưa cung cấp
+  API tương thích được báo “Chưa cấu hình” mà không yêu cầu cài ứng dụng khác.
+- Thêm kiểm thử CI ngăn tái xuất hiện mã dò/chạy client Voice bên ngoài, endpoint
+  riêng của dịch vụ hoặc khóa dịch vụ được nhúng trong Hub.
+
 ## [2.4.9] — 2026-09-14
 
 - Bổ sung các skin mẫu xanh đậm gân đen, đen, trắng, rừng, sa mạc, bóng tối,
