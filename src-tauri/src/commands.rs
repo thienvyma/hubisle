@@ -1024,6 +1024,11 @@ pub fn provider_logout(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn provider_change_connection(app: AppHandle) {
+    crate::providers::orchestrator::change_connection(&app);
+}
+
+#[tauri::command]
 pub fn provider_select_manual(app: AppHandle) {
     crate::providers::orchestrator::select_manual(&app);
 }

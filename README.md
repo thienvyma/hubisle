@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**islemap-thienvyma 2.4.6** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**islemap-thienvyma 2.4.7** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 

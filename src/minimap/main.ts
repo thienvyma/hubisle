@@ -628,7 +628,7 @@ async function init() {
   });
 
   // Provider-neutral live stats for the strip under the minimap.
-  await listen<ProviderSnapshot>("provider://snapshot", (e) => {
+  await listen<ProviderSnapshot | null>("provider://snapshot", (e) => {
     applyProviderSnapshot(e.payload);
     draw();
   });

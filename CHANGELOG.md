@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.4.7] — 2026-09-13
+
+- Sửa lỗi đổi kết nối giữa các server IslePilot nhưng hub vẫn giữ server cũ:
+  địa chỉ panel đã chọn như DinoVietnam hoặc Titan nay được giữ qua lần khởi
+  động tiếp theo thay vì bị thay bằng địa chỉ IslePilot trung tâm.
+- Xóa ngay snapshot, vị trí, bạn bè và chỉ số của server trước khỏi mọi cửa sổ
+  khi đổi kết nối. Dữ liệu IslePilot có tên server không khớp với panel đã chọn
+  sẽ bị chặn và hub hiện trạng thái chờ server đúng xác nhận.
+- Nút đổi kết nối nay giữ phiên Steam IslePilot đã mã hóa trên máy, vì vậy có
+  thể chuyển từ Titan sang DinoVietnam mà không phải đăng nhập Steam lại khi
+  token hiện tại còn hợp lệ.
+
 ## [2.4.6] — 2026-09-13
 
 - Bổ sung nút tự sát Dino đang chơi cho Titan và DinoVietnam qua đúng endpoint

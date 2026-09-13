@@ -6,7 +6,7 @@
     onProviderSnapshot,
     onProviderState,
     patchSettings,
-    providerLogout,
+    providerChangeConnection,
     providerSnapshot,
     providerState,
     type ProviderSnapshot,
@@ -55,7 +55,7 @@
   async function changeConnection() {
     changing = true;
     try {
-      await providerLogout();
+      await providerChangeConnection();
     } finally {
       changing = false;
     }

@@ -85,6 +85,12 @@ impl StateMachine {
         self.status = ConnectionStatus::LoggedOut;
         ResetAction::Reset
     }
+
+    pub fn change_connection(&mut self) -> ResetAction {
+        self.provider = None;
+        self.status = ConnectionStatus::Unconfigured;
+        ResetAction::Reset
+    }
 }
 
 pub fn allows_main(status: ConnectionStatus) -> bool {
@@ -122,6 +128,10 @@ fn runtime_state(runtime: &Runtime) -> ProviderState {
 
 fn emit_state(app: &AppHandle, state: ProviderState) {
     crate::events::emit_all(app, PROVIDER_STATE, state);
+}
+
+fn emit_snapshot_reset(app: &AppHandle) {
+    crate::events::emit_all(app, PROVIDER_SNAPSHOT, Option::<ProviderSnapshot>::None);
 }
 
 pub fn current_state() -> ProviderState {
@@ -380,6 +390,7 @@ fn activate(
         (generation, runtime_state(&runtime))
     };
     pipeline::clear_position(app);
+    emit_snapshot_reset(app);
     if persist {
         crate::commands::apply_settings_patch(
             app,
@@ -699,6 +710,48 @@ pub fn detect(input: &str) -> Result<DetectedProvider, String> {
     detect_provider(input)
 }
 
+fn islepilot_token_origin(configured: &str) -> String {
+    detect_provider(configured)
+        .ok()
+        .filter(|detected| detected.id == ProviderId::IslePilot)
+        .map(|detected| detected.origin)
+        .unwrap_or_else(|| islepilot::api::API_ORIGIN.to_string())
+}
+
+fn normalized_server_key(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn islepilot_server_matches_site(site: &str, reported_server: Option<&str>) -> bool {
+    let Ok(detected) = detect_provider(site) else {
+        return false;
+    };
+    if detected.id != ProviderId::IslePilot {
+        return false;
+    }
+    if detected.origin == islepilot::api::API_ORIGIN
+        || detected.origin == "https://www.islepilot.eu"
+    {
+        return true;
+    }
+    let Some(server) = reported_server else {
+        return false;
+    };
+    let Some(host) = detected.origin.strip_prefix("https://") else {
+        return false;
+    };
+    let Some(slug) = host.strip_suffix(".islepilot.eu") else {
+        return false;
+    };
+    let expected = normalized_server_key(slug);
+    let reported = normalized_server_key(server);
+    !expected.is_empty() && reported.contains(&expected)
+}
+
 pub fn initialize(app: &AppHandle) {
     let (configured_id, mut configured_website, automatic, islepilot_auth_mode) = {
         let state = app.state::<crate::state::AppState>();
@@ -715,9 +768,9 @@ pub fn initialize(app: &AppHandle) {
         return;
     }
 
-    let central_islepilot = configured_id == "isle-pilot" && islepilot_auth_mode == "token";
-    if central_islepilot {
-        configured_website = islepilot::api::API_ORIGIN.to_string();
+    let token_mode_islepilot = configured_id == "isle-pilot" && islepilot_auth_mode == "token";
+    if token_mode_islepilot {
+        configured_website = islepilot_token_origin(&configured_website);
     }
     let configured = provider_from_key(&configured_id).and_then(|id| {
         detect_provider(&configured_website)
@@ -725,15 +778,10 @@ pub fn initialize(app: &AppHandle) {
             .filter(|detected| detected.id == id)
     });
     if let Some(detected) = configured {
-        // Old installations could retain the last IslePilot subdomain even in
-        // token mode. Persist the central origin once so the connection follows
-        // the player across all IslePilot servers.
-        let generation = activate(
-            app,
-            detected.clone(),
-            ConnectionStatus::Validating,
-            central_islepilot,
-        );
+        // The central token authenticates every IslePilot panel, but the panel
+        // origin remains selected so stale data from another server cannot be
+        // presented as the active connection after a switch or restart.
+        let generation = activate(app, detected.clone(), ConnectionStatus::Validating, false);
         start_selected_worker(app, generation, detected.id, detected.origin, None);
         return;
     }
@@ -764,6 +812,10 @@ pub fn start_login(app: &AppHandle, website: String) -> Result<(), String> {
             app,
             serde_json::json!({"islepilot": {"enabled": true, "auth_mode": "token"}}),
         );
+        if islepilot::current_state(app).logged_in {
+            start_selected_worker(app, generation, detected.id, detected.origin, None);
+            return Ok(());
+        }
         return islepilot::start_token_login(app);
     }
 
@@ -960,8 +1012,35 @@ pub fn logout(app: &AppHandle) -> Result<(), String> {
         }),
     );
     pipeline::clear_position(app);
+    emit_snapshot_reset(app);
     emit_state(app, state);
     Ok(())
+}
+
+pub fn change_connection(app: &AppHandle) {
+    islepilot::stop_poller();
+    if let Some(window) = app.get_webview_window(LOGIN_WINDOW) {
+        let _ = window.close();
+    }
+    let state = {
+        let mut runtime = RUNTIME.lock_safe();
+        runtime.gate.deactivate();
+        runtime.machine.change_connection();
+        runtime.website = None;
+        runtime.message = None;
+        runtime.last_received_at_ms = None;
+        runtime.last_snapshot = None;
+        runtime_state(&runtime)
+    };
+    crate::commands::apply_settings_patch(
+        app,
+        serde_json::json!({
+            "provider": {"id": null, "website": null, "automatic_position": true}
+        }),
+    );
+    pipeline::clear_position(app);
+    emit_snapshot_reset(app);
+    emit_state(app, state);
 }
 
 pub fn select_manual(app: &AppHandle) {
@@ -983,6 +1062,7 @@ pub fn select_manual(app: &AppHandle) {
         }),
     );
     pipeline::clear_position(app);
+    emit_snapshot_reset(app);
     emit_state(app, state);
 }
 
@@ -996,9 +1076,13 @@ fn shared_bar(value: &StatBar) -> Option<SharedStatBar> {
 }
 
 pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
-    let (generation, selected) = {
+    let (generation, selected, selected_site) = {
         let runtime = RUNTIME.lock_safe();
-        (runtime.gate.generation, runtime.machine.provider)
+        (
+            runtime.gate.generation,
+            runtime.machine.provider,
+            runtime.website.clone(),
+        )
     };
     if selected != Some(ProviderId::IslePilot) {
         return;
@@ -1012,6 +1096,31 @@ pub fn publish_islepilot(app: &AppHandle, update: &DinoUpdate) {
             ConnectionStatus::TemporaryError,
             Some("Tạm thời không thể cập nhật IslePilot.".to_string()),
         );
+        return;
+    }
+    let reported_server = update
+        .player
+        .as_ref()
+        .and_then(|player| player.server.as_deref());
+    if selected_site
+        .as_deref()
+        .is_some_and(|site| !islepilot_server_matches_site(site, reported_server))
+    {
+        pipeline::clear_position(app);
+        let state = {
+            let mut runtime = RUNTIME.lock_safe();
+            if !runtime.gate.accepts(generation, ProviderId::IslePilot) {
+                return;
+            }
+            runtime.machine.status = ConnectionStatus::TemporaryError;
+            runtime.message =
+                Some("Đang chờ IslePilot xác nhận nhân vật ở server đã chọn.".to_string());
+            runtime.last_received_at_ms = None;
+            runtime.last_snapshot = None;
+            runtime_state(&runtime)
+        };
+        emit_snapshot_reset(app);
+        emit_state(app, state);
         return;
     }
     let status = if update.player.as_ref().and_then(|player| player.online) == Some(true) {
@@ -1115,5 +1224,46 @@ mod tests {
         assert_eq!(machine.logout(), ResetAction::Reset);
         assert_eq!(machine.provider, None);
         assert_eq!(machine.status, ConnectionStatus::LoggedOut);
+        assert_eq!(machine.select(ProviderId::Titan), ResetAction::Reset);
+        assert_eq!(machine.change_connection(), ResetAction::Reset);
+        assert_eq!(machine.provider, None);
+        assert_eq!(machine.status, ConnectionStatus::Unconfigured);
+    }
+
+    #[test]
+    fn token_mode_preserves_a_selected_islepilot_server_panel() {
+        assert_eq!(
+            islepilot_token_origin("https://dinovietnam.islepilot.eu/map"),
+            "https://dinovietnam.islepilot.eu"
+        );
+        assert_eq!(
+            islepilot_token_origin("https://titan.islepilot.eu"),
+            "https://titan.islepilot.eu"
+        );
+        assert_eq!(islepilot_token_origin(""), islepilot::api::API_ORIGIN);
+    }
+
+    #[test]
+    fn selected_islepilot_panel_rejects_another_servers_stale_snapshot() {
+        assert!(islepilot_server_matches_site(
+            "https://dinovietnam.islepilot.eu",
+            Some("DinoVietNam")
+        ));
+        assert!(!islepilot_server_matches_site(
+            "https://dinovietnam.islepilot.eu",
+            Some("TiTan Isle Vietnam")
+        ));
+        assert!(!islepilot_server_matches_site(
+            "https://dinovietnam.islepilot.eu",
+            None
+        ));
+        assert!(islepilot_server_matches_site(
+            "https://titan.islepilot.eu",
+            Some("TiTan Isle Vietnam")
+        ));
+        assert!(islepilot_server_matches_site(
+            islepilot::api::API_ORIGIN,
+            Some("Any IslePilot server")
+        ));
     }
 }

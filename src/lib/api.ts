@@ -678,15 +678,16 @@ export const providerSkinState = () =>
 export const providerSkinApply = (colors: string[], variation = 0) =>
   invoke<ProviderFeaturePayload>("provider_skin_apply", { colors, variation });
 export const providerLogout = () => invoke("provider_logout");
+export const providerChangeConnection = () => invoke("provider_change_connection");
 export const providerSelectManual = () => invoke("provider_select_manual");
 export const onProviderState = (
   cb: (state: ProviderState) => void,
 ): Promise<UnlistenFn> =>
   listen<ProviderState>("provider://state", (event) => cb(event.payload));
 export const onProviderSnapshot = (
-  cb: (snapshot: ProviderSnapshot) => void,
+  cb: (snapshot: ProviderSnapshot | null) => void,
 ): Promise<UnlistenFn> =>
-  listen<ProviderSnapshot>("provider://snapshot", (event) => cb(event.payload));
+  listen<ProviderSnapshot | null>("provider://snapshot", (event) => cb(event.payload));
 export const combatHistory = () => invoke<CombatEvent[]>("combat_history");
 export const onCombatEvent = (
   cb: (event: CombatEvent) => void,

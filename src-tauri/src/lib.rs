@@ -144,6 +144,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::provider_skin_state,
             commands::provider_skin_apply,
             commands::provider_logout,
+            commands::provider_change_connection,
             commands::provider_select_manual,
             combat::combat_history,
             telemetry::track_feature,
