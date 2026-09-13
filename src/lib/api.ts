@@ -497,6 +497,7 @@ export interface IslepilotState {
   loggedIn: boolean;
   authMode: "token" | "legacy";
   tokenPresent: boolean;
+  steamId: string | null;
   lastUpdate: DinoUpdate | null;
 }
 
@@ -643,6 +644,7 @@ export const islepilotGarageRename = (id: string, name: string) =>
 export const islepilotLogout = () => invoke("islepilot_logout");
 export const islepilotApply = () => invoke("islepilot_apply");
 export const islepilotState = () => invoke<IslepilotState>("islepilot_state");
+export const islepilotCopySteamId = () => invoke<void>("islepilot_copy_steam_id");
 
 export const providerDetect = (website: string) =>
   invoke<DetectedProvider>("provider_detect", { website });

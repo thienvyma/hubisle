@@ -8,6 +8,7 @@
     type ProviderState,
   } from "$lib/api";
   import { t } from "$lib/i18n";
+  import { DEFAULT_PROVIDER_WEBSITE, connectionWebsite } from "$lib/provider-defaults";
   import { providerLabel } from "$lib/provider-ui";
   import IslemapLogo from "../IslemapLogo.svelte";
 
@@ -19,7 +20,7 @@
   let error = $state<string | null>(null);
 
   $effect(() => {
-    if (!website) website = connection.website ?? "https://eragamingvn.net";
+    if (!website) website = connectionWebsite(connection.website);
   });
 
   async function detect() {
@@ -80,7 +81,7 @@
           id="provider-website"
           class="min-w-0 flex-1"
           bind:value={website}
-          placeholder="https://eragamingvn.net"
+          placeholder={DEFAULT_PROVIDER_WEBSITE}
           oninput={() => {
             detected = null;
             error = null;

@@ -132,6 +132,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::islepilot_logout,
             commands::islepilot_apply,
             commands::islepilot_state,
+            commands::islepilot_copy_steam_id,
             commands::provider_detect,
             commands::provider_start_login,
             commands::provider_cancel_login,

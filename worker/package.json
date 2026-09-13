@@ -8,11 +8,13 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "db:local": "wrangler d1 execute isle --local --file=migrations/0001_init.sql",
-    "db:remote": "wrangler d1 execute isle --remote --file=migrations/0001_init.sql"
+    "db:remote": "wrangler d1 execute isle --remote --file=migrations/0001_init.sql",
+    "db:presence:local": "wrangler d1 execute isle --local --file=migrations/0002_friend_presence.sql",
+    "db:presence:remote": "wrangler d1 execute isle --remote --file=migrations/0002_friend_presence.sql"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5",
     "typescript": "^5",
-    "wrangler": "^4.36.0"
+    "wrangler": "^4.131.1"
   }
 }

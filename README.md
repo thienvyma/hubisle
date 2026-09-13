@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**islemap-thienvyma 2.4.4** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**islemap-thienvyma 2.4.5** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
@@ -36,7 +36,10 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
   IslePilot. Với IslePilot, bạn có thể tìm người cùng server bằng tên trong
   game hoặc thêm thẳng bằng SteamID64, nhận/từ chối lời mời, hủy, xóa và bật
   chia sẻ vị trí. Tìm theo tên dùng danh sách chính thức của server để chọn
-  đúng tài khoản khi có tên trùng.
+  đúng tài khoản khi có tên trùng. Tab này cũng hiện SteamID64 của bạn với nút
+  sao chép. Khi một server như Titan tắt Live Map, những người cùng dùng hub,
+  đã kết bạn, bật chia sẻ và đang cùng server vẫn được ghép vị trí ngắn hạn lên
+  map/minimap; vị trí chính thức của server luôn được ưu tiên nếu có.
 - **Thoại của server**: tab Thoại tự nhận hub DinoVietnam chính thức, trạng thái
   phiên Steam và tiến trình đang chạy rồi mở hệ thống Voice gốc. Voice bắt buộc
   dùng hub chính thức của server; islemap-thienvyma chỉ nhận diện và mở hub đó.
@@ -94,7 +97,7 @@ lực, dinh dưỡng, Prime progress) từ hệ thống IslePilot. Có 2 cách k
 bấm **Đăng nhập Steam** → đăng nhập trong cửa sổ islepilot.eu hiện ra, cửa sổ
 tự đóng khi xong. Chỉ cần làm **một lần duy nhất** — không cần nhập link
 server, dùng cho **mọi server IslePilot**, đổi server trong game là dữ liệu tự
-đổi theo. Cách này còn mở thêm tab **Garage (Gacha)** và lớp **POI server**
+đổi theo. Cách này còn mở thêm tab **Garage** và lớp **POI server**
 trên bản đồ. Nếu cửa sổ không tự bắt được token, mở mục *"Hoặc dán token thủ
 công"* và dán token (hoặc nguyên link `islemap-thienvyma://…`; link cũ
 `theisle-overlay://…` vẫn được chấp nhận khi nâng cấp).

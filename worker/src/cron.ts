@@ -105,6 +105,7 @@ export async function runCron(env: Env): Promise<void> {
     env.DB.prepare(`DELETE FROM device WHERE last_day < ?1`).bind(today - DEVICE_RETENTION_DAYS),
     env.DB.prepare(`DELETE FROM crash_agg WHERE utc_day < ?1`).bind(today - DEVICE_RETENTION_DAYS),
     env.DB.prepare(`DELETE FROM feedback WHERE utc_day < ?1`).bind(today - FEEDBACK_RETENTION_DAYS),
+    env.DB.prepare(`DELETE FROM friend_presence WHERE updated_at < ?1`).bind(nowS() - 300),
   );
 
   await env.DB.batch(stmts);

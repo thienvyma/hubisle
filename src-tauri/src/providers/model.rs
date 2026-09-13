@@ -90,9 +90,11 @@ pub struct SharedPlayer {
 }
 
 /// A friend relationship accepted by the selected server's own website.
-/// Providers decide who is allowed to appear; the overlay never discovers or
-/// uploads player locations itself. `position_px` is filled by the
-/// orchestrator using the active local basemap calibration before publishing.
+/// Providers decide who is allowed to appear. IslePilot positions can come
+/// directly from its Live Map or from the hub's short-lived relay after the
+/// same provider verifies the accepted relationship and current server.
+/// `position_px` is filled by the orchestrator using the active local basemap
+/// calibration before publishing.
 #[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SharedFriend {

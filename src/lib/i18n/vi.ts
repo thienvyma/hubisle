@@ -72,6 +72,10 @@ export const vi = {
   "friends.manage_title": "Quản lý bạn bè IslePilot",
   "friends.manage_hint": "Tìm người chơi cùng server bằng tên trong game hoặc thêm trực tiếp bằng SteamID64.",
   "friends.refresh": "Làm mới",
+  "friends.your_steam_id": "SteamID64 của bạn",
+  "friends.copy_steam_id": "Sao chép SteamID",
+  "friends.steam_copied": "Đã sao chép SteamID64.",
+  "friends.steam_copy_error": "Không thể sao chép SteamID64. Hãy chọn dãy số và sao chép thủ công.",
   "friends.steam_placeholder": "SteamID64 gồm 17 chữ số",
   "friends.steam_invalid": "SteamID64 phải có đúng 17 chữ số.",
   "friends.search_placeholder": "Tên trong game hoặc SteamID64",
@@ -83,7 +87,7 @@ export const vi = {
   "friends.add": "Thêm bạn",
   "friends.sending": "Đang gửi…",
   "friends.share_location": "Chia sẻ vị trí với bạn bè",
-  "friends.share_hint": "Server chỉ gửi vị trí của bạn cho các quan hệ đã chấp nhận.",
+  "friends.share_hint": "Chỉ bạn bè đã chấp nhận và đang cùng server mới nhận vị trí tạm thời. Người dùng hub vẫn có thể hiện trên bản đồ khi server tắt Live Map.",
   "friends.action_error": "Không thể thực hiện: {error}",
   "friends.count": "Đang dùng {count}/{limit} quan hệ",
   "friends.accepted": "Đã kết bạn",
@@ -378,8 +382,8 @@ export const vi = {
   "dino.crashed":
     "Phần Khủng long gặp lỗi và đã được cách ly — bản đồ và các tính năng khác không bị ảnh hưởng.",
 
-  // --- garage (gacha) — chỉ có ở chế độ đăng nhập token ---
-  "garage.title": "Garage (Gacha)",
+  // --- garage — chỉ có ở chế độ đăng nhập token ---
+  "garage.title": "Garage",
   "garage.hint":
     "Danh sách khủng long đã gửi vào garage của server. Park/Restore mất tới ~60 giây " +
     "vì server xử lý bất đồng bộ.",

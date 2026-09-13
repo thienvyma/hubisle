@@ -12,6 +12,7 @@ import { handleCrash } from "./crash";
 import { runCron } from "./cron";
 import { handleFeedback } from "./feedback";
 import { handlePing } from "./ping";
+import { handlePresence } from "./presence";
 import type { Env } from "./env";
 
 export default {
@@ -26,6 +27,8 @@ export default {
           return handleFeedback(req, env);
         case "/v1/crash":
           return handleCrash(req, env);
+        case "/v1/presence":
+          return handlePresence(req, env);
       }
     }
     if (path.startsWith("/admin/")) return handleAdmin(req, env, path);

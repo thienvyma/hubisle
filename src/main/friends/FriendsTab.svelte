@@ -3,7 +3,9 @@
   import {
     islepilotFriendAction,
     islepilotFriends,
+    islepilotCopySteamId,
     islepilotOpenFriendSearch,
+    islepilotState,
     listenerBag,
     onProviderSnapshot,
     onProviderState,
@@ -29,6 +31,7 @@
   let managementNotice = $state<string | null>(null);
   let actionBusy = $state<string | null>(null);
   let steamId = $state("");
+  let ownSteamId = $state<string | null>(null);
 
   const friends = $derived(snapshot?.friends ?? []);
   const positioned = $derived(friends.filter((friend) => friend.positionCm !== null));
@@ -44,7 +47,12 @@
     managementLoading = true;
     managementError = null;
     try {
-      managed = await islepilotFriends();
+      const [friendsState, identityState] = await Promise.all([
+        islepilotFriends(),
+        islepilotState(),
+      ]);
+      managed = friendsState;
+      ownSteamId = identityState.steamId;
     } catch (error) {
       managementError = String(error);
     } finally {
@@ -124,6 +132,18 @@
     }
   }
 
+  async function copyOwnSteamId() {
+    if (!ownSteamId) return;
+    managementError = null;
+    managementNotice = null;
+    try {
+      await islepilotCopySteamId();
+      managementNotice = $t("friends.steam_copied");
+    } catch {
+      managementError = $t("friends.steam_copy_error");
+    }
+  }
+
   function mapFriend(friend: IslepilotFriend): SharedFriend | undefined {
     const name = friend.name?.trim().toLocaleLowerCase();
     return name ? friends.find((item) => item.name.trim().toLocaleLowerCase() === name) : undefined;
@@ -154,6 +174,16 @@
         </div>
         <button class="rounded border px-3 py-1.5 text-xs disabled:opacity-50" style="border-color: var(--color-border); color: var(--color-accent)" disabled={managementLoading || actionBusy !== null} onclick={() => void refreshManaged()}>{$t("friends.refresh")}</button>
       </div>
+
+      {#if ownSteamId}
+        <div class="mt-4 flex flex-wrap items-center gap-3 rounded border px-3 py-2" style="border-color: var(--color-border); background: rgba(7,16,29,.62)">
+          <div class="min-w-0 flex-1">
+            <span class="block text-xs" style="color: var(--color-muted)">{$t("friends.your_steam_id")}</span>
+            <strong class="block break-all font-mono text-sm" style="color: var(--color-text)">{ownSteamId}</strong>
+          </div>
+          <button class="rounded border px-3 py-1.5 text-xs" style="border-color: var(--color-accent); color: var(--color-accent)" type="button" onclick={() => void copyOwnSteamId()}>{$t("friends.copy_steam_id")}</button>
+        </div>
+      {/if}
 
       <form class="mt-4 flex gap-2" onsubmit={(event) => { event.preventDefault(); void submitAdd(); }}>
         <input class="min-w-0 flex-1 rounded border bg-transparent px-3 py-2 text-sm outline-none" style="border-color: var(--color-border); color: var(--color-text)" bind:value={steamId} maxlength="64" autocomplete="off" placeholder={$t("friends.search_placeholder")} aria-label={$t("friends.search_placeholder")} />

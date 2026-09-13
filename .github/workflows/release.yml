@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check friend presence Worker
+        shell: pwsh
+        run: |
+          npm ci --prefix worker
+          npm run --prefix worker typecheck
+
       - name: Build bundled local telemetry
         shell: pwsh
         run: ./scripts/build-local-telemetry-sidecar.ps1
@@ -60,6 +66,9 @@ jobs:
 
       - name: Test IslePilot garage workflow
         run: npm run test:garage
+
+      - name: Test provider defaults
+        run: npm run test:provider-defaults
 
       - name: Check frontend
         run: npm run check

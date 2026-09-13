@@ -30,6 +30,8 @@ jobs:
         with:
           workspaces: "src-tauri -> target"
       - run: npm ci
+      - run: npm ci --prefix worker
+      - run: npm run --prefix worker typecheck
       - name: Build bundled local telemetry
         shell: pwsh
         run: ./scripts/build-local-telemetry-sidecar.ps1
@@ -37,6 +39,7 @@ jobs:
       - run: npm run test:heading
       - run: npm run test:skin
       - run: npm run test:garage
+      - run: npm run test:provider-defaults
       - run: npm run test:updater
       - run: npm run build
       - name: Check source safety boundary

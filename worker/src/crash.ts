@@ -33,7 +33,7 @@ export async function handleCrash(req: Request, env: Env): Promise<Response> {
   const stack = str(b.stack, 4096);
 
   const ts = nowS();
-  env.AE.writeDataPoint({
+  env.AE?.writeDataPoint({
     indexes: ["crash"],
     blobs: [clientId, att.version, fingerprint, message, env.BUILD_ENV],
     doubles: [1],

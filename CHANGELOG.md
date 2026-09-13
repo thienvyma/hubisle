@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [2.4.5] — 2026-09-13
+
+- Đổi website gợi ý mặc định trên màn hình kết nối của bản cài mới từ EraGaming
+  sang IslePilot trung tâm (`https://islepilot.eu`), đồng thời giữ nguyên server
+  đã lưu của người dùng hiện tại.
+- Bỏ từ “Gacha” khỏi tiêu đề Garage và tài liệu giao diện liên quan.
+- Bổ sung tương thích `titan.islepilot.eu`: dùng tọa độ cá nhân từ `/me` khi
+  server tắt Live Map, mở đúng trang tìm bạn theo tên của Titan, và không thay
+  đổi đường tọa độ đã hiệu chỉnh đang dùng trên DinoVietnam.
+- Hiển thị SteamID64 của tài khoản đã đăng nhập ở tab Bạn bè cùng nút sao chép.
+- Bổ sung relay vị trí ngắn hạn giữa những người cùng dùng hub: IslePilot xác
+  thực quan hệ đã chấp nhận, trạng thái chia sẻ và cùng server trước khi bạn bè
+  được ghép lên bản đồ/minimap. Backend không lưu token, SteamID thô hay tên.
+
 ## [2.4.4] — 2026-09-13
 
 - Sửa thao tác cất Dino trên IslePilot theo đúng quy trình server: nhận thời

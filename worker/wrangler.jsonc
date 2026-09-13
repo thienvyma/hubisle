@@ -18,17 +18,16 @@
   "assets": { "directory": "./public" },
 
   "d1_databases": [
-    { "binding": "DB", "database_name": "isle", "database_id": "d73574f8-3c16-48e7-adc9-614fd33d1599" }
+    { "binding": "DB", "database_name": "isle", "database_id": "73cdc643-c7fe-43eb-beb8-e760fb0a55a9" }
   ],
-
-  "analytics_engine_datasets": [{ "binding": "AE", "dataset": "overlay" }],
 
   // Counters live in the colo the Worker runs in, so these are PER-COLO, not
   // global. That is fine: they exist to protect D1 and CPU from a flood, not
   // to be an exact quota. `period` must be exactly 10 or 60.
   "ratelimits": [
     { "name": "RL_PING", "namespace_id": "1001", "simple": { "limit": 6, "period": 60 } },
-    { "name": "RL_WRITE", "namespace_id": "1002", "simple": { "limit": 3, "period": 60 } }
+    { "name": "RL_WRITE", "namespace_id": "1002", "simple": { "limit": 3, "period": 60 } },
+    { "name": "RL_PRESENCE", "namespace_id": "1003", "simple": { "limit": 4, "period": 60 } }
   ],
 
   "triggers": { "crons": ["10 2 * * *"] },

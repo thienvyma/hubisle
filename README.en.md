@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**islemap-thienvyma 2.4.4** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**islemap-thienvyma 2.4.5** is developed by **Huỳnh Vỹ**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
@@ -39,7 +39,10 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
   or IslePilot. On IslePilot it can search the current server by in-game name
   or add a SteamID64 directly, accept or decline requests, cancel, remove, and
   control location sharing. Name search uses the server's official result list
-  so the player can choose the right account when names match.
+  so the player can choose the right account when names match. It also shows
+  your SteamID64 with a copy button. When a server such as Titan disables Live
+  Map, accepted friends using this hub on the same server can still exchange
+  short-lived positions; official server positions always keep priority.
 - **Server Voice**: the Voice tab detects the official DinoVietnam hub, its
   Steam session and running state, then opens the original Voice system. Voice
   requires the server's official hub; islemap-thienvyma only detects and opens it.
@@ -95,7 +98,7 @@ connect:
 click **Steam login** → sign in in the islepilot.eu window that opens; it
 closes itself when done. Do this **once** — no server link needed, it works on
 **every IslePilot server**, and switching servers in game follows automatically.
-This login also unlocks the **Garage (Gacha)** tab and the **server POI** map
+This login also unlocks the **Garage** tab and the **server POI** map
 layer. If the window fails to catch the token, open *"Or paste the token
 manually"* and paste the token (or the whole `islemap-thienvyma://…` link; the
 legacy `theisle-overlay://…` scheme remains accepted during upgrades).

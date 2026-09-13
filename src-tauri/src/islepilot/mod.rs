@@ -14,6 +14,7 @@
 pub mod api;
 pub mod cookies;
 pub mod parser;
+mod presence;
 pub mod token;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -87,6 +88,8 @@ pub struct DinoUpdate {
 #[serde(rename_all = "camelCase")]
 pub struct FriendUpdate {
     pub slot: Option<u8>,
+    #[serde(skip_serializing)]
+    pub steam_id: Option<String>,
     pub name: String,
     pub dino_name: Option<String>,
     pub online: bool,
@@ -101,6 +104,10 @@ pub struct IslepilotState {
     /// "legacy" (per-server cookie).
     pub auth_mode: String,
     pub token_present: bool,
+    /// SteamID64 captured during the IslePilot Steam login. Exposing the
+    /// account identifier lets the user copy it without exposing the bearer
+    /// token that is stored beside it under DPAPI.
+    pub steam_id: Option<String>,
     pub last_update: Option<DinoUpdate>,
 }
 
@@ -317,7 +324,8 @@ fn read_config(app: &AppHandle) -> PollConfig {
 
 pub fn current_state(app: &AppHandle) -> IslepilotState {
     let config = read_config(app);
-    let token_present = token::get().is_some();
+    let stored_token = token::get();
+    let token_present = stored_token.is_some();
     let logged_in = if config.auth_mode == "token" {
         token_present
     } else {
@@ -327,8 +335,19 @@ pub fn current_state(app: &AppHandle) -> IslepilotState {
         logged_in,
         auth_mode: config.auth_mode,
         token_present,
+        steam_id: stored_token
+            .map(|token| token.steam_id)
+            .filter(|steam_id| !steam_id.trim().is_empty()),
         last_update: LAST_UPDATE.lock_safe().clone(),
     }
+}
+
+pub fn copy_steam_id() -> Result<(), String> {
+    let steam_id = token::get()
+        .map(|token| token.steam_id)
+        .filter(|value| value.len() == 17 && value.bytes().all(|byte| byte.is_ascii_digit()))
+        .ok_or_else(|| "steam-id-unavailable".to_string())?;
+    crate::clipboard::write_text(&steam_id)
 }
 
 fn publish(app: &AppHandle, update: DinoUpdate) {
@@ -403,9 +422,11 @@ fn overlay_friends_to_update(friends: api::OverlayFriends) -> Vec<FriendUpdate> 
                     .as_deref()
                     .is_some_and(|status| status.eq_ignore_ascii_case("online"))
             });
+            let steam_id = friend.steam_id.clone();
             let name = friend.name.or(friend.steam_id).or(friend.id)?;
             Some(FriendUpdate {
                 slot: u8::try_from(index + 1).ok(),
+                steam_id,
                 name,
                 dino_name: friend.dino_name.or(friend.species),
                 online,
@@ -474,6 +495,27 @@ fn overlay_map_player(map: &api::OverlayMap, me: &api::OverlayMe) -> Option<Over
     ))
 }
 
+type TokenPosition = (Option<(f64, f64, f64)>, Option<f64>);
+
+/// Pick the best position independently from the server's optional Live Map
+/// feature. A calibrated map marker remains authoritative for servers such as
+/// DinoVietnam; when a server such as Titan disables Live Map but the central
+/// `/me` response still carries the player's own coordinates, keep that
+/// personal position usable by the hub.
+fn best_token_position(map: Option<&api::OverlayMap>, me: &api::OverlayMe) -> TokenPosition {
+    let map_player = map.and_then(|map| overlay_map_player(map, me));
+    let source_calibration = map.and_then(|map| map.calibration.as_ref());
+    let position = map_player
+        .as_ref()
+        .map(|(position, _, _)| *position)
+        .or_else(|| api::position_cm3_with_calibration(me, source_calibration));
+    let heading = map_player
+        .as_ref()
+        .and_then(|(_, heading, _)| *heading)
+        .or_else(|| api::position_heading_with_calibration(me, source_calibration));
+    (position, heading)
+}
+
 /// Merge the relationship endpoint with live map markers. The relationship
 /// list carries names/species but often omits coordinates; `/api/overlay/map`
 /// is the server-authorized source that DinoVietnam's own map uses for those
@@ -495,6 +537,7 @@ fn overlay_friends_with_map(
 
     let mut updates = Vec::new();
     for (relation_index, friend) in relationships.friends.into_iter().enumerate() {
+        let steam_id = friend.steam_id.clone();
         let marker_index = map.markers.iter().enumerate().position(|(index, marker)| {
             !used[index]
                 && (friend
@@ -531,6 +574,7 @@ fn overlay_friends_with_map(
             .unwrap_or_else(|| format!("Friend {}", relation_index + 1));
         updates.push(FriendUpdate {
             slot: u8::try_from(relation_index + 1).ok(),
+            steam_id,
             name,
             dino_name: friend.dino_name.or(friend.species),
             online,
@@ -548,6 +592,7 @@ fn overlay_friends_with_map(
         used[index] = true;
         updates.push(FriendUpdate {
             slot: u8::try_from(updates.len() + 1).ok(),
+            steam_id: marker.steam_id.clone(),
             name: marker
                 .label
                 .clone()
@@ -561,12 +606,11 @@ fn overlay_friends_with_map(
     updates
 }
 
-/// Keep `use_map_position` truthful to the server's capability: no live map
-/// -> force it off (the UI disables the checkbox); live map present ->
-/// default it ON, unless the user has ever flipped the toggle themselves
-/// (`map_pref_user_set`). The poller re-reads settings every iteration, so
-/// no restart is needed after the patch.
-fn sync_map_pref(app: &AppHandle, available: bool) {
+/// Keep automatic positioning aligned with the availability of the player's
+/// own coordinates. This is deliberately separate from optional server POIs
+/// and friend markers: Titan can disable Live Map while `/me.position` stays
+/// available. An explicit user choice still wins (`map_pref_user_set`).
+fn sync_map_pref(app: &AppHandle, available: bool) -> bool {
     let state = app.state::<AppState>();
     let (use_map, user_set) = {
         let s = state.settings.lock_safe();
@@ -584,7 +628,7 @@ fn sync_map_pref(app: &AppHandle, available: bool) {
     };
     if desired != use_map {
         log::info!(
-            "islepilot live map {} -> use_map_position={desired}",
+            "islepilot own position {} -> use_map_position={desired}",
             if available { "available" } else { "disabled" }
         );
         crate::commands::apply_settings_patch(
@@ -592,6 +636,7 @@ fn sync_map_pref(app: &AppHandle, available: bool) {
             serde_json::json!({ "islepilot": { "use_map_position": desired } }),
         );
     }
+    desired
 }
 
 /// (Re)start the background poller from current settings. Safe to call any
@@ -907,22 +952,7 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                             None
                         }
                     };
-                    let map_player = overlay_map
-                        .as_ref()
-                        .and_then(|map| overlay_map_player(map, &me));
-                    let source_calibration = overlay_map
-                        .as_ref()
-                        .and_then(|map| map.calibration.as_ref());
-                    let position = map_player
-                        .as_ref()
-                        .map(|(position, _, _)| *position)
-                        .or_else(|| api::position_cm3_with_calibration(&me, source_calibration));
-                    let heading = map_player
-                        .as_ref()
-                        .and_then(|(_, heading, _)| *heading)
-                        .or_else(|| {
-                            api::position_heading_with_calibration(&me, source_calibration)
-                        });
+                    let (position, heading) = best_token_position(overlay_map.as_ref(), &me);
                     let relationships = match api::get_friends(&client, &tok.token) {
                         Ok(friends) => friends,
                         Err(e) => {
@@ -930,7 +960,8 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                             api::OverlayFriends::default()
                         }
                     };
-                    let friends =
+                    let relationships_share_location = relationships.share_location == Some(true);
+                    let mut friends =
                         overlay_friends_with_map(relationships, overlay_map.as_ref(), &me);
                     // Use explicit map capability flags where available. An
                     // older response without a map still falls back to the
@@ -942,11 +973,11 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                             .unwrap_or_else(|| position.is_some());
                         if live_map != Some(available) {
                             live_map = Some(available);
-                            sync_map_pref(&app, available);
                         }
                     }
+                    let use_map_position = sync_map_pref(&app, position.is_some());
                     // Never move the marker from cached (offline) data.
-                    let update_position = if config.use_map_position && me.online == Some(true) {
+                    let update_position = if use_map_position && me.online == Some(true) {
                         if let Some((x_cm, y_cm, z_cm)) = position {
                             pipeline::ingest_sample_with_heading(&app, x_cm, y_cm, z_cm, heading);
                             Some((x_cm, y_cm, z_cm))
@@ -956,6 +987,15 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                     } else {
                         None
                     };
+                    presence::queue_refresh(
+                        &tok.token,
+                        me.server.as_deref(),
+                        relationships_share_location,
+                        me.online == Some(true),
+                        position,
+                        friends.iter().any(|friend| friend.position_cm.is_none()),
+                    );
+                    presence::merge_cached(me.server.as_deref(), &mut friends);
                     publish(
                         &app,
                         DinoUpdate {
@@ -1042,6 +1082,7 @@ pub(crate) fn backoff_s(base: f64, failures: u32) -> f64 {
 pub fn stop_poller() {
     GENERATION.fetch_add(1, Ordering::SeqCst);
     HTTP_PAUSED.store(false, Ordering::SeqCst);
+    presence::clear();
     *LAST_UPDATE.lock_safe() = None;
     QUEST_COUNT.store(0, Ordering::SeqCst);
 }
@@ -1637,8 +1678,57 @@ pub fn friend_action(
     api::get_friends(&client, &tok.token).map_err(|e| e.to_string())
 }
 
-fn friend_search_url(server: &str) -> Result<tauri::Url, String> {
+fn selected_panel_map_url(website: &str) -> Option<tauri::Url> {
+    let mut url: tauri::Url = website.trim().parse().ok()?;
+    let host = url.host_str()?.to_ascii_lowercase();
+    if url.scheme() != "https"
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.port().is_some()
+        || !(host == "islepilot.eu" || host.ends_with(".islepilot.eu"))
+    {
+        return None;
+    }
+
+    let path = if host == "islepilot.eu" {
+        let segments = url
+            .path_segments()?
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>();
+        if segments.len() < 2 || segments[0] != "p" {
+            return None;
+        }
+        let slug = segments[1];
+        if !slug
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        {
+            return None;
+        }
+        format!("/p/{slug}/map")
+    } else {
+        "/map".to_string()
+    };
+    url.set_path(&path);
+    url.set_query(None);
+    url.set_fragment(None);
+    Some(url)
+}
+
+fn friend_search_url(selected_website: Option<&str>, server: &str) -> Result<tauri::Url, String> {
+    if let Some(url) = selected_website.and_then(selected_panel_map_url) {
+        return Ok(url);
+    }
     let server = server.trim();
+    // The central `/me` endpoint returns Titan's display name rather than its
+    // panel slug. Keep this narrow alias as a fallback for users who connected
+    // through the central islepilot.eu address and therefore have no selected
+    // per-server URL to reuse.
+    let server = if server.eq_ignore_ascii_case("TiTan Isle Vietnam") {
+        "titan"
+    } else {
+        server
+    };
     if !server
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
@@ -1687,7 +1777,8 @@ pub fn open_friend_search(app: &AppHandle, query: String) -> Result<(), String> 
         .server
         .as_deref()
         .ok_or_else(|| "friend-search-server-unavailable".to_string())?;
-    let url = friend_search_url(server)?;
+    let selected_website = crate::providers::orchestrator::current_state().website;
+    let url = friend_search_url(selected_website.as_deref(), server)?;
 
     if let Some(window) = app.get_webview_window(FRIEND_SEARCH_WINDOW) {
         window.navigate(url).map_err(|error| error.to_string())?;
@@ -1807,11 +1898,38 @@ mod tests {
     #[test]
     fn friend_name_search_stays_on_the_detected_islepilot_server() {
         assert_eq!(
-            friend_search_url("DinoVietNam").unwrap().as_str(),
+            friend_search_url(None, "DinoVietNam").unwrap().as_str(),
             "https://dinovietnam.islepilot.eu/map"
         );
-        assert!(friend_search_url("../outside.example").is_err());
-        assert!(friend_search_url("-").is_err());
+        assert!(friend_search_url(None, "../outside.example").is_err());
+        assert!(friend_search_url(None, "-").is_err());
+    }
+
+    #[test]
+    fn friend_name_search_uses_selected_titan_panel_when_display_name_is_not_a_slug() {
+        assert_eq!(
+            friend_search_url(None, "TiTan Isle Vietnam")
+                .unwrap()
+                .as_str(),
+            "https://titan.islepilot.eu/map"
+        );
+        assert_eq!(
+            friend_search_url(Some("https://titan.islepilot.eu/map"), "TiTan Isle Vietnam")
+                .unwrap()
+                .as_str(),
+            "https://titan.islepilot.eu/map"
+        );
+        assert_eq!(
+            friend_search_url(Some("https://dinovietnam.islepilot.eu"), "DinoVietnam VIP")
+                .unwrap()
+                .as_str(),
+            "https://dinovietnam.islepilot.eu/map"
+        );
+        assert!(friend_search_url(
+            Some("https://titan.islepilot.eu.example.org"),
+            "Unknown Server Name"
+        )
+        .is_err());
     }
 
     #[test]
@@ -1942,6 +2060,61 @@ mod tests {
         assert_eq!(friends[0].dino_name.as_deref(), Some("Rex"));
         assert!(friends[0].online);
         assert!(friends[0].position_cm.is_some());
+    }
+
+    #[test]
+    fn token_position_keeps_dinovietnam_calibration_priority() {
+        let me: api::OverlayMe = serde_json::from_value(serde_json::json!({
+            "hasData": true,
+            "online": true,
+            "steamId": "self-id",
+            "position": {"x": 10.0, "y": 20.0, "z": 30.0, "yaw": 180.0}
+        }))
+        .unwrap();
+        let map: api::OverlayMap = serde_json::from_value(serde_json::json!({
+            "liveMapEnabled": true,
+            "allowed": true,
+            "calibration": {
+                "a": {"worldX": -505000.0, "worldY": -607000.0, "u": 0.0, "v": 0.0},
+                "b": {"worldX": 607000.0, "worldY": 509000.0, "u": 1.0, "v": 1.0}
+            },
+            "markers": [{
+                "steamId": "self-id", "self": true,
+                "x": 232414.14, "y": -17468.84, "z": 23732.46, "yaw": 0.0
+            }]
+        }))
+        .unwrap();
+
+        let (position, heading) = best_token_position(Some(&map), &me);
+        let position = position.expect("calibrated DinoVietnam marker");
+        let pixel = overlay_core::world_to_pixel(
+            position.0,
+            position.1,
+            overlay_core::Calibration::gateway(),
+        );
+        assert!((pixel.0 - 5_172.51).abs() < 0.02);
+        assert!((pixel.1 - 4_129.36).abs() < 0.02);
+        assert!((heading.unwrap() - 90.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn token_position_uses_own_me_data_when_titan_live_map_is_disabled() {
+        let me: api::OverlayMe = serde_json::from_value(serde_json::json!({
+            "hasData": true,
+            "online": true,
+            "server": "TiTan Isle Vietnam",
+            "position": {"x": -263306.0, "y": 307415.69, "z": 321.0, "yaw": -19.15}
+        }))
+        .unwrap();
+        let map: api::OverlayMap = serde_json::from_value(serde_json::json!({
+            "liveMapEnabled": false,
+            "allowed": false
+        }))
+        .unwrap();
+
+        let (position, heading) = best_token_position(Some(&map), &me);
+        assert_eq!(position, Some((307415.69, -263306.0, 321.0)));
+        assert!((heading.unwrap() - 70.85).abs() < 0.001);
     }
 
     #[test]

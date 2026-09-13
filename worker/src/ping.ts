@@ -41,7 +41,7 @@ export async function handlePing(req: Request, env: Env): Promise<Response> {
   // Consequence, and it matters: count(DISTINCT client_id) over a sampled
   // dataset undercounts non-linearly. EVERY unique-user number on the
   // dashboard comes from the `device` table below, never from here.
-  env.AE.writeDataPoint({
+  env.AE?.writeDataPoint({
     indexes: ["ping"],
     blobs: [clientId, att.version, osBuild ?? "", locale ?? "", country ?? "", env.BUILD_ENV],
     doubles,

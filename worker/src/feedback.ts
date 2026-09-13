@@ -28,7 +28,7 @@ export async function handleFeedback(req: Request, env: Env): Promise<Response> 
   // then swallows a double-tapped submit button without any extra query.
   const bodyHash = await sha256Hex(body.toLowerCase().replace(/\s+/g, " "));
 
-  env.AE.writeDataPoint({
+  env.AE?.writeDataPoint({
     indexes: ["feedback"],
     blobs: [clientId, att.version, category, country ?? "", env.BUILD_ENV],
     doubles: [1],

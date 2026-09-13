@@ -70,6 +70,10 @@ export const en: Record<MsgKey, string> = {
   "friends.manage_title": "Manage IslePilot friends",
   "friends.manage_hint": "Find a player on the same server by in-game name or add a SteamID64 directly.",
   "friends.refresh": "Refresh",
+  "friends.your_steam_id": "Your SteamID64",
+  "friends.copy_steam_id": "Copy SteamID",
+  "friends.steam_copied": "SteamID64 copied.",
+  "friends.steam_copy_error": "Could not copy SteamID64. Select the number and copy it manually.",
   "friends.steam_placeholder": "17-digit SteamID64",
   "friends.steam_invalid": "SteamID64 must contain exactly 17 digits.",
   "friends.search_placeholder": "In-game name or SteamID64",
@@ -81,7 +85,7 @@ export const en: Record<MsgKey, string> = {
   "friends.add": "Add friend",
   "friends.sending": "Sending…",
   "friends.share_location": "Share location with friends",
-  "friends.share_hint": "The server shares your position only with accepted relationships.",
+  "friends.share_hint": "Only accepted friends on the same server can receive your short-lived position. This also lets hub users appear when the server disables Live Map.",
   "friends.action_error": "Could not complete the action: {error}",
   "friends.count": "Using {count}/{limit} relationships",
   "friends.accepted": "Friends",
@@ -363,7 +367,7 @@ export const en: Record<MsgKey, string> = {
   "dino.crashed":
     "The Your Dino section hit an error and was isolated — the map and other features are unaffected.",
 
-  "garage.title": "Garage (Gacha)",
+  "garage.title": "Garage",
   "garage.hint":
     "Dinos parked in the server's garage. Park/Restore can take up to ~60 seconds — the " +
     "server processes commands asynchronously.",

@@ -4,9 +4,10 @@ export interface RateLimiter {
 
 export interface Env {
   DB: D1Database;
-  AE: AnalyticsEngineDataset;
+  AE?: AnalyticsEngineDataset;
   RL_PING: RateLimiter;
   RL_WRITE: RateLimiter;
+  RL_PRESENCE: RateLimiter;
   BUILD_ENV: string;
   /** Root secret. Per-version client keys are derived from it, never shipped. */
   ATTEST_MASTER: string;

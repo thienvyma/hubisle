@@ -8,9 +8,16 @@ Workers free tier.
 POST /v1/ping        Analytics Engine + 1 UPSERT D1
 POST /v1/feedback    D1
 POST /v1/crash       D1, gộp theo fingerprint
+POST /v1/presence    Vị trí tạm thời giữa bạn bè cùng server
 GET  /admin/data     JSON cho dashboard (Bearer token)
 cron 02:10 UTC       rollup AE → D1, xoá dữ liệu quá hạn
 ```
+
+`/v1/presence` chuyển tiếp bearer token đến đúng hai endpoint chính thức
+`/api/overlay/me` và `/api/overlay/friends` để xác nhận danh tính, quan hệ đã
+chấp nhận, tùy chọn chia sẻ và server hiện tại. Token không được ghi xuống D1.
+SteamID và tên server được băm kèm secret trước khi lưu; tọa độ tự hết hiệu lực
+sau 60 giây và cron xóa bản ghi cũ.
 
 ## Ba quyết định định hình phần còn lại
 
@@ -39,13 +46,15 @@ npm ci
 # 1. Tạo D1 rồi dán database_id vào wrangler.jsonc
 npx wrangler d1 create isle
 npx wrangler d1 execute isle --remote --file=migrations/0001_init.sql
+npx wrangler d1 execute isle --remote --file=migrations/0002_friend_presence.sql
 
 # 2. Secret (đặt tay, không qua CI)
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 npx wrangler secret put ATTEST_MASTER    # giá trị vừa sinh ra
 npx wrangler secret put ADMIN_TOKEN      # mật khẩu dashboard
 
-# 3. Token đọc Analytics Engine (cần cho biểu đồ tính năng và cho cron)
+# 3. Tùy chọn: bật Analytics Engine trong Dashboard, thêm binding `AE`, rồi
+# đặt token đọc Analytics Engine (cần cho biểu đồ tính năng và cho cron)
 npx wrangler secret put AE_QUERY_TOKEN   # API token, quyền Account Analytics Read
 npx wrangler secret put AE_ACCOUNT_ID
 

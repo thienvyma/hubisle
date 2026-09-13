@@ -937,6 +937,11 @@ pub fn islepilot_state(app: AppHandle) -> crate::islepilot::IslepilotState {
 }
 
 #[tauri::command]
+pub fn islepilot_copy_steam_id() -> Result<(), String> {
+    crate::islepilot::copy_steam_id()
+}
+
+#[tauri::command]
 pub fn provider_detect(
     website: String,
 ) -> Result<crate::providers::registry::DetectedProvider, String> {

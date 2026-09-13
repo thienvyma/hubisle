@@ -13,19 +13,20 @@
 //! changes do we actually read the content.
 //!
 //! Non-coordinate content is SILENTLY ignored — no log, no UI flash. The
-//! user's normal copy/paste must feel untouched. The app never WRITES to the
-//! clipboard.
+//! user's normal copy/paste must feel untouched. The only write path is an
+//! explicit click on “Copy SteamID” in the Friends tab.
 
 use std::time::Duration;
 
 use overlay_core::parse::MAX_CLIPBOARD_LEN;
 use overlay_core::{parse_coordinates, NumberFormat};
 use tauri::{AppHandle, Manager};
-use windows::Win32::Foundation::{HANDLE, HGLOBAL};
+use windows::Win32::Foundation::{GlobalFree, HANDLE, HGLOBAL};
 use windows::Win32::System::DataExchange::{
-    CloseClipboard, GetClipboardData, GetClipboardSequenceNumber, OpenClipboard,
+    CloseClipboard, EmptyClipboard, GetClipboardData, GetClipboardSequenceNumber, OpenClipboard,
+    SetClipboardData,
 };
-use windows::Win32::System::Memory::{GlobalLock, GlobalUnlock};
+use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
 
 use crate::pipeline;
 use crate::settings;
@@ -59,6 +60,37 @@ fn read_clipboard_text() -> Result<Option<String>, ()> {
         })();
         let _ = CloseClipboard();
         Ok(text)
+    }
+}
+
+/// Write a short, user-requested string as Unicode text. Ownership of the
+/// allocation transfers to Windows only after SetClipboardData succeeds.
+pub fn write_text(text: &str) -> Result<(), String> {
+    let wide = text
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    unsafe {
+        OpenClipboard(None).map_err(|error| error.to_string())?;
+        let result = (|| {
+            EmptyClipboard().map_err(|error| error.to_string())?;
+            let memory = GlobalAlloc(GMEM_MOVEABLE, wide.len() * size_of::<u16>())
+                .map_err(|error| error.to_string())?;
+            let ptr = GlobalLock(memory) as *mut u16;
+            if ptr.is_null() {
+                let _ = GlobalFree(Some(memory));
+                return Err("clipboard-allocation-lock-failed".to_string());
+            }
+            std::ptr::copy_nonoverlapping(wide.as_ptr(), ptr, wide.len());
+            let _ = GlobalUnlock(memory);
+            if let Err(error) = SetClipboardData(CF_UNICODETEXT, Some(HANDLE(memory.0))) {
+                let _ = GlobalFree(Some(memory));
+                return Err(error.to_string());
+            }
+            Ok(())
+        })();
+        let _ = CloseClipboard();
+        result
     }
 }
 
