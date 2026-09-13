@@ -38,7 +38,8 @@ pub struct VoiceAuthCallback {
     pub state: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VoiceSession {
     pub provider_id: String,
     pub origin: String,
@@ -46,6 +47,29 @@ pub struct VoiceSession {
     pub steam_id: Option<String>,
     pub expires_at_ms: Option<i64>,
     pub access_token: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum VoiceState {
+    NotConfigured,
+    LoginRequired,
+    Authorizing,
+    Ready,
+    Unavailable,
+    Blocked,
+    Error,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceStatus {
+    pub state: VoiceState,
+    pub server_origin: Option<String>,
+    pub server_name: Option<String>,
+    pub provider: Option<VoiceProviderDescriptor>,
+    pub session: Option<VoiceSessionSummary>,
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

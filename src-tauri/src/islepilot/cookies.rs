@@ -8,46 +8,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use windows::core::PWSTR;
-use windows::Win32::Foundation::{LocalFree, HLOCAL};
-use windows::Win32::Security::Cryptography::{
-    CryptProtectData, CryptUnprotectData, CRYPT_INTEGER_BLOB,
-};
-
+pub(crate) use crate::secure_store::{dpapi_protect, dpapi_unprotect};
 use crate::settings;
 
 fn store_path() -> PathBuf {
     settings::local_dir().join("islepilot_cookies.bin")
-}
-
-pub(crate) fn dpapi_protect(plain: &[u8]) -> Result<Vec<u8>, String> {
-    unsafe {
-        let input = CRYPT_INTEGER_BLOB {
-            cbData: plain.len() as u32,
-            pbData: plain.as_ptr() as *mut u8,
-        };
-        let mut output = CRYPT_INTEGER_BLOB::default();
-        CryptProtectData(&input, None, None, None, None, 0, &mut output)
-            .map_err(|e| e.to_string())?;
-        let bytes = std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec();
-        let _ = LocalFree(Some(HLOCAL(output.pbData as *mut core::ffi::c_void)));
-        Ok(bytes)
-    }
-}
-
-pub(crate) fn dpapi_unprotect(sealed: &[u8]) -> Result<Vec<u8>, String> {
-    unsafe {
-        let input = CRYPT_INTEGER_BLOB {
-            cbData: sealed.len() as u32,
-            pbData: sealed.as_ptr() as *mut u8,
-        };
-        let mut output = CRYPT_INTEGER_BLOB::default();
-        CryptUnprotectData(&input, None::<*mut PWSTR>, None, None, None, 0, &mut output)
-            .map_err(|e| e.to_string())?;
-        let bytes = std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec();
-        let _ = LocalFree(Some(HLOCAL(output.pbData as *mut core::ffi::c_void)));
-        Ok(bytes)
-    }
 }
 
 fn load_all() -> HashMap<String, String> {

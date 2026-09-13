@@ -19,6 +19,7 @@ pub mod pipeline;
 pub mod prime;
 pub mod providers;
 pub mod replay;
+pub mod secure_store;
 pub mod settings;
 pub mod state;
 pub mod store;
@@ -85,6 +86,9 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::patch_settings,
             dinovoice::dinovoice_status,
             dinovoice::dinovoice_launch,
+            voice::voice_status,
+            voice::voice_start_login,
+            voice::voice_logout,
             commands::get_current_position,
             commands::get_current_heading,
             commands::list_waypoints,
@@ -171,6 +175,9 @@ pub fn run(replay_file: Option<PathBuf>) {
                 app.deep_link().on_open_url(move |event| {
                     for url in event.urls() {
                         let url = url.to_string();
+                        if voice::handle_deep_link(&handle, &url) {
+                            continue;
+                        }
                         if !url.contains("token=") {
                             continue;
                         }

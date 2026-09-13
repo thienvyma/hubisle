@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use super::model::{
     LoginSecurity, VoiceAuthCallback, VoiceAuthStart, VoiceGrant, VoiceProviderDescriptor,
-    VoiceServerContext, VoiceSession,
+    VoiceServerContext, VoiceSession, VoiceSessionSummary,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -18,6 +18,7 @@ pub enum VoiceErrorCode {
     InvalidCallback,
     LoginExpired,
     ProviderUnavailable,
+    StorageUnavailable,
     ClientAuthenticationRequired,
     InvalidResponse,
 }
@@ -31,11 +32,27 @@ impl VoiceError {
     pub const fn new(code: VoiceErrorCode) -> Self {
         Self { code }
     }
+
+    pub const fn as_str(&self) -> &'static str {
+        match self.code {
+            VoiceErrorCode::InvalidOrigin => "invalid-origin",
+            VoiceErrorCode::InvalidProvider => "invalid-provider",
+            VoiceErrorCode::DuplicateProvider => "duplicate-provider",
+            VoiceErrorCode::NotConfigured => "not-configured",
+            VoiceErrorCode::LoginRequired => "login-required",
+            VoiceErrorCode::InvalidCallback => "invalid-callback",
+            VoiceErrorCode::LoginExpired => "login-expired",
+            VoiceErrorCode::ProviderUnavailable => "provider-unavailable",
+            VoiceErrorCode::StorageUnavailable => "storage-unavailable",
+            VoiceErrorCode::ClientAuthenticationRequired => "client-authentication-required",
+            VoiceErrorCode::InvalidResponse => "invalid-response",
+        }
+    }
 }
 
 impl fmt::Display for VoiceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", serde_json::to_value(self.code).unwrap())
+        formatter.write_str(self.as_str())
     }
 }
 
@@ -63,6 +80,14 @@ pub trait VoiceProvider: Send + Sync {
         context: &VoiceServerContext,
         session: &VoiceSession,
     ) -> Result<VoiceGrant, VoiceError>;
+
+    fn session_status(
+        &self,
+        _context: &VoiceServerContext,
+        session: &VoiceSession,
+    ) -> Result<VoiceSessionSummary, VoiceError> {
+        Ok(VoiceSessionSummary::from(session))
+    }
 
     fn logout(
         &self,
