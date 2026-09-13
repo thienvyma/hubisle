@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**islemap-thienvyma 2.4.1** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**islemap-thienvyma 2.4.2** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
@@ -33,9 +33,10 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
   chế độ bám vị trí với mũi tên mép màn hình dẫn về chỗ đứng.
 - **Đường đã đi**: tự ghi theo phiên, khôi phục lại đường đi của phiên trước.
 - **Bạn bè cùng server**: tab Bạn bè hiển thị danh sách từ Era, Titan hoặc
-  IslePilot. Với IslePilot, bạn có thể thêm bằng SteamID64, nhận/từ chối lời
-  mời, hủy, xóa và bật chia sẻ vị trí ngay trong hub. Bạn có tọa độ do server
-  cung cấp vẫn hiện trên bản đồ lớn và minimap.
+  IslePilot. Với IslePilot, bạn có thể tìm người cùng server bằng tên trong
+  game hoặc thêm thẳng bằng SteamID64, nhận/từ chối lời mời, hủy, xóa và bật
+  chia sẻ vị trí. Tìm theo tên dùng danh sách chính thức của server để chọn
+  đúng tài khoản khi có tên trùng.
 - **Voice DinoVietnam**: tab Thoại tự nhận client chính thức, trạng thái phiên
   Steam và tiến trình đang chạy rồi mở thẳng hệ thống Voice gốc. Quyền phòng,
   micro và phím nhấn để nói vẫn do client DinoVietnam xử lý; đăng nhập IslePilot

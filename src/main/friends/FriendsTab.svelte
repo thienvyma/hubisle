@@ -3,6 +3,7 @@
   import {
     islepilotFriendAction,
     islepilotFriends,
+    islepilotOpenFriendSearch,
     listenerBag,
     onProviderSnapshot,
     onProviderState,
@@ -25,12 +26,14 @@
   let failed = $state(false);
   let managementLoading = $state(false);
   let managementError = $state<string | null>(null);
+  let managementNotice = $state<string | null>(null);
   let actionBusy = $state<string | null>(null);
   let steamId = $state("");
 
   const friends = $derived(snapshot?.friends ?? []);
   const positioned = $derived(friends.filter((friend) => friend.positionCm !== null));
   const canManage = $derived(connection?.provider === "isle-pilot");
+  const inputIsSteamId = $derived(/^\d{17}$/.test(steamId.trim()));
 
   async function refreshManaged() {
     if (!canManage) {
@@ -85,6 +88,7 @@
     const key = `${action}:${value ?? String(share)}`;
     actionBusy = key;
     managementError = null;
+    managementNotice = null;
     try {
       managed = await islepilotFriendAction(action, value, share);
       if (action === "add") steamId = "";
@@ -97,13 +101,27 @@
     }
   }
 
-  function submitAdd() {
+  async function submitAdd() {
     const value = steamId.trim();
-    if (!/^\d{17}$/.test(value)) {
-      managementError = $t("friends.steam_invalid");
+    if (/^\d{17}$/.test(value)) {
+      await runAction("add", value);
       return;
     }
-    void runAction("add", value);
+    if (value.length < 2) {
+      managementError = $t("friends.name_invalid");
+      return;
+    }
+    actionBusy = "search:name";
+    managementError = null;
+    managementNotice = null;
+    try {
+      await islepilotOpenFriendSearch(value);
+      managementNotice = $t("friends.name_search_opened");
+    } catch {
+      managementError = $t("friends.name_search_error");
+    } finally {
+      actionBusy = null;
+    }
   }
 
   function mapFriend(friend: IslepilotFriend): SharedFriend | undefined {
@@ -137,10 +155,11 @@
         <button class="rounded border px-3 py-1.5 text-xs disabled:opacity-50" style="border-color: var(--color-border); color: var(--color-accent)" disabled={managementLoading || actionBusy !== null} onclick={() => void refreshManaged()}>{$t("friends.refresh")}</button>
       </div>
 
-      <form class="mt-4 flex gap-2" onsubmit={(event) => { event.preventDefault(); submitAdd(); }}>
-        <input class="min-w-0 flex-1 rounded border bg-transparent px-3 py-2 font-mono text-sm outline-none" style="border-color: var(--color-border); color: var(--color-text)" bind:value={steamId} maxlength="17" inputmode="numeric" autocomplete="off" placeholder={$t("friends.steam_placeholder")} aria-label={$t("friends.steam_placeholder")} />
-        <button class="rounded border px-4 py-2 text-sm font-semibold disabled:opacity-50" style="border-color: var(--color-accent); color: var(--color-accent); background: rgba(53,242,255,.07)" disabled={actionBusy !== null || managementLoading} type="submit">{actionBusy?.startsWith("add:") ? $t("friends.sending") : $t("friends.add")}</button>
+      <form class="mt-4 flex gap-2" onsubmit={(event) => { event.preventDefault(); void submitAdd(); }}>
+        <input class="min-w-0 flex-1 rounded border bg-transparent px-3 py-2 text-sm outline-none" style="border-color: var(--color-border); color: var(--color-text)" bind:value={steamId} maxlength="64" autocomplete="off" placeholder={$t("friends.search_placeholder")} aria-label={$t("friends.search_placeholder")} />
+        <button class="rounded border px-4 py-2 text-sm font-semibold disabled:opacity-50" style="border-color: var(--color-accent); color: var(--color-accent); background: rgba(53,242,255,.07)" disabled={actionBusy !== null || managementLoading} type="submit">{actionBusy?.startsWith("add:") || actionBusy === "search:name" ? $t("friends.sending") : inputIsSteamId ? $t("friends.add") : $t("friends.search_name")}</button>
       </form>
+      <p class="mt-2 text-xs leading-5" style="color: var(--color-muted)">{$t("friends.name_search_hint")}</p>
 
       <label class="mt-4 flex cursor-pointer items-center gap-3 rounded border px-3 py-2 text-sm" style="border-color: var(--color-border)">
         <input type="checkbox" checked={managed?.shareLocation === true} disabled={actionBusy !== null || managementLoading || managed === null} onchange={(event) => void runAction("share", null, event.currentTarget.checked)} />
@@ -152,6 +171,9 @@
 
       {#if managementError}
         <p class="mt-3 rounded border px-3 py-2 text-xs" style="border-color: #65472a; color: #ffd277">{$t("friends.action_error", { error: managementError })}</p>
+      {/if}
+      {#if managementNotice}
+        <p class="mt-3 rounded border px-3 py-2 text-xs" style="border-color: #23694e; color: #45f5a2">{managementNotice}</p>
       {/if}
 
       {#if managementLoading && !managed}

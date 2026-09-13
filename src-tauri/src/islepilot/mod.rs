@@ -21,6 +21,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
+use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use overlay_core::{pixel_to_world, world_to_pixel, Calibration};
@@ -37,6 +38,7 @@ pub const DINO_LOGIN_OK: &str = "dino://login-ok";
 pub const DINO_LOGIN_FAILED: &str = "dino://login-failed";
 
 const LOGIN_WINDOW: &str = "islepilot-login";
+const FRIEND_SEARCH_WINDOW: &str = "islepilot-friend-search";
 const MIN_INTERVAL_S: f64 = 5.0;
 const BUILD_ID_CHECK_S: f64 = 600.0;
 
@@ -1598,6 +1600,85 @@ pub fn friend_action(
     api::get_friends(&client, &tok.token).map_err(|e| e.to_string())
 }
 
+fn friend_search_url(server: &str) -> Result<tauri::Url, String> {
+    let server = server.trim();
+    if !server
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+    {
+        return Err("friend-search-server-unavailable".to_string());
+    }
+    let slug = server.to_ascii_lowercase();
+    if slug.len() < 2 || slug.len() > 63 || slug.starts_with('-') || slug.ends_with('-') {
+        return Err("friend-search-server-unavailable".to_string());
+    }
+    format!("https://{slug}.islepilot.eu/map")
+        .parse()
+        .map_err(|_| "friend-search-server-unavailable".to_string())
+}
+
+fn friend_search_fill_script(query: &str) -> Result<String, String> {
+    let query = query.trim();
+    if !(2..=64).contains(&query.chars().count()) || query.chars().any(char::is_control) {
+        return Err("friend-search-invalid-name".to_string());
+    }
+    let query = serde_json::to_string(query).map_err(|_| "friend-search-invalid-name")?;
+    Ok(format!(
+        r#"window.setTimeout(() => {{
+          const input = Array.from(document.querySelectorAll('input')).find((item) =>
+            (item.getAttribute('placeholder') || '').toLowerCase().includes('search by name'));
+          if (input instanceof HTMLInputElement) {{
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+            if (setter) setter.call(input, {query}); else input.value = {query};
+            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+            input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            input.focus();
+          }}
+        }}, 500);"#
+    ))
+}
+
+/// Open the current server's official player-name search. The stable overlay
+/// mutation takes a SteamID64; IslePilot's website resolves a name and lets
+/// the player choose the exact matching Steam account before sending it.
+pub fn open_friend_search(app: &AppHandle, query: String) -> Result<(), String> {
+    let script = friend_search_fill_script(&query)?;
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    let me = api::get_me(&client, &tok.token).map_err(|error| error.to_string())?;
+    let server = me
+        .server
+        .as_deref()
+        .ok_or_else(|| "friend-search-server-unavailable".to_string())?;
+    let url = friend_search_url(server)?;
+
+    if let Some(window) = app.get_webview_window(FRIEND_SEARCH_WINDOW) {
+        window.navigate(url).map_err(|error| error.to_string())?;
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.eval(&script);
+        return Ok(());
+    }
+
+    let fill = script.clone();
+    WebviewWindowBuilder::new(app, FRIEND_SEARCH_WINDOW, WebviewUrl::External(url))
+        .title(format!("IslePilot — {server} — Add a friend"))
+        .inner_size(1040.0, 780.0)
+        .on_page_load(move |window, payload| {
+            if matches!(payload.event(), PageLoadEvent::Finished)
+                && payload
+                    .url()
+                    .host_str()
+                    .is_some_and(|host| host.ends_with(".islepilot.eu"))
+            {
+                let _ = window.eval(&fill);
+            }
+        })
+        .build()
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 /// GET the garage (parked dinos + server flags). Token mode only.
 pub fn garage_fetch() -> Result<api::GarageState, String> {
     let tok = token_or_err()?;
@@ -1658,6 +1739,24 @@ mod tests {
         assert_eq!(backoff_s(10.0, 2), 40.0);
         assert_eq!(backoff_s(10.0, 5), 300.0, "capped at 5 minutes");
         assert_eq!(backoff_s(10.0, 60), 300.0, "cap sticks, no overflow");
+    }
+
+    #[test]
+    fn friend_name_search_stays_on_the_detected_islepilot_server() {
+        assert_eq!(
+            friend_search_url("DinoVietNam").unwrap().as_str(),
+            "https://dinovietnam.islepilot.eu/map"
+        );
+        assert!(friend_search_url("../outside.example").is_err());
+        assert!(friend_search_url("-").is_err());
+    }
+
+    #[test]
+    fn friend_name_is_json_escaped_before_webview_prefill() {
+        let script = friend_search_fill_script(r#"Dino "Blue""#).unwrap();
+        assert!(script.contains(r#"Dino \"Blue\""#));
+        assert!(friend_search_fill_script("a").is_err());
+        assert!(friend_search_fill_script("bad\nname").is_err());
     }
 
     #[test]

@@ -581,6 +581,9 @@ export const islepilotFriendAction = (
   share: boolean | null = null,
 ) => invoke<IslepilotFriendsState>("islepilot_friend_action", { action, value, share });
 
+export const islepilotOpenFriendSearch = (query: string) =>
+  invoke<void>("islepilot_open_friend_search", { query });
+
 /**
  * Download-and-cache a skinviewer CDN asset (3D model / texture) via Rust
  * (the CDN sends no CORS headers); resolves to a local path for

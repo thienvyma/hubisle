@@ -821,6 +821,14 @@ pub async fn islepilot_friend_action(
     .map_err(|e| e.to_string())?
 }
 
+/// Open IslePilot's authenticated name search for the server reported by the
+/// current overlay session. The official page resolves duplicate names to an
+/// exact Steam account before it sends the existing SteamID-based request.
+#[tauri::command]
+pub async fn islepilot_open_friend_search(app: AppHandle, query: String) -> Result<(), String> {
+    crate::islepilot::open_friend_search(&app, query)
+}
+
 /// Download-and-cache a skinviewer CDN asset (3D model / texture); returns
 /// the local file path for convertFileSrc. Public CDN, no auth — routed
 /// through Rust because the CDN sends no CORS headers.

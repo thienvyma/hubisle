@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**islemap-thienvyma 2.4.1** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**islemap-thienvyma 2.4.2** is developed by **Huỳnh Vỹ**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
@@ -36,9 +36,10 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
   and stamina are normalized from the selected provider and rendered by the same
   minimap. Missing provider fields remain empty rather than being fabricated.
 - **Provider friends**: the Friends tab lists friends returned by Era, Titan,
-  or IslePilot. On IslePilot it can add a SteamID64, accept or decline requests,
-  cancel, remove, and control location sharing directly in the hub. Friends with
-  server-provided positions still appear on the full map and minimap.
+  or IslePilot. On IslePilot it can search the current server by in-game name
+  or add a SteamID64 directly, accept or decline requests, cancel, remove, and
+  control location sharing. Name search uses the server's official result list
+  so the player can choose the right account when names match.
 - **DinoVietnam Voice**: the Voice tab detects the official client, its Steam
   session and running state, then opens the original Voice system. Room access,
   microphone and push-to-talk remain handled by the DinoVietnam client; the

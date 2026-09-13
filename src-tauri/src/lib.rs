@@ -121,6 +121,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::islepilot_overlay_map,
             commands::islepilot_friends,
             commands::islepilot_friend_action,
+            commands::islepilot_open_friend_search,
             commands::islepilot_cdn_asset,
             commands::islepilot_garage,
             commands::islepilot_garage_park,

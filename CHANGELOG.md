@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.4.2] — 2026-09-13
+
+- Ô thêm bạn IslePilot nhận cả tên trong game và SteamID64. Khi nhập tên, hub
+  mở tìm kiếm chính thức của đúng server đang chơi, tự điền truy vấn và để
+  người dùng chọn đúng tài khoản nếu có tên trùng.
+- Giữ API thêm bạn bằng SteamID64 cho thao tác trực tiếp; không đoán SteamID
+  từ tên hoặc gửi lời mời khi người dùng chưa chọn kết quả.
+
 ## [2.4.1] — 2026-09-13
 
 - Bổ sung đầy đủ quản lý bạn bè IslePilot trong hub: thêm SteamID64, nhận/từ
