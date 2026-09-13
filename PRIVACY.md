@@ -35,9 +35,10 @@ The app makes these connections only for the related feature:
   accepted friendships and current server. It never stores the token. Cloudflare
   D1 stores secret-peppered hashes of player/server identifiers plus coordinates
   for at most 210 seconds. Only accepted friends on the same server are returned.
-- The official DinoVietnam Voice release page or installed hub when the user
-  presses a Voice button. Voice authentication and audio remain controlled by
-  the server's official hub; this app does not transmit microphone audio.
+- A configured server Voice provider when the user signs in or requests room
+  access. Provider sessions are protected with Windows DPAPI and scoped to the
+  exact server origin. Room grants are short-lived and never written to disk.
+  The current framework does not capture or transmit microphone audio.
 
 Unknown Prime text is left in English. It is not sent to an online translation
 service.

@@ -43,9 +43,10 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
   your SteamID64 with a copy button. When a server such as Titan disables Live
   Map, accepted friends using this hub on the same server can still exchange
   short-lived positions; official server positions always keep priority.
-- **Server Voice**: the Voice tab detects the official DinoVietnam hub, its
-  Steam session and running state, then opens the original Voice system. Voice
-  requires the server's official hub; islemap-thienvyma only detects and opens it.
+- **Multi-server Voice**: the Voice tab uses a shared provider layer, selects an
+  adapter for the current server, and supports browser login, callbacks,
+  encrypted sessions, and short-lived room grants when the server exposes a
+  compatible API. An unconfigured server is reported without another Voice app.
 - **Multi-provider Garage**: IslePilot keeps its 3D cards and Park/Restore/
   Rename/Delete-or-sell flow, plus self-slay for the active dino when the server
   enables each capability; Era and Titan get five official API slots with store,

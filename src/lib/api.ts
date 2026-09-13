@@ -235,16 +235,44 @@ export const getSettings = () => invoke<Settings>("get_settings");
 export const patchSettings = (patch: object) =>
   invoke<Settings>("patch_settings", { patch });
 
-export interface DinoVoiceStatus {
-  installed: boolean;
-  running: boolean;
-  steamAuthenticated: boolean;
-  executablePath: string | null;
-  officialReleaseUrl: string;
+export type VoiceState =
+  | "not-configured"
+  | "login-required"
+  | "authorizing"
+  | "ready"
+  | "unavailable"
+  | "blocked"
+  | "error";
+
+export interface VoiceProviderDescriptor {
+  id: string;
+  displayName: string;
+  serverOrigins: string[];
+  authMethod: "authorization-code-pkce" | "server-session";
 }
 
-export const dinovoiceStatus = () => invoke<DinoVoiceStatus>("dinovoice_status");
-export const dinovoiceLaunch = () => invoke<DinoVoiceStatus>("dinovoice_launch");
+export interface VoiceSessionSummary {
+  providerId: string;
+  playerName: string | null;
+  steamId: string | null;
+  expiresAtMs: number | null;
+}
+
+export interface VoiceStatus {
+  state: VoiceState;
+  serverOrigin: string | null;
+  serverName: string | null;
+  provider: VoiceProviderDescriptor | null;
+  session: VoiceSessionSummary | null;
+  reason: string | null;
+}
+
+export const voiceStatus = () => invoke<VoiceStatus>("voice_status");
+export const voiceStartLogin = () => invoke<VoiceStatus>("voice_start_login");
+export const voiceLogout = () => invoke<VoiceStatus>("voice_logout");
+export const onVoiceState = (
+  cb: (status: VoiceStatus) => void,
+): Promise<UnlistenFn> => listen<VoiceStatus>("voice://state", (event) => cb(event.payload));
 
 /** Last known position (null before the first sample) — for initial paint. */
 export const getCurrentPosition = () =>

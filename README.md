@@ -40,9 +40,10 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
   sao chép. Khi một server như Titan tắt Live Map, những người cùng dùng hub,
   đã kết bạn, bật chia sẻ và đang cùng server vẫn được ghép vị trí ngắn hạn lên
   map/minimap; vị trí chính thức của server luôn được ưu tiên nếu có.
-- **Thoại của server**: tab Thoại tự nhận hub DinoVietnam chính thức, trạng thái
-  phiên Steam và tiến trình đang chạy rồi mở hệ thống Voice gốc. Voice bắt buộc
-  dùng hub chính thức của server; islemap-thienvyma chỉ nhận diện và mở hub đó.
+- **Thoại đa server**: tab Thoại dùng một lớp provider chung, tự ghép adapter
+  theo server hiện tại và hỗ trợ đăng nhập trình duyệt, callback, phiên mã hóa
+  cùng quyền vào phòng có thời hạn ngắn khi server cung cấp API tương thích.
+  Server chưa có adapter được báo rõ và không cần cài thêm ứng dụng Voice khác.
 - **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
   chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
   cung cấp sẽ để trống, không dựng dữ liệu giả.

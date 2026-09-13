@@ -8,7 +8,6 @@
 pub mod clipboard;
 pub mod combat;
 pub mod commands;
-pub mod dinovoice;
 pub mod events;
 pub mod fetch;
 pub mod hotkeys;
@@ -84,8 +83,6 @@ pub fn run(replay_file: Option<PathBuf>) {
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::patch_settings,
-            dinovoice::dinovoice_status,
-            dinovoice::dinovoice_launch,
             voice::voice_status,
             voice::voice_start_login,
             voice::voice_logout,

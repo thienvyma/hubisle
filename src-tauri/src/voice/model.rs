@@ -92,8 +92,7 @@ impl From<&VoiceSession> for VoiceSessionSummary {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VoiceAuthStart {
     pub provider_id: String,
     pub authorization_url: String,
@@ -101,8 +100,7 @@ pub struct VoiceAuthStart {
     pub expires_at_ms: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VoiceGrant {
     pub server_url: String,
     pub access_token: String,

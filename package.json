@@ -23,6 +23,7 @@
     "test:release-trust": "node --test scripts/release-trust.test.mjs",
     "test:provider-defaults": "node --experimental-strip-types --test scripts/provider-defaults.test.mjs",
     "test:skin": "node --experimental-strip-types --test scripts/skin-*.test.mjs",
+    "test:voice": "node --test scripts/voice-provider.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -80,6 +80,9 @@ jobs:
       - name: Test provider defaults
         run: npm run test:provider-defaults
 
+      - name: Test server Voice provider boundary
+        run: npm run test:voice
+
       - name: Check frontend
         run: npm run check
 

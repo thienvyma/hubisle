@@ -121,4 +121,41 @@ mod tests {
         assert!(!json.contains("accessToken"));
         assert!(json.contains("76561198000000000"));
     }
+
+    #[test]
+    fn dpapi_store_round_trips_scoped_sessions_without_plaintext_on_disk() {
+        let path = std::env::temp_dir().join(format!(
+            "islemap-voice-session-test-{}-{}.bin",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let store = DpapiVoiceSessionStore::new(path.clone());
+        let source = session(
+            "voice-a",
+            "https://server.example.test",
+            "protected-session-secret",
+        );
+        store.set(source.clone()).unwrap();
+
+        assert_eq!(
+            store.get("voice-a", "https://server.example.test"),
+            Some(source)
+        );
+        assert!(store
+            .get("voice-b", "https://server.example.test")
+            .is_none());
+        assert!(!String::from_utf8_lossy(&std::fs::read(&path).unwrap())
+            .contains("protected-session-secret"));
+
+        store
+            .remove("voice-a", "https://server.example.test")
+            .unwrap();
+        assert!(store
+            .get("voice-a", "https://server.example.test")
+            .is_none());
+        std::fs::remove_file(path).unwrap();
+    }
 }

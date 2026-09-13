@@ -35,7 +35,7 @@
   import ConnectionGate from "./connection/ConnectionGate.svelte";
   import IslemapLogo from "./IslemapLogo.svelte";
   import UpdateBanner from "./UpdateBanner.svelte";
-  import DinoVoiceTab from "./voice/DinoVoiceTab.svelte";
+  import VoiceTab from "./voice/VoiceTab.svelte";
 
   type Tab = "map" | "dino" | "friends" | "garage" | "skin" | "history" | "voice" | "settings";
   const TAB_ITEMS: readonly [Tab, string][] = [
@@ -253,7 +253,7 @@
     {:else if tab === "history"}
       <div class="h-full overflow-y-auto"><CombatHistory /></div>
     {:else if tab === "voice"}
-      <div class="h-full overflow-y-auto"><DinoVoiceTab /></div>
+      <div class="h-full overflow-y-auto"><VoiceTab /></div>
     {/if}
     <!-- Kept-alive tabs (see visitedMap/visitedDino/visitedGarage above).
          All are error-isolated: a Leaflet throw, a failure in the IslePilot
