@@ -18,6 +18,7 @@
     "test:updater": "node --experimental-strip-types --test scripts/update*.test.mjs",
     "test:heading": "node --experimental-strip-types --test scripts/heading.test.mjs tools/compass-lab/solver.test.mjs",
     "test:garage": "node --experimental-strip-types --test scripts/garage-park.test.mjs",
+    "test:installer": "node --test scripts/installer-safety.test.mjs",
     "test:provider-defaults": "node --experimental-strip-types --test scripts/provider-defaults.test.mjs",
     "test:skin": "node --experimental-strip-types --test scripts/skin-library.test.mjs",
     "tauri": "tauri"

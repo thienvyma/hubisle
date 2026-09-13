@@ -67,6 +67,9 @@ jobs:
       - name: Test IslePilot garage workflow
         run: npm run test:garage
 
+      - name: Test safe Windows installer upgrade
+        run: npm run test:installer
+
       - name: Test provider defaults
         run: npm run test:provider-defaults
 
