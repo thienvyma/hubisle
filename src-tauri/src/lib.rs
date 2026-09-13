@@ -25,7 +25,6 @@ pub mod store;
 pub mod telemetry;
 pub mod translate;
 pub mod tray;
-pub mod viethoa;
 pub mod webview_mem;
 pub mod win;
 
@@ -85,8 +84,6 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::patch_settings,
             dinovoice::dinovoice_status,
             dinovoice::dinovoice_launch,
-            viethoa::viethoa_status,
-            viethoa::viethoa_launch,
             commands::get_current_position,
             commands::get_current_heading,
             commands::list_waypoints,

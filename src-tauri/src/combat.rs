@@ -174,20 +174,26 @@ fn identity_matches(
     candidate_id: Option<&str>,
     candidate_name: Option<&str>,
     root: &Value,
+    self_steam_id: Option<&str>,
     self_name: Option<&str>,
 ) -> bool {
-    let own_id = [
-        root.get("steamId"),
-        root.get("steam_id"),
-        root.get("player").and_then(|value| value.get("steamId")),
-        root.get("dino").and_then(|value| value.get("steamId")),
-        root.get("me").and_then(|value| value.get("steamId")),
-    ]
-    .into_iter()
-    .flatten()
-    .filter_map(|value| value.as_str())
-    .map(str::trim)
-    .find(|value| !value.is_empty());
+    let own_id = self_steam_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            [
+                root.get("steamId"),
+                root.get("steam_id"),
+                root.get("player").and_then(|value| value.get("steamId")),
+                root.get("dino").and_then(|value| value.get("steamId")),
+                root.get("me").and_then(|value| value.get("steamId")),
+            ]
+            .into_iter()
+            .flatten()
+            .filter_map(|value| value.as_str())
+            .map(str::trim)
+            .find(|value| !value.is_empty())
+        });
     if let (Some(candidate), Some(own)) = (candidate_id.map(str::trim), own_id) {
         if !candidate.is_empty() && candidate == own {
             return true;
@@ -210,7 +216,26 @@ pub fn parse_killfeed_events(
     self_name: Option<&str>,
     self_species: Option<&str>,
 ) -> Vec<CombatEvent> {
+    parse_killfeed_events_for_player(
+        root,
+        fallback_timestamp_ms,
+        server_name,
+        None,
+        self_name,
+        self_species,
+    )
+}
+
+pub fn parse_killfeed_events_for_player(
+    root: &Value,
+    fallback_timestamp_ms: i64,
+    server_name: Option<&str>,
+    self_steam_id: Option<&str>,
+    self_name: Option<&str>,
+    self_species: Option<&str>,
+) -> Vec<CombatEvent> {
     let arrays = [
+        root.get("kills"),
         root.get("killfeed"),
         root.get("killFeed"),
         root.get("combatHistory"),
@@ -237,12 +262,14 @@ pub fn parse_killfeed_events(
                 victim_id.as_deref(),
                 victim_name.as_deref(),
                 root,
+                self_steam_id,
                 self_name,
             );
             let won = identity_matches(
                 killer_id.as_deref(),
                 killer_name.as_deref(),
                 root,
+                self_steam_id,
                 self_name,
             );
             if !lost && !won {
@@ -556,6 +583,39 @@ mod tests {
         assert_eq!(events[0].opponent_name.as_deref(), Some("RaptorVN"));
         assert_eq!(events[0].opponent_species.as_deref(), Some("Omniraptor"));
         assert_eq!(events[0].timestamp_ms, 1_789_261_323_000);
+    }
+
+    #[test]
+    fn killfeed_accepts_the_official_dinovietnam_root_kills_shape() {
+        let value = json!({
+            "kills": [{
+                "victimSteamId": "me-1",
+                "victimName": "My Dino",
+                "victimSpecies": "Stegosaurus",
+                "victimGrowth": 0.72,
+                "killerSteamId": "enemy-9",
+                "killerName": "RaptorVN",
+                "killerSpecies": "Omniraptor",
+                "cause": "Killed",
+                "emittedAt": "2026-09-13T01:02:03Z"
+            }],
+            "cursor": "next-page"
+        });
+
+        let events = parse_killfeed_events_for_player(
+            &value,
+            0,
+            Some("DinoVietnam VIP"),
+            Some("me-1"),
+            Some("My Dino"),
+            Some("Stegosaurus"),
+        );
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].direction, CombatDirection::Death);
+        assert_eq!(events[0].opponent_name.as_deref(), Some("RaptorVN"));
+        assert_eq!(events[0].opponent_species.as_deref(), Some("Omniraptor"));
+        assert_eq!(events[0].source, "server-killfeed");
     }
 
     #[test]

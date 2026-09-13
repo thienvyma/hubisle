@@ -157,9 +157,21 @@ pub struct OverlayQuest {
     pub done: bool,
 }
 
+fn decode_me(value: Value) -> Result<(OverlayMe, Value), ApiError> {
+    let me = serde_json::from_value(value.clone())
+        .map_err(|e| ApiError::Http(format!("/api/overlay/me: {e}")))?;
+    Ok((me, value))
+}
+
+pub fn get_me_with_raw(
+    client: &reqwest::blocking::Client,
+    token: &str,
+) -> Result<(OverlayMe, Value), ApiError> {
+    decode_me(get(client, "/api/overlay/me", token)?)
+}
+
 pub fn get_me(client: &reqwest::blocking::Client, token: &str) -> Result<OverlayMe, ApiError> {
-    let v = get(client, "/api/overlay/me", token)?;
-    serde_json::from_value(v).map_err(|e| ApiError::Http(format!("/api/overlay/me: {e}")))
+    get_me_with_raw(client, token).map(|(me, _)| me)
 }
 
 /// Map the JSON vitals into the exact struct the HTML parser produces, so the
@@ -732,6 +744,23 @@ mod tests {
         assert_eq!(position_cm(&me), None);
         let stats = to_player_stats(&me);
         assert!(!stats.looks_logged_in());
+    }
+
+    #[test]
+    fn decoding_me_keeps_embedded_verified_combat_data() {
+        let raw = serde_json::json!({
+            "hasData": true,
+            "steamId": "76561198000000001",
+            "name": "My Dino",
+            "kills": [{
+                "victimSteamId": "76561198000000001",
+                "killerName": "RaptorVN"
+            }]
+        });
+
+        let (me, preserved) = decode_me(raw.clone()).expect("valid overlay response");
+        assert_eq!(me.steam_id.as_deref(), Some("76561198000000001"));
+        assert_eq!(preserved.get("kills"), raw.get("kills"));
     }
 
     #[test]

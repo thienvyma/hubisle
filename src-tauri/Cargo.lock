@@ -2111,7 +2111,7 @@ dependencies = [
 
 [[package]]
 name = "islemap-thienvyma"
-version = "2.4.2"
+version = "2.4.3"
 dependencies = [
  "chrono",
  "hmac",

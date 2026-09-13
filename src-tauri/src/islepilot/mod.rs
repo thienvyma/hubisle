@@ -847,10 +847,30 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                 return;
             }
 
-            match api::get_me(&client, &tok.token) {
-                Ok(me) => {
+            match api::get_me_with_raw(&client, &tok.token) {
+                Ok((me, raw_me)) => {
                     auth_warned = false;
                     failures = 0;
+                    let fetched_at_ms = now_ms();
+                    let combat_at_ms = i64::try_from(fetched_at_ms).unwrap_or(i64::MAX);
+                    let mut combat_events = crate::combat::parse_era_events(
+                        &raw_me,
+                        combat_at_ms,
+                        me.server.as_deref(),
+                        me.species.as_deref(),
+                    );
+                    combat_events.extend(crate::combat::parse_killfeed_events_for_player(
+                        &raw_me,
+                        combat_at_ms,
+                        me.server.as_deref(),
+                        me.steam_id.as_deref().or_else(|| {
+                            let steam_id = tok.steam_id.trim();
+                            (!steam_id.is_empty()).then_some(steam_id)
+                        }),
+                        me.name.as_deref(),
+                        me.species.as_deref(),
+                    ));
+                    crate::combat::ingest(&app, combat_events);
                     let mut player = api::to_player_stats(&me);
                     let lang_vi = {
                         let state = app.state::<AppState>();
@@ -928,7 +948,7 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
                         &app,
                         DinoUpdate {
                             domain: api::API_ORIGIN.to_string(),
-                            fetched_at_ms: now_ms(),
+                            fetched_at_ms,
                             player: Some(player),
                             map: None,
                             position_cm: update_position,

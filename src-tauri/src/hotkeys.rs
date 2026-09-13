@@ -6,7 +6,7 @@
 //! manager — no hooks, no touching other processes. Windows posts WM_HOTKEY
 //! straight to the registering THREAD's queue.
 //!
-//! The one narrow output action is the user-requested `/unstuck` chat macro.
+//! The one narrow output action is the user-requested `!unstuck` chat macro.
 //! It emits that fixed text only while The Isle is foreground; it is not a
 //! general key-sending API and still never reads or modifies the game process.
 //!
@@ -91,7 +91,7 @@ pub fn parse_hotkey(spec: &str) -> Option<(u32, u32)> {
 }
 
 /// Resolve one configured action. Bare keys remain forbidden except for the
-/// explicit `/unstuck` binding requested by the user. VK_OEM_3 is the
+/// explicit `!unstuck` binding requested by the user. VK_OEM_3 is the
 /// physical backtick/tilde key on a standard Windows keyboard.
 pub fn parse_binding(action: &str, spec: &str) -> Option<(u32, u32)> {
     if action == "unstuck" && spec.trim() == "`" {
@@ -462,7 +462,7 @@ mod tests {
             vec![
                 MacroStep::Key(0x0D),
                 MacroStep::DelayMs(70),
-                MacroStep::Text("/unstuck"),
+                MacroStep::Text("!unstuck"),
                 MacroStep::DelayMs(30),
                 MacroStep::Key(0x0D),
             ]

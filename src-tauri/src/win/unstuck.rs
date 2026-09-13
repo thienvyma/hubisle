@@ -1,7 +1,7 @@
 //! Fixed, foreground-gated chat macro for The Isle.
 //!
 //! This module deliberately has no generic public "send text" function. The
-//! only exported action sends `/unstuck`, and every step stops if focus leaves
+//! only exported action sends `!unstuck`, and every step stops if focus leaves
 //! the verified game window.
 
 use std::time::Duration;
@@ -14,6 +14,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use crate::settings::GAME_PROCESS_NAME;
 
 const VK_RETURN: u16 = 0x0D;
+const UNSTUCK_COMMAND: &str = "!unstuck";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MacroStep {
@@ -26,7 +27,7 @@ pub fn unstuck_macro_plan() -> Vec<MacroStep> {
     vec![
         MacroStep::Key(VK_RETURN),
         MacroStep::DelayMs(70),
-        MacroStep::Text("/unstuck"),
+        MacroStep::Text(UNSTUCK_COMMAND),
         MacroStep::DelayMs(30),
         MacroStep::Key(VK_RETURN),
     ]
@@ -67,15 +68,15 @@ fn emit_key(vk: u16) -> bool {
 }
 
 fn emit_unstuck_text() -> bool {
-    let mut inputs = Vec::with_capacity("/unstuck".encode_utf16().count() * 2);
-    for unit in "/unstuck".encode_utf16() {
+    let mut inputs = Vec::with_capacity(UNSTUCK_COMMAND.encode_utf16().count() * 2);
+    for unit in UNSTUCK_COMMAND.encode_utf16() {
         inputs.push(unicode_input(unit, KEYBD_EVENT_FLAGS(0)));
         inputs.push(unicode_input(unit, KEYEVENTF_KEYUP));
     }
     unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) == inputs.len() as u32 }
 }
 
-/// Open chat, type `/unstuck`, and submit it. Focus is checked before every
+/// Open chat, type `!unstuck`, and submit it. Focus is checked before every
 /// output step, so an Alt-Tab during the short sequence cannot type into a
 /// different application.
 pub fn send_unstuck_if_game_foreground() {
@@ -88,7 +89,7 @@ pub fn send_unstuck_if_game_foreground() {
         }
         let ok = match step {
             MacroStep::Key(vk) => emit_key(vk),
-            MacroStep::Text("/unstuck") => emit_unstuck_text(),
+            MacroStep::Text(UNSTUCK_COMMAND) => emit_unstuck_text(),
             MacroStep::Text(_) => false,
             MacroStep::DelayMs(ms) => {
                 std::thread::sleep(Duration::from_millis(ms));
@@ -96,8 +97,27 @@ pub fn send_unstuck_if_game_foreground() {
             }
         };
         if !ok {
-            log::warn!("failed to emit the fixed /unstuck chat macro");
+            log::warn!("failed to emit the fixed !unstuck chat macro");
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unstuck_macro_sends_the_server_chat_command() {
+        assert_eq!(
+            unstuck_macro_plan(),
+            vec![
+                MacroStep::Key(VK_RETURN),
+                MacroStep::DelayMs(70),
+                MacroStep::Text("!unstuck"),
+                MacroStep::DelayMs(30),
+                MacroStep::Key(VK_RETURN),
+            ]
+        );
     }
 }

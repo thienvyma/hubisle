@@ -8,7 +8,7 @@
 //!   - Writes: ONLY to this app's own windows (SetWindowLongPtr, SetWindowPos).
 //!   - RegisterHotKey and PeekMessageW on our own hotkey thread (in
 //!     hotkeys.rs) — documented, cooperative OS APIs, not keyboard hooks.
-//!   - A fixed `/unstuck` chat macro (in unstuck.rs), only while the verified
+//!   - A fixed `!unstuck` chat macro (in unstuck.rs), only while the verified
 //!     The Isle window is foreground. It exposes no generic text/key surface.
 //!
 //! The game runs kernel-level Easy Anti-Cheat. The bundled local telemetry

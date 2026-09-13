@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**islemap-thienvyma 2.4.2** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**islemap-thienvyma 2.4.3** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
@@ -37,13 +37,9 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
   game hoặc thêm thẳng bằng SteamID64, nhận/từ chối lời mời, hủy, xóa và bật
   chia sẻ vị trí. Tìm theo tên dùng danh sách chính thức của server để chọn
   đúng tài khoản khi có tên trùng.
-- **Voice DinoVietnam**: tab Thoại tự nhận client chính thức, trạng thái phiên
-  Steam và tiến trình đang chạy rồi mở thẳng hệ thống Voice gốc. Quyền phòng,
-  micro và phím nhấn để nói vẫn do client DinoVietnam xử lý; đăng nhập IslePilot
-  trong hub không thay thế quyền ứng dụng riêng mà máy chủ Voice yêu cầu.
-- **Việt hóa The Isle**: tab Việt hóa mở trình cài chính thức đã được
-  DinoVietnam cài trên máy. Nếu chưa có, Hub dẫn tới đúng bản phát hành công
-  khai; gói mã hóa không bị nhúng, sao chép hoặc giải mã lại trong dự án này.
+- **Thoại của server**: tab Thoại tự nhận hub DinoVietnam chính thức, trạng thái
+  phiên Steam và tiến trình đang chạy rồi mở hệ thống Voice gốc. Voice bắt buộc
+  dùng hub chính thức của server; islemap-thienvyma chỉ nhận diện và mở hub đó.
 - **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
   chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
   cung cấp sẽ để trống, không dựng dữ liệu giả.
@@ -51,11 +47,12 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
   Era và Titan có 5 slot cất/lấy/xóa theo API chính thức, khóa thao tác theo
   trạng thái online/cầu nối và theo dõi tiến trình xử lý của server.
 - **Đổi skin trong hub**: 7 vùng màu theo giao thức hiện hành của Era/Titan,
-  preset, lưu bản nháp trên máy, quyền 16 màu/đủ màu của Era, biến thể Titan và
-  cooldown do server xác nhận. IslePilot dùng API Live Skin động khi chính
-  server đang chơi bật tính năng và cấp quyền tài khoản.
-- **Lịch sử giao tranh đa provider**: ghi các lần giảm máu trên Era, Titan và
-  IslePilot; danh tính đối phương chỉ xuất hiện khi backend gửi sự kiện xác thực.
+  preset, bản nháp và thư viện skin có tên lưu riêng theo từng provider, quyền
+  16 màu/đủ màu của Era, biến thể Titan và cooldown do server xác nhận.
+  IslePilot dùng API Live Skin động khi server bật tính năng và cấp quyền.
+- **Lịch sử giao tranh đa provider**: nhận cả cấu trúc killfeed của hub
+  DinoVietnam/IslePilot và sự kiện tấn công do server gửi. Tên người giết hoặc
+  tấn công chỉ xuất hiện khi backend xác thực và cung cấp danh tính.
 - **Thông báo Prime trong game**: popup trên minimap xuất hiện khi một điều kiện
   Prime vừa hoàn thành và báo riêng khi hoàn tất toàn bộ danh sách. Mốc ban đầu
   chỉ dùng để đối chiếu nên mở lại app hoặc nối lại server không báo lặp.
@@ -178,7 +175,7 @@ tiến trình game:
   keyboard hook.
 - Chỉ số, vị trí, bạn bè, Garage và skin lấy qua **HTTPS tới đúng provider đã
   xác minh** (Era, Titan hoặc IslePilot), không đọc bộ nhớ tiến trình game.
-- Phím `` ` `` chỉ dùng `SendInput` để gửi chuỗi cố định `/unstuck` sau khi xác
+- Phím `` ` `` chỉ dùng `SendInput` để gửi chuỗi cố định `!unstuck` sau khi xác
   nhận The Isle đang là cửa sổ foreground. App không inject DLL hay hook DirectX.
 
 CI có bước grep chặn mọi call site API cấm (`scripts/check-forbidden-apis.ps1`).

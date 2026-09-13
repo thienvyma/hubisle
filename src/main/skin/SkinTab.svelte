@@ -3,6 +3,12 @@
   import { providerSkinApply, providerSkinState, type ProviderId } from "$lib/api";
   import { t, tNow } from "$lib/i18n";
   import { providerLabel } from "$lib/provider-ui";
+  import {
+    parseSkinLibrary,
+    removeSkinPreset,
+    upsertSkinPreset,
+    type SavedSkinPreset,
+  } from "$lib/skin-library";
 
   let { provider }: { provider: ProviderId } = $props();
   type Obj = Record<string, unknown>;
@@ -55,6 +61,8 @@
   let cooldownUntil = $state(0);
   let clock = $state(Date.now());
   let providerSeen = $state<ProviderId | null>(null);
+  let savedSkins = $state<SavedSkinPreset[]>([]);
+  let savedSkinName = $state("");
 
   const names = $derived(provider === "era" ? ERA_NAMES : provider === "titan" ? TITAN_NAMES : fieldLabels);
   const fullColor = $derived(provider === "isle-pilot" || provider !== "era" || raw.arbitraryHex === true);
@@ -83,6 +91,8 @@
       error = null;
       colors = loadDraft(provider);
       variation = loadVariation(provider);
+      savedSkins = loadSkinLibrary(provider);
+      savedSkinName = "";
       if (provider !== "isle-pilot") {
         fieldKeys = [];
         fieldLabels = [];
@@ -96,6 +106,15 @@
   }
   function legacyStorageKey(current: ProviderId) {
     return `isle-pulse.skin.${current}.v1`;
+  }
+  function skinLibraryKey(current: ProviderId) {
+    return `islemap-thienvyma.skin-library.${current}.v1`;
+  }
+  function loadSkinLibrary(current: ProviderId): SavedSkinPreset[] {
+    return parseSkinLibrary(localStorage.getItem(skinLibraryKey(current)));
+  }
+  function persistSkinLibrary() {
+    localStorage.setItem(skinLibraryKey(provider), JSON.stringify(savedSkins));
   }
   function readStored(current: ProviderId, suffix = "") {
     const key = `${storageKey(current)}${suffix}`;
@@ -122,6 +141,35 @@
   function saveDraft() {
     localStorage.setItem(storageKey(provider), JSON.stringify(colors));
     localStorage.setItem(`${storageKey(provider)}.variation`, String(variation));
+  }
+  function saveCurrentSkin() {
+    error = null;
+    note = null;
+    try {
+      savedSkins = upsertSkinPreset(savedSkins, savedSkinName, colors, variation);
+      persistSkinLibrary();
+      savedSkinName = "";
+      note = tNow("skin.saved");
+    } catch {
+      error = tNow("skin.save_invalid");
+    }
+  }
+  function loadSavedSkin(preset: SavedSkinPreset) {
+    error = null;
+    note = null;
+    if (preset.colors.length !== colors.length) {
+      error = tNow("skin.saved_incompatible");
+      return;
+    }
+    colors = [...preset.colors];
+    variation = preset.variation;
+    activeZone = Math.min(activeZone, Math.max(0, colors.length - 1));
+    saveDraft();
+    note = tNow("skin.loaded", { name: preset.name });
+  }
+  function deleteSavedSkin(name: string) {
+    savedSkins = removeSkinPreset(savedSkins, name);
+    persistSkinLibrary();
   }
   function setColor(index: number, color: string) {
     if (!validColor(color)) return;
@@ -261,6 +309,46 @@
     </div>
   </section>
 
+  <section class="skin-library">
+    <div class="library-head">
+      <div>
+        <strong>{$t("skin.saved_title")}</strong>
+        <span>{$t("skin.saved_hint")}</span>
+      </div>
+      <div class="save-controls">
+        <input
+          maxlength="40"
+          placeholder={$t("skin.saved_name")}
+          aria-label={$t("skin.saved_name")}
+          bind:value={savedSkinName}
+          onkeydown={(event) => {
+            if (event.key === "Enter") saveCurrentSkin();
+          }}
+        />
+        <button disabled={!savedSkinName.trim() || colors.length === 0} onclick={saveCurrentSkin}>
+          {$t("skin.save")}
+        </button>
+      </div>
+    </div>
+    {#if savedSkins.length === 0}
+      <p class="library-empty">{$t("skin.saved_empty")}</p>
+    {:else}
+      <div class="saved-list">
+        {#each savedSkins as preset (preset.name.toLocaleLowerCase())}
+          <article>
+            <button class="saved-load" onclick={() => loadSavedSkin(preset)}>
+              <strong>{preset.name}</strong>
+              <span class="saved-swatches">
+                {#each preset.colors as color}<i style:background={color}></i>{/each}
+              </span>
+            </button>
+            <button class="saved-delete" aria-label={$t("skin.delete_named", { name: preset.name })} onclick={() => deleteSavedSkin(preset.name)}>×</button>
+          </article>
+        {/each}
+      </div>
+    {/if}
+  </section>
+
   {#if provider !== "isle-pilot"}
     <section class="preset-row">
       <span>{$t("skin.presets")}</span>
@@ -327,6 +415,22 @@
   .preview-strip i { flex:1; box-shadow:inset -1px 0 rgba(0,0,0,.25); }
   .preset-row { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin:14px 0; }
   .preset-row > span { margin-right:5px; color:var(--color-muted); font:9px Consolas,monospace; }
+  .skin-library { margin:14px 0 18px; border:1px solid var(--color-border); background:rgba(6,18,32,.58); padding:13px; }
+  .library-head { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
+  .library-head > div:first-child { display:grid; gap:4px; }
+  .library-head strong { font-size:12px; }
+  .library-head span,.library-empty { color:var(--color-muted); font-size:10px; }
+  .save-controls { display:flex; gap:7px; }
+  .save-controls input { width:190px; border:1px solid #1d455f; outline:0; background:#06111e; color:var(--color-text); padding:7px 9px; font:11px Consolas,monospace; }
+  .save-controls input:focus { border-color:var(--color-accent); }
+  .saved-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:7px; margin-top:12px; }
+  .saved-list article { display:grid; grid-template-columns:1fr 31px; border:1px solid #16354e; background:rgba(5,15,27,.82); }
+  .saved-load { display:grid; gap:7px; min-width:0; border:0; text-align:left; }
+  .saved-load strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .saved-swatches { display:flex; height:5px; overflow:hidden; }
+  .saved-swatches i { flex:1; min-width:3px; }
+  .saved-delete { border-width:0 0 0 1px; color:#ff8a80; font-size:17px; }
+  .library-empty { margin:12px 0 0; }
   .color-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr)); gap:10px; }
   .color-grid article { display:grid; grid-template-columns:25px 1fr 44px; grid-template-rows:auto auto; align-items:center; column-gap:10px; border:1px solid #16354e; background:linear-gradient(135deg,rgba(8,23,39,.95),rgba(4,11,22,.95)); padding:11px; cursor:pointer; }
   .color-grid article.active { border-color:var(--color-accent); box-shadow:inset 3px 0 var(--color-accent); }
@@ -346,4 +450,5 @@
   .apply-row { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-top:18px; }
   .apply-row p { max-width:620px; line-height:1.5; }
   button.apply { min-width:190px; border-color:var(--color-accent); background:var(--color-accent); color:#03101a; font-weight:bold; }
+  @media (max-width:720px) { .library-head { align-items:stretch; flex-direction:column; } .save-controls input { width:100%; } }
 </style>

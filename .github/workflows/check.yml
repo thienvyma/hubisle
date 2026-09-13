@@ -35,6 +35,7 @@ jobs:
         run: ./scripts/build-local-telemetry-sidecar.ps1
       - run: npm run check
       - run: npm run test:heading
+      - run: npm run test:skin
       - run: npm run test:updater
       - run: npm run build
       - name: Check source safety boundary

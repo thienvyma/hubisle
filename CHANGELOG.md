@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.4.3] — 2026-09-13
+
+- Xóa tab và backend mở trình cài Việt hóa The Isle khỏi hub.
+- Đổi macro phím nhanh sang mở chat và gửi đúng lệnh `!unstuck` của server.
+- Bổ sung thư viện skin có tên, cho phép lưu, nạp và xóa tối đa 20 bảng màu
+  riêng trên từng provider; vẫn giữ bản nháp hiện tại như trước.
+- Nhận cấu trúc `kills` gốc của killfeed DinoVietnam/IslePilot và giữ các mảng
+  combat do `/api/overlay/me` trả về để lịch sử hiện tên người giết hoặc tấn
+  công khi server cung cấp danh tính đã xác thực.
+- Ghi rõ Voice phải dùng hub chính thức của server; islemap-thienvyma chỉ kiểm
+  tra trạng thái và mở hub DinoVietnam đã cài trên máy.
+
 ## [2.4.2] — 2026-09-13
 
 - Ô thêm bạn IslePilot nhận cả tên trong game và SteamID64. Khi nhập tên, hub

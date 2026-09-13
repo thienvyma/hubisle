@@ -235,16 +235,6 @@ export const getSettings = () => invoke<Settings>("get_settings");
 export const patchSettings = (patch: object) =>
   invoke<Settings>("patch_settings", { patch });
 
-export interface VietHoaStatus {
-  installed: boolean;
-  version: string | null;
-  executablePath: string | null;
-  officialReleaseUrl: string;
-}
-
-export const viethoaStatus = () => invoke<VietHoaStatus>("viethoa_status");
-export const viethoaLaunch = () => invoke<VietHoaStatus>("viethoa_launch");
-
 export interface DinoVoiceStatus {
   installed: boolean;
   running: boolean;

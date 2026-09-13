@@ -18,8 +18,3 @@ ownership of room authorization, microphone, noise suppression and PTT.
 A future `DinoVietnamVoiceProvider` can be implemented without changing the
 rest of the Hub once DinoVietnam supplies the public OAuth/PKCE client and
 player-scoped Voice broker described in `INTEGRATION_OPTIONS.md`.
-
-The Vietnamese translation feature remains independent of Voice. It opens the
-official translation installer already present on the user's machine or links
-to DinoVietnam's public translation release. It does not copy, decrypt or
-bundle the encrypted translation archive.

@@ -177,7 +177,7 @@ pub fn default_settings() -> Value {
             "zoom_in": "Ctrl+Alt+Right",
             "zoom_out": "Ctrl+Alt+Left",
             "toggle_quests": "Ctrl+Alt+Q",
-            "unstuck": "`",             // game foreground only: Enter, /unstuck, Enter
+            "unstuck": "`",             // game foreground only: Enter, !unstuck, Enter
             "reload_ui": "Ctrl+Alt+R",   // rescue: works even when clicks are dead
         },
         // The map starts CLEAN: only the big region-name labels are on, so a

@@ -55,6 +55,9 @@ jobs:
       - name: Test heading delivery and compass math
         run: npm run test:heading
 
+      - name: Test saved skin library
+        run: npm run test:skin
+
       - name: Check frontend
         run: npm run check
 

@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**islemap-thienvyma 2.4.2** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**islemap-thienvyma 2.4.3** is developed by **Huỳnh Vỹ**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
@@ -40,24 +40,18 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
   or add a SteamID64 directly, accept or decline requests, cancel, remove, and
   control location sharing. Name search uses the server's official result list
   so the player can choose the right account when names match.
-- **DinoVietnam Voice**: the Voice tab detects the official client, its Steam
-  session and running state, then opens the original Voice system. Room access,
-  microphone and push-to-talk remain handled by the DinoVietnam client; the
-  hub's IslePilot login cannot replace the separate app grant required by the
-  Voice server.
-- **The Isle Vietnamese translation**: a dedicated tab opens the official
-  installer already installed by DinoVietnam. If it is absent, the Hub links
-  to the public release; this project does not embed, copy or decrypt the
-  encrypted package.
+- **Server Voice**: the Voice tab detects the official DinoVietnam hub, its
+  Steam session and running state, then opens the original Voice system. Voice
+  requires the server's official hub; islemap-thienvyma only detects and opens it.
 - **Multi-provider Garage**: IslePilot keeps its 3D cards and Park/Restore/
   Rename/Sell flow; Era and Titan get five official API slots with store,
   restore, delete, connection gating, and server job progress.
 - **Skin editor in the hub**: seven current Era/Titan color regions, presets,
-  local drafts, Era's 16-color/full-color permission, Titan variation, and a
-  server-authoritative cooldown. IslePilot Live Skin appears when the current
-  server enables it; the hub shows the provider's disabled state otherwise.
-- **Combat history across providers**: server events are recorded when available,
-  with health-loss inference scoped to the current provider, server, and session.
+  local drafts and a named skin library stored separately for each provider,
+  plus Era permissions, Titan variation and server-authoritative cooldowns.
+- **Combat history across providers**: accepts the DinoVietnam/IslePilot
+  killfeed shape and provider combat events. Killer or attacker names appear
+  only when the backend supplies verified identity data.
 - **In-game Prime notifications**: the minimap shows a popup when one condition
   becomes complete and a separate message when the whole quest list is complete.
   Reconnect and startup baselines are silent, so old progress is not replayed.
@@ -181,7 +175,7 @@ inject code, or modify the game process:
   hook.
 - Stats, position, accepted friends, Garage and skins come over **HTTPS from the
   exact verified provider** (Era, Titan or IslePilot), without reading game memory.
-- The `` ` `` shortcut uses `SendInput` only to send the fixed `/unstuck` chat
+- The `` ` `` shortcut uses `SendInput` only to send the fixed `!unstuck` chat
   command after verifying that The Isle is foreground. The app does not inject
   DLLs or hook DirectX.
 

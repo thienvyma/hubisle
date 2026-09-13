@@ -1,6 +1,6 @@
 # Safety-boundary tripwire: fail the build if any forbidden Win32 call site
 # appears in the Rust sources. The sole reviewed exception is SendInput in the
-# foreground-gated, fixed `/unstuck` macro; arbitrary input remains forbidden.
+# foreground-gated, fixed `!unstuck` macro; arbitrary input remains forbidden.
 # (Matches call sites `Name(` — the names may legitimately appear in comments.)
 $forbidden = "OpenProcess|ReadProcessMemory|WriteProcessMemory|SetWindowsHookEx\w*|SendInput|keybd_event|mouse_event|SetParent|CreateRemoteThread"
 $pattern = "\b($forbidden)\s*\("
