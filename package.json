@@ -2,7 +2,7 @@
   "name": "islemap-thienvyma",
   "private": true,
   "version": "2.4.7",
-  "author": "Huỳnh Vỹ",
+  "author": "thienvyma",
   "homepage": "https://github.com/thienvyma/hubisle",
   "repository": {
     "type": "git",
@@ -17,10 +17,12 @@
     "check:updater": "node scripts/check-updater.mjs",
     "test:updater": "node --experimental-strip-types --test scripts/update*.test.mjs",
     "test:heading": "node --experimental-strip-types --test scripts/heading.test.mjs tools/compass-lab/solver.test.mjs",
+    "test:minimap-friends": "node --experimental-strip-types --test scripts/minimap-friends.test.mjs",
     "test:garage": "node --experimental-strip-types --test scripts/garage-park.test.mjs",
     "test:installer": "node --test scripts/installer-safety.test.mjs",
+    "test:release-trust": "node --test scripts/release-trust.test.mjs",
     "test:provider-defaults": "node --experimental-strip-types --test scripts/provider-defaults.test.mjs",
-    "test:skin": "node --experimental-strip-types --test scripts/skin-library.test.mjs",
+    "test:skin": "node --experimental-strip-types --test scripts/skin-*.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -43,5 +45,6 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^7"
-  }
+  },
+  "license": "GPL-3.0-only"
 }

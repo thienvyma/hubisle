@@ -172,7 +172,7 @@ fn utc_day() -> i64 {
 pub fn enabled(app: &AppHandle) -> bool {
     let s = app.state::<AppState>();
     let s = s.settings.lock_safe();
-    settings::get_bool(&s, &["telemetry", "enabled"], true)
+    settings::get_bool(&s, &["telemetry", "enabled"], false)
 }
 
 /// Windows build, e.g. "10.0.26200".

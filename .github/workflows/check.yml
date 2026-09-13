@@ -40,6 +40,8 @@ jobs:
       - run: npm run test:skin
       - run: npm run test:garage
       - run: npm run test:installer
+      - run: npm run test:release-trust
+      - run: npm run test:minimap-friends
       - run: npm run test:provider-defaults
       - run: npm run test:updater
       - run: npm run build

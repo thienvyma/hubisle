@@ -224,6 +224,24 @@ pub fn skin_state() -> Result<ProviderFeaturePayload, String> {
     Ok(ProviderFeaturePayload { provider, data })
 }
 
+fn normalize_islepilot_skin_color(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.len() != 7
+        || !value.starts_with('#')
+        || !value[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    let normalized = value.to_ascii_uppercase();
+    // IslePilot's game bridge treats zero as an unset float channel. Its live
+    // skin protocol uses the smallest non-zero blue value for visual black.
+    Some(if normalized == "#000000" {
+        "#000001".to_string()
+    } else {
+        normalized
+    })
+}
+
 pub fn skin_apply(colors: &[String], variation: f64) -> Result<ProviderFeaturePayload, String> {
     let provider = active_provider()?;
     if provider == ProviderId::IslePilot {
@@ -238,10 +256,11 @@ pub fn skin_apply(colors: &[String], variation: f64) -> Result<ProviderFeaturePa
             .filter_map(|field| field.get("key").and_then(|key| key.as_str()))
             .enumerate()
         {
-            let Some(color) = colors.get(index) else {
-                break;
-            };
-            palette.insert(key.to_string(), serde_json::Value::String(color.clone()));
+            let color = colors
+                .get(index)
+                .and_then(|color| normalize_islepilot_skin_color(color))
+                .ok_or_else(|| format!("Màu skin IslePilot không hợp lệ ở vùng {}.", index + 1))?;
+            palette.insert(key.to_string(), serde_json::Value::String(color));
         }
         if palette.is_empty() {
             return Err("Chưa có màu hợp lệ để áp dụng skin.".to_string());
@@ -1203,6 +1222,19 @@ mod tests {
         let titan = gate.activate(ProviderId::Titan);
         assert!(!gate.accepts(era, ProviderId::Era));
         assert!(gate.accepts(titan, ProviderId::Titan));
+    }
+
+    #[test]
+    fn islepilot_skin_colors_keep_exact_rgb_and_protect_visual_black() {
+        assert_eq!(
+            normalize_islepilot_skin_color("#a1b2c3").as_deref(),
+            Some("#A1B2C3")
+        );
+        assert_eq!(
+            normalize_islepilot_skin_color("#000000").as_deref(),
+            Some("#000001")
+        );
+        assert_eq!(normalize_islepilot_skin_color("black"), None);
     }
 
     #[test]

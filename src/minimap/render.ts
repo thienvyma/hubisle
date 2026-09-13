@@ -6,6 +6,8 @@
 // preloaded bitmap (vulnona 975 px tier, or a downscaled islemaps decode).
 // No repaint timers: draw only on new data.
 
+import { friendLabelLayout } from "./friend-label";
+
 export interface PoiDot {
   xCm: number;
   yCm: number;
@@ -397,6 +399,7 @@ function drawMap(
   // Accepted friends from the selected server. Keep distant friends pinned
   // to the rim so the badge remains a useful direction finder, matching the
   // behaviour of the Titan HUD. Positions are never persisted locally.
+  const friendMarkers: { x: number; y: number; badge: string; name: string }[] = [];
   for (let index = 0; index < state.friends.length; index++) {
     const friend = state.friends[index];
     let [x, y] = toWidget(friend.px, friend.py);
@@ -408,7 +411,41 @@ function drawMap(
       x = c + (dx / distancePx) * rim;
       y = c + (dy / distancePx) * rim;
     }
-    const label = String(friend.slot ?? index + 1);
+    friendMarkers.push({
+      x,
+      y,
+      badge: String(friend.slot ?? index + 1),
+      name: friend.name.trim(),
+    });
+  }
+
+  // Put each name on the inward side of its marker. This keeps labels useful
+  // for friends pinned to the rim and avoids clipping most of the name.
+  ctx.font = "600 10px 'Segoe UI', sans-serif";
+  ctx.textBaseline = "middle";
+  for (const marker of friendMarkers) {
+    if (!marker.name) continue;
+    const text = truncate(ctx, marker.name, Math.min(104, radius * 0.82));
+    const { left, top, width, height } = friendLabelLayout(
+      marker.x,
+      marker.y,
+      c,
+      radius,
+      ctx.measureText(text).width,
+    );
+    ctx.fillStyle = "rgba(2, 10, 14, 0.9)";
+    ctx.fillRect(left, top, width, height);
+    ctx.strokeStyle = "rgba(114, 255, 210, 0.62)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(left + 0.5, top + 0.5, width - 1, height - 1);
+    ctx.fillStyle = "#eafff8";
+    ctx.textAlign = "left";
+    ctx.fillText(text, left + 5, top + height / 2 + 0.5);
+  }
+
+  // Draw badges last so a nearby name can never hide a friend's position.
+  for (const marker of friendMarkers) {
+    const { x, y } = marker;
     ctx.beginPath();
     ctx.arc(x, y, 7, 0, Math.PI * 2);
     ctx.fillStyle = COLORS.friend;
@@ -420,7 +457,7 @@ function drawMap(
     ctx.font = "bold 9px 'Segoe UI', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, x, y + 0.5);
+    ctx.fillText(marker.badge, x, y + 0.5);
   }
 }
 

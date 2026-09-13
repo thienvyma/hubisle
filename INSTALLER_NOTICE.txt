@@ -1,0 +1,25 @@
+islemap-thienvyma installation notice
+Copyright (C) 2026 thienvyma
+
+LICENSE
+This program is free software licensed under the GNU General Public License,
+version 3 only (GPL-3.0-only). The complete license is installed with the app
+and published at:
+https://github.com/thienvyma/hubisle/blob/main/LICENSE
+
+PRIVACY
+Settings, trails, saved skins and history stay on this computer. Provider
+credentials are protected with Windows DPAPI.
+
+The app connects to GitHub for updates and to the server/map services selected
+by the user. Npcap reads the game's outbound UDP packets locally; raw packets
+are not uploaded. Anonymous analytics and the friend-position relay are off by
+default. The relay is used only after the user enables its sharing control.
+
+Full privacy policy:
+https://github.com/thienvyma/hubisle/blob/main/PRIVACY.md
+
+CODE SIGNING
+Product and company metadata use the name thienvyma. Free Authenticode signing
+uses a certificate issued to SignPath Foundation.
+https://github.com/thienvyma/hubisle/blob/main/CODE_SIGNING_POLICY.md

@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**islemap-thienvyma 2.4.7** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**islemap-thienvyma 2.4.7** is developed by **thienvyma**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
@@ -66,8 +66,9 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
 Run the NSIS installer built from this custom branch.
 On first launch the app downloads the map data (~3 MB) to your machine.
 It is safe to run a newer installer over an older build: the installer stops
-both old and new processes, removes stale executables and the old `Isle Pulse
-Overlay` installation directory, and then writes the new build. On first run,
+both old and new processes, writes and verifies the new executable and sidecar,
+then removes stale `Isle Pulse Overlay` files. A Windows block or interrupted
+install therefore cannot delete the working build before its replacement exists. On first run,
 the app moves roaming `TheIsleOverlay` data to `islemap-thienvyma` and local
 data to `islemap-thienvyma-data`, preserving settings, waypoints, history,
 downloaded maps, and encrypted login credentials.
@@ -75,8 +76,9 @@ downloaded maps, and encrypted login credentials.
 Requires **Windows 10/11 64-bit**. WebView2 is already present on most Windows 11
 installs; the installer fetches it if missing.
 
-> Windows may show a SmartScreen warning because the installer is not
-> code-signed. Click **More info → Run anyway**.
+> Version 2.4.7 and older are not Authenticode-signed, so Windows may show a
+> SmartScreen warning. The next release is blocked by CI until its installer
+> has a valid timestamped Authenticode signature.
 
 ### Automatic updates
 
@@ -86,7 +88,7 @@ The notification includes release notes, download progress, and a **Later** butt
 
 The app checks releases at [github.com/thienvyma/hubisle](https://github.com/thienvyma/hubisle).
 When a newer version is available, an in-app banner can download and install it.
-Every package must carry Huỳnh Vỹ's updater signature; modified packages and
+Every package must carry **thienvyma**'s updater signature; modified packages and
 packages published from another source are rejected.
 
 ## Connecting "Your Dino" (IslePilot)
@@ -160,8 +162,8 @@ map disabled the option locks itself off.
    is disabled, and a manual choice you make is always respected.
 9. **Your login token/cookie** is encrypted with Windows DPAPI and can only be
    decrypted by your Windows account on that machine.
-10. **SmartScreen** warns on first install because the installer is not code-signed
-   (certificates cost a yearly fee). Later auto-updates are not prompted again.
+10. **SmartScreen** may warn for version 2.4.7 and older. The new release
+    pipeline requires valid Authenticode before publishing to the update channel.
 
 ## Anti-cheat safety
 
@@ -228,9 +230,15 @@ your machine, not a redistribution.
 
 Unaffiliated with Afterthought LLC.
 
-## Credits
-
-Developed by **Huỳnh Vỹ**.
+Developed by **thienvyma**.
 
 - 💬 Facebook: https://www.facebook.com/thienvyma
 - 💻 GitHub: https://github.com/thienvyma/hubisle
+
+## License, privacy and code signing
+
+- Source license: [GPL-3.0-only](LICENSE)
+- Privacy policy: [PRIVACY.md](PRIVACY.md)
+- Code signing policy: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md)
+
+Free code signing provided by SignPath.io, certificate by SignPath Foundation

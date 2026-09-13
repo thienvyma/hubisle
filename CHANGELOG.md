@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+- Sửa màu skin trong mô hình 3D bị tối sai do bảng màu từng bị giảm còn 55%;
+  giữ nguyên giá trị sRGB đã chọn, cache normal map theo loài và giảm khối lượng
+  compositing để đổi màu/tải preview nhanh hơn.
+- Chuẩn hóa màu Live Skin IslePilot trước khi gửi và dùng `#000001` cho màu đen
+  trực quan, tránh kênh float bằng 0 bị game bridge hiểu như giá trị chưa đặt.
+- Minimap hiển thị tên ingame cạnh từng dấu bạn bè, tự đặt nhãn về phía tâm để
+  tên của bạn ở ngoài bán kính vẫn không bị mất tại rìa bản đồ.
+- Cài chồng không xóa bản đang hoạt động trước khi xác nhận executable và
+  sidecar mới đã được ghi đầy đủ.
+- Hoàn tất metadata `thienvyma`, giấy phép GPL-3.0-only, chính sách quyền riêng
+  tư/ký mã; CI từ chối phát hành nếu installer, app hoặc sidecar thiếu chữ ký
+  Authenticode hợp lệ có dấu thời gian.
+- Tắt số liệu sử dụng theo mặc định và bỏ dịch Prime trực tuyến; chuỗi Prime
+  chưa có trong từ điển cục bộ giữ nguyên tiếng Anh.
+
 ## [2.4.7] — 2026-09-13
 
 - Sửa lỗi đổi kết nối giữa các server IslePilot nhưng hub vẫn giữ server cũ:
@@ -221,7 +236,7 @@ Góc nhìn Era vẫn phụ thuộc nhịp dữ liệu do server cung cấp, khô
 
 ### Sửa
 
-- Chuyển toàn bộ metadata, liên kết GitHub và thông tin phát hành sang Huỳnh Vỹ.
+- Chuyển toàn bộ metadata, liên kết GitHub và thông tin phát hành sang thienvyma.
 - Cờ đích được ưu tiên cho bộ tính hướng; waypoint thường vẫn được lưu và hiện
   trên cả bản đồ lớn lẫn minimap.
 - Sửa thứ tự trục tọa độ Titan theo đúng phép chiếu của live map chính thức,

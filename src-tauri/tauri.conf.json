@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "islemap-thienvyma",
   "version": "2.4.7",
-  "identifier": "vn.huynhvy.islemap-thienvyma",
+  "identifier": "vn.thienvyma.islemap-thienvyma",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -50,9 +50,15 @@
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/islemap-thienvyma-telemetry"],
     "resources": {
-      "../sidecars/local-telemetry/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.local-telemetry.md"
+      "../sidecars/local-telemetry/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.local-telemetry.md",
+      "../LICENSE": "LICENSE.txt",
+      "../PRIVACY.md": "PRIVACY.md",
+      "../CODE_SIGNING_POLICY.md": "CODE_SIGNING_POLICY.md"
     },
-    "publisher": "Huỳnh Vỹ",
+    "publisher": "thienvyma",
+    "copyright": "Copyright © 2026 thienvyma",
+    "license": "GPL-3.0-only",
+    "licenseFile": "../INSTALLER_NOTICE.txt",
     "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",

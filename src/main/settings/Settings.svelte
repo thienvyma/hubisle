@@ -320,7 +320,7 @@
       <label class="flex cursor-pointer items-center gap-2 text-sm">
         <input
           type="checkbox"
-          checked={settings.telemetry?.enabled ?? true}
+          checked={settings.telemetry?.enabled ?? false}
           onchange={(e) => void patch({ telemetry: { enabled: e.currentTarget.checked } })}
         />
         {$t("telemetry.enabled")}

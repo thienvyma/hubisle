@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**islemap-thienvyma 2.4.7** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**islemap-thienvyma 2.4.7** do **thienvyma** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
@@ -67,7 +67,9 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 Chạy file cài đặt NSIS được tạo từ nhánh tùy chỉnh này.
 Lần đầu mở app sẽ tải dữ liệu bản đồ (~3 MB) về máy.
 Có thể chạy trực tiếp bộ cài mới trên bản cũ: installer sẽ đóng cả tiến trình
-cũ/mới, xóa executable và thư mục cài `Isle Pulse Overlay` cũ rồi ghi bản mới.
+cũ/mới, ghi và kiểm tra đủ executable/sidecar mới, sau đó mới dọn các tệp cũ
+của `Isle Pulse Overlay`. Nếu việc cài đặt bị Windows chặn giữa chừng, bản đang
+dùng không bị xóa trước.
 Lần mở đầu tiên chuyển dữ liệu roaming `TheIsleOverlay` sang
 `islemap-thienvyma` và dữ liệu local sang `islemap-thienvyma-data`, giữ nguyên
 cài đặt, waypoint, lịch sử, bản đồ đã tải và thông tin đăng nhập đã mã hóa.
@@ -75,14 +77,15 @@ cài đặt, waypoint, lịch sử, bản đồ đã tải và thông tin đăng
 Yêu cầu: **Windows 10/11 64-bit**. WebView2 (thường đã có sẵn trên Windows 11;
 nếu thiếu, installer tự tải về).
 
-> Windows có thể hiện cảnh báo SmartScreen vì installer chưa ký số.
-> Bấm **More info → Run anyway**.
+> Bản 2.4.7 và cũ hơn chưa có chữ ký Authenticode nên Windows có thể cảnh báo
+> SmartScreen. Release kế tiếp chỉ được phát hành sau khi bộ cài có chữ ký số
+> hợp lệ và dấu thời gian; CI sẽ chặn mọi bộ cài chưa ký.
 
 ### Cập nhật tự động
 
 Ứng dụng kiểm tra bản phát hành tại [github.com/thienvyma/hubisle](https://github.com/thienvyma/hubisle).
 Khi có phiên bản cao hơn, một bảng thông báo sẽ cho phép tải và cài ngay trong
-ứng dụng. Mỗi gói cập nhật phải có chữ ký của Huỳnh Vỹ; gói bị sửa hoặc phát
+ứng dụng. Mỗi gói cập nhật phải có chữ ký updater của **thienvyma**; gói bị sửa hoặc phát
 hành từ nguồn khác sẽ bị từ chối.
 
 App kiểm tra khi mở, mỗi 5 phút và khi mạng kết nối lại. Bạn cũng có thể bấm
@@ -161,8 +164,8 @@ dùng được):
    chọn tắt/bật thủ công của bạn luôn được tôn trọng.
 9. **Token/cookie đăng nhập** được mã hóa bằng Windows DPAPI, chỉ giải được
    bằng tài khoản Windows của bạn trên chính máy đó.
-10. **SmartScreen** sẽ cảnh báo ở lần cài đầu vì installer chưa ký số (chứng chỉ ký
-   số tốn phí hằng năm). Bản cập nhật tự động về sau không bị hỏi lại.
+10. **SmartScreen** có thể cảnh báo với bản 2.4.7 và cũ hơn. Quy trình release
+    mới yêu cầu chữ ký Authenticode hợp lệ trước khi đưa bản cài lên kênh cập nhật.
 
 ## An toàn với anti-cheat
 
@@ -228,7 +231,15 @@ Không liên kết với Afterthought LLC.
 
 ## Ghi công
 
-Được phát triển bởi **Huỳnh Vỹ**.
+Được phát triển bởi **thienvyma**.
 
 - 💬 Facebook: https://www.facebook.com/thienvyma
 - 💻 GitHub: https://github.com/thienvyma/hubisle
+
+## Giấy phép, quyền riêng tư và ký mã
+
+- Mã nguồn: [GPL-3.0-only](LICENSE)
+- Chính sách quyền riêng tư: [PRIVACY.md](PRIVACY.md)
+- Chính sách ký mã: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md)
+
+Free code signing provided by SignPath.io, certificate by SignPath Foundation

@@ -207,12 +207,11 @@ pub fn default_settings() -> Value {
             "break_after_metres": 200,
             "min_node_distance_m": 5,
         },
-        // Anonymous usage counts + crash reports. No IP is stored (the
-        // edge supplies a country code and the address is dropped), no game
-        // position ever leaves the machine, and Windows account names are
-        // stripped from crash text before it is sent.
+        // Anonymous usage counts + crash reports are opt-in. Public builds
+        // currently have no analytics endpoint, but the default stays off so
+        // adding one later cannot silently change the privacy contract.
         "telemetry": {
-            "enabled": true,
+            "enabled": false,
         },
         "number_format": "auto",         // auto | us | eu
         "language": "vi",                // vi | en

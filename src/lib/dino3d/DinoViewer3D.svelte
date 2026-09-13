@@ -1,8 +1,6 @@
 <script lang="ts">
-  // 3D dino preview — vanilla three.js port of the official overlay app's
-  // viewer (camera/lights/material values copied verbatim). three is
-  // dynamic-imported so the main bundle stays light; assets come through the
-  // Rust CDN cache (no CORS on the CDN).
+  // Independent three.js dino preview. three is dynamic-imported so the main
+  // bundle stays light; public CDN assets come through the Rust cache.
   //
   // Performance contract (field report: tab switching lagged):
   // - Rebuild ONLY when species/palette actually change (key guard) — parent
@@ -16,7 +14,6 @@
   import { DINO_MODELS, DEFAULT_PALETTE, SHARED, type DinoPalette } from "./registry";
   import { buildSkin, skinKey } from "./skin";
   import { loadGltf } from "./model-cache";
-  import bgImage from "../../assets/dino-viewer-bg.jpg";
 
   let {
     species,
@@ -113,6 +110,7 @@
       // than 2.0 on a HiDPI screen.
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.setSize(width, height);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 0.99;
       el.appendChild(renderer.domElement);
@@ -121,9 +119,8 @@
       const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 200);
       camera.position.set(-19.33, 0.89, -0.02);
 
-      // The official viewer's intensities are LEGACY-lighting numbers (its
-      // three predates r155). r185 is physically-based only, where the same
-      // numbers render nearly black — scale by PI to reproduce the old look.
+      // three r185 uses physically based lights, so the preview uses a small
+      // three-point rig scaled for the compact viewer.
       const L = Math.PI;
       scene.add(new THREE.AmbientLight(0xffffff, 0.7 * L));
       scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x3a2f28, 0.6 * L));
@@ -134,7 +131,7 @@
       fill.position.set(-6, 4, -6);
       scene.add(fill);
 
-      // Recoloured skin material (values copied from the official viewer).
+      // Recoloured skin material tuned for this compact preview.
       const mapTex = new THREE.CanvasTexture(skin.map);
       mapTex.flipY = false;
       mapTex.colorSpace = THREE.SRGBColorSpace;
@@ -271,7 +268,7 @@
 
 <div
   class="viewer-bg relative w-full"
-  style="height: {height}px; background-image: linear-gradient(rgba(10, 13, 9, 0.18), rgba(10, 13, 9, 0.32)), url({bgImage})"
+  style="height: {height}px"
 >
   <div bind:this={container} class="absolute inset-0"></div>
   {#if status !== "ready"}
@@ -292,7 +289,9 @@
 
 <style>
   .viewer-bg {
-    background-size: cover;
-    background-position: center;
+    background:
+      radial-gradient(circle at 70% 24%, rgba(98, 132, 82, 0.32), transparent 36%),
+      radial-gradient(circle at 18% 78%, rgba(45, 95, 85, 0.24), transparent 40%),
+      linear-gradient(160deg, #172118 0%, #0b1411 52%, #07101a 100%);
   }
 </style>

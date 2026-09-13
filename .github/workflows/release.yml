@@ -70,6 +70,12 @@ jobs:
       - name: Test safe Windows installer upgrade
         run: npm run test:installer
 
+      - name: Test release trust policy
+        run: npm run test:release-trust
+
+      - name: Test minimap friend labels
+        run: npm run test:minimap-friends
+
       - name: Test provider defaults
         run: npm run test:provider-defaults
 
@@ -144,6 +150,9 @@ jobs:
           }
           gh release download "v$version" --repo thienvyma/hubisle --pattern $assetName --pattern "$assetName.sig" --dir $manifestDir --clobber
           if ($LASTEXITCODE -ne 0) { throw "Cannot download signed installer for verification." }
+          $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/islemap-thienvyma.exe"
+          $sidecar = Join-Path $env:GITHUB_WORKSPACE "src-tauri/binaries/islemap-thienvyma-telemetry-x86_64-pc-windows-msvc.exe"
+          ./scripts/check-authenticode.ps1 -Path (Join-Path $manifestDir $assetName), $exe, $sidecar
           node scripts/verify-signed-installer.mjs (Join-Path $manifestDir $assetName) (Join-Path $manifestDir "$assetName.sig") src-tauri/tauri.conf.json (Join-Path $manifestDir "latest.json")
           if ($LASTEXITCODE -ne 0) { throw "Installer signature verification failed." }
           $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/islemap-thienvyma.exe"

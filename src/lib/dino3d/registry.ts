@@ -1,9 +1,8 @@
 // Per-species 3D asset registry for the IslePilot skinviewer CDN.
 //
-// registry.json is extracted VERBATIM from the official overlay app's
-// renderer bundle — the URLs are hand-maintained over there (abbreviated
-// folder names, inconsistent filenames, typos included), so they cannot be
-// derived from the species name. Species keys are exact-case.
+// The manifest lists public IslePilot CDN URLs and per-model display settings.
+// Asset names are not derivable from species names, so they are kept explicit.
+// Species keys are exact-case.
 
 import registryJson from "./registry.json";
 

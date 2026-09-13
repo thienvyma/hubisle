@@ -1,10 +1,9 @@
-// Skin-texture compositing for the 3D dino viewer — a faithful port of the
-// official overlay app's CPU pipeline (no shaders): the pattern PNG encodes
-// each colour zone as a reference colour, and we replace nearest-matching
-// pixels with the dino's palette, then blend the teeth/mouth/claws mask, the
-// RAC cavity map and a detail normal. All plain ImageData math on canvases.
+// CPU skin-texture compositing for the 3D dino viewer. Pattern images encode
+// colour zones as reference colours; the renderer replaces nearest matches,
+// then blends the teeth/mouth/claws mask, RAC cavity map and detail normal.
 
 import { fetchCdnAsset } from "$lib/api";
+import { hexToRgb } from "./color";
 import { SHARED, type DinoModelEntry, type DinoPalette } from "./registry";
 
 /** Reference colours baked into the pattern PNGs (0-255 RGB). */
@@ -17,19 +16,13 @@ const ZONE_REFS: { key: keyof DinoPalette; ref: [number, number, number]; thresh
   { key: "detail", ref: [255, 255, 0], threshold: 0.42 },
 ];
 
-/** Same brightness factor the official app multiplies replacements by. */
-const BRIGHTNESS = 0.55;
 /** RAC cavity strength (uses G*B of the RAC map). */
 const RAC_STRENGTH = 0.85;
 
-const hexToRgb = (hex: string): [number, number, number] => {
-  const n = parseInt(hex.replace("#", ""), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-
-/// Per-pixel JS compositing on a 4K texture is seconds of main-thread work
-/// for no visible gain in a preview widget — cap everything at 2K.
-const MAX_TEX = 2048;
+// Per-pixel JS compositing on a 2K/4K texture stalls the UI for no visible
+// gain in this compact preview. 1K retains more detail than the widget can
+// display while cutting palette-change work to one quarter of the old cap.
+const MAX_TEX = 1024;
 
 /// Decoded source textures by URL — the shared detail normal is reused by
 /// every species, and a palette change only needs the composite redone.
@@ -88,11 +81,10 @@ function compositeMap(
 ): HTMLCanvasElement {
   const zones = ZONE_REFS.map((z) => ({
     ...z,
-    color: hexToRgb(palette[z.key]).map((c) => c * BRIGHTNESS) as unknown as [
-      number,
-      number,
-      number,
-    ],
+    // Preserve the chosen sRGB value. Lighting and the RAC map add surface
+    // detail later; darkening the palette here made every swatch visibly
+    // different from the user's selection.
+    color: hexToRgb(palette[z.key]),
   }));
   const teeth = hexToRgb(palette.teeth);
   const mouth = hexToRgb(palette.mouth);
@@ -213,6 +205,10 @@ export interface SkinCanvases {
 const skinCache = new Map<string, Promise<SkinCanvases>>();
 const SKIN_CACHE_MAX = 12;
 
+// A species normal map never depends on its palette. Cache the finished
+// normal canvas separately so changing one colour only rebuilds the base map.
+const normalCache = new Map<string, Promise<HTMLCanvasElement | null>>();
+
 /** Stable cache key for a species + palette combination. */
 export const skinKey = (species: string, palette: DinoPalette): string =>
   `${species}|${Object.values(palette).join(",")}`;
@@ -242,20 +238,34 @@ async function buildSkinUncached(
 ): Promise<SkinCanvases> {
   const patternUrl = entry.patterns["1"] ?? Object.values(entry.patterns)[0];
   const tmcUrl = entry.patternMasks?.["1"] ?? null;
-  const [pattern, tmc, rac, normal, detailNormal] = await Promise.all([
+  const [pattern, tmc, rac, normal] = await Promise.all([
     loadImageData(patternUrl),
     tmcUrl ? loadImageData(tmcUrl).catch(() => null) : Promise.resolve(null),
     loadImageData(entry.racMap).catch(() => null),
-    loadImageData(entry.normalMap).catch(() => null),
-    loadImageData(SHARED.detailNormal).catch(() => null),
+    buildNormal(entry),
   ]);
   return {
     map: compositeMap(pattern, palette, tmc, rac),
-    normal:
+    normal,
+  };
+}
+
+function buildNormal(entry: DinoModelEntry): Promise<HTMLCanvasElement | null> {
+  const key = `${entry.normalMap}|${SHARED.detailNormal}|${entry.detailScale || 12}`;
+  let pending = normalCache.get(key);
+  if (!pending) {
+    pending = Promise.all([
+      loadImageData(entry.normalMap).catch(() => null),
+      loadImageData(SHARED.detailNormal).catch(() => null),
+    ]).then(([normal, detailNormal]) =>
       normal && detailNormal
         ? compositeNormal(normal, detailNormal, entry.detailScale || 12)
         : normal
           ? toCanvas(normal)
           : null,
-  };
+    );
+    pending.catch(() => normalCache.delete(key));
+    normalCache.set(key, pending);
+  }
+  return pending;
 }
