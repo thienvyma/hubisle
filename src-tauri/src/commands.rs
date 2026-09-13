@@ -847,18 +847,40 @@ pub async fn islepilot_garage() -> Result<crate::islepilot::api::GarageState, St
         .map_err(|e| e.to_string())?
 }
 
-/// Park the CURRENT dino into the garage. Blocks through the async-command
-/// status poll (up to ~60 s), so the frontend should show a busy state.
+/// Start the server-defined park countdown for the CURRENT dino.
 #[tauri::command]
-pub async fn islepilot_garage_park() -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        crate::islepilot::garage_action(
-            "/api/overlay/garage/park",
-            serde_json::json!({ "step": "start" }),
-        )
-    })
-    .await
-    .map_err(|e| e.to_string())?
+pub async fn islepilot_garage_park() -> Result<crate::islepilot::api::GarageParkStart, String> {
+    tauri::async_runtime::spawn_blocking(crate::islepilot::garage_park_start)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Confirm parking after the countdown. Returns the async command id that
+/// must be polled before the garage is refreshed.
+#[tauri::command]
+pub async fn islepilot_garage_park_finalize() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(crate::islepilot::garage_park_finalize)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn islepilot_garage_park_cancel() -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(crate::islepilot::garage_park_cancel)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn islepilot_garage_wait(command_id: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::islepilot::garage_wait(&command_id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn islepilot_http_pause(paused: bool) {
+    crate::islepilot::set_http_paused(paused);
 }
 
 #[tauri::command]

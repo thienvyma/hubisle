@@ -58,6 +58,9 @@ jobs:
       - name: Test saved skin library
         run: npm run test:skin
 
+      - name: Test IslePilot garage workflow
+        run: npm run test:garage
+
       - name: Check frontend
         run: npm run check
 

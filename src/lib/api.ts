@@ -615,9 +615,25 @@ export interface GarageState {
   serverName: string | null;
 }
 
+export interface IslepilotGarageParkStart {
+  pending: boolean;
+  delaySec: number;
+  commandId: string | number | null;
+}
+
 export const islepilotGarage = () => invoke<GarageState>("islepilot_garage");
-/** Park the CURRENT dino (blocks through the server's async command, ~60 s max). */
-export const islepilotGaragePark = () => invoke("islepilot_garage_park");
+/** Begin the server-defined park countdown for the current dino. */
+export const islepilotGaragePark = () =>
+  invoke<IslepilotGarageParkStart>("islepilot_garage_park");
+/** Finalize after the countdown and return the command id to poll. */
+export const islepilotGarageParkFinalize = () =>
+  invoke<string>("islepilot_garage_park_finalize");
+export const islepilotGarageParkCancel = () =>
+  invoke("islepilot_garage_park_cancel");
+export const islepilotGarageWait = (commandId: string) =>
+  invoke("islepilot_garage_wait", { commandId });
+export const islepilotHttpPause = (paused: boolean) =>
+  invoke("islepilot_http_pause", { paused });
 export const islepilotGarageRestore = (id: string) =>
   invoke("islepilot_garage_restore", { id });
 export const islepilotGarageSell = (id: string) =>

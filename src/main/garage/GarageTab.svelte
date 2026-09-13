@@ -12,9 +12,13 @@
   import {
     islepilotGarage,
     islepilotGaragePark,
+    islepilotGarageParkCancel,
+    islepilotGarageParkFinalize,
     islepilotGarageRename,
     islepilotGarageRestore,
     islepilotGarageSell,
+    islepilotGarageWait,
+    islepilotHttpPause,
     islepilotState,
     listenerBag,
     onDinoLoginOk,
@@ -25,6 +29,10 @@
   import DinoViewer3D from "$lib/dino3d/DinoViewer3D.svelte";
   import { prefetchSpeciesAssets } from "$lib/dino3d/model-cache";
   import { hasModel, paletteFrom } from "$lib/dino3d/registry";
+  import {
+    runGaragePark,
+    type GarageParkProgress,
+  } from "./park-flow";
 
   const RELOAD_MS = 10 * 60 * 1000;
 
@@ -35,6 +43,8 @@
   let garageBusy = $state(false);
   let garageError = $state<string | null>(null);
   let garageNote = $state<string | null>(null);
+  let parkProgress = $state<GarageParkProgress | null>(null);
+  let parkCancelRequested = $state(false);
   let renamingId = $state<string | null>(null);
   let renameInput = $state("");
   let loadedAtMs = $state<number | null>(null);
@@ -97,13 +107,51 @@
     garageError = null;
     garageNote = null;
     try {
+      await islepilotHttpPause(true);
       await fn();
       garageNote = tNow("garage.done");
       await loadGarage();
     } catch (e) {
       garageError = String(e);
     } finally {
+      await islepilotHttpPause(false).catch(() => undefined);
       garageBusy = false;
+    }
+  }
+
+  async function parkDino() {
+    garageBusy = true;
+    garageError = null;
+    garageNote = null;
+    parkProgress = null;
+    parkCancelRequested = false;
+    try {
+      await islepilotHttpPause(true);
+      const result = await runGaragePark({
+        start: islepilotGaragePark,
+        finalize: islepilotGarageParkFinalize,
+        cancel: islepilotGarageParkCancel,
+        wait: islepilotGarageWait,
+        sleep: (milliseconds) =>
+          new Promise((resolve) => window.setTimeout(resolve, milliseconds)),
+        isCancelled: () => parkCancelRequested,
+        onProgress: (progress) => {
+          parkProgress = progress;
+        },
+      });
+      if (result.cancelled) {
+        garageNote = tNow("garage.park_cancelled");
+      } else {
+        garageNote = tNow("garage.done");
+        await loadGarage();
+      }
+    } catch (e) {
+      garageError = String(e);
+    } finally {
+      await islepilotHttpPause(false).catch(() => undefined);
+      garageBusy = false;
+      parkProgress = null;
+      parkCancelRequested = false;
     }
   }
 
@@ -186,10 +234,20 @@
           class="cursor-pointer rounded px-3 py-1 text-sm font-medium disabled:opacity-50"
           style="background: var(--color-accent); color: var(--color-bg)"
           disabled={garageBusy || garage?.online !== true || garage?.hasActiveDino !== true}
-          onclick={() => void garageDo(() => islepilotGaragePark())}
+          onclick={() => void parkDino()}
         >
           {$t("garage.park")}
         </button>
+        {#if parkProgress?.phase === "countdown"}
+          <button
+            class="cursor-pointer rounded border px-3 py-1 text-sm disabled:opacity-50"
+            style="border-color: #aa5b50; color: #ff9e91"
+            disabled={parkCancelRequested}
+            onclick={() => (parkCancelRequested = true)}
+          >
+            {$t("garage.park_cancel")}
+          </button>
+        {/if}
       </div>
     {/if}
   </div>
@@ -219,7 +277,32 @@
       </section>
     {/if}
 
-    {#if garageBusy}
+    {#if parkProgress?.phase === "countdown"}
+      <section
+        class="rounded border p-3"
+        style="border-color: #765e32; color: #ffd591; background: var(--color-panel)"
+        role="status"
+        aria-live="polite"
+      >
+        <p class="text-sm font-medium">
+          {tNow("garage.park_wait", { seconds: parkProgress.remainingSec })}
+        </p>
+        <div
+          class="mt-2 h-1.5 overflow-hidden rounded"
+          style="background: color-mix(in srgb, var(--color-border) 70%, transparent)"
+          aria-hidden="true"
+        >
+          <div
+            class="h-full rounded"
+            style={`width: ${(parkProgress.remainingSec / Math.max(1, parkProgress.totalSec)) * 100}%; background: var(--color-accent)`}
+          ></div>
+        </div>
+      </section>
+    {:else if parkProgress?.phase === "finalizing"}
+      <p class="text-sm" style="color: #ffd591">{$t("garage.park_finalizing")}</p>
+    {:else if parkProgress?.phase === "polling"}
+      <p class="text-sm" style="color: #ffd591">{$t("garage.park_polling")}</p>
+    {:else if garageBusy}
       <p class="text-sm" style="color: #ffd591">{$t("garage.busy")}</p>
     {/if}
     {#if garageError}

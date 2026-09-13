@@ -1,7 +1,7 @@
 {
   "name": "islemap-thienvyma",
   "private": true,
-  "version": "2.4.3",
+  "version": "2.4.4",
   "author": "Huỳnh Vỹ",
   "homepage": "https://github.com/thienvyma/hubisle",
   "repository": {
@@ -17,6 +17,7 @@
     "check:updater": "node scripts/check-updater.mjs",
     "test:updater": "node --experimental-strip-types --test scripts/update*.test.mjs",
     "test:heading": "node --experimental-strip-types --test scripts/heading.test.mjs tools/compass-lab/solver.test.mjs",
+    "test:garage": "node --experimental-strip-types --test scripts/garage-park.test.mjs",
     "test:skin": "node --experimental-strip-types --test scripts/skin-library.test.mjs",
     "tauri": "tauri"
   },

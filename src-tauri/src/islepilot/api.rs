@@ -605,47 +605,201 @@ pub fn garage_list(client: &reqwest::blocking::Client, token: &str) -> Result<Va
     get(client, "/api/overlay/garage", token)
 }
 
-/// POST a garage command and, when it is asynchronous (`commandId` in the
-/// response), poll its status to completion: 1.5 s x 40 tries (~60 s), the
-/// exact pattern the official app uses.
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GarageParkStart {
+    pub pending: bool,
+    pub delay_sec: u64,
+    pub command_id: Option<String>,
+}
+
+fn garage_response_error(response: &Value) -> Option<String> {
+    let message = response
+        .get("error")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|message| !message.is_empty())
+        .map(str::to_string);
+    if message.is_some() || response.get("ok").and_then(Value::as_bool) == Some(false) {
+        return Some(message.unwrap_or_else(|| "Command failed".to_string()));
+    }
+    None
+}
+
+pub fn garage_command_id(response: &Value) -> Option<String> {
+    let value = response
+        .get("commandId")
+        .or_else(|| response.get("command_id"))
+        .or_else(|| response.get("id"))?;
+    let id = match value {
+        Value::String(id) => id.trim().to_string(),
+        Value::Number(id) => id.to_string(),
+        _ => return None,
+    };
+    (!id.is_empty()).then_some(id)
+}
+
+fn seconds_value(value: Option<&Value>) -> u64 {
+    let seconds = match value {
+        Some(Value::Number(number)) => number.as_f64(),
+        Some(Value::String(number)) => number.trim().parse::<f64>().ok(),
+        _ => None,
+    }
+    .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
+    .unwrap_or(0.0);
+    // A fractional server delay must never be shortened by rounding down.
+    seconds.ceil().min(3_600.0) as u64
+}
+
+pub fn parse_garage_park_start(response: &Value) -> Result<GarageParkStart, String> {
+    if let Some(error) = garage_response_error(response) {
+        return Err(error);
+    }
+    let delay_sec = seconds_value(
+        response
+            .get("delaySec")
+            .or_else(|| response.get("delay_sec")),
+    );
+    Ok(GarageParkStart {
+        pending: response.get("pending").and_then(Value::as_bool) == Some(true) || delay_sec > 0,
+        delay_sec,
+        command_id: garage_command_id(response),
+    })
+}
+
+/// POST without consuming an asynchronous command. Parking needs this because
+/// IslePilot returns a server-defined countdown from `step=start`; only after
+/// that delay may the client send `step=finalize`.
+pub fn garage_post(
+    client: &reqwest::blocking::Client,
+    token: &str,
+    path: &str,
+    body: &Value,
+) -> Result<Value, String> {
+    let response = post(client, path, token, body).map_err(|e| e.to_string())?;
+    if let Some(error) = garage_response_error(&response) {
+        return Err(error);
+    }
+    Ok(response)
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum GarageCommandStatus {
+    Pending,
+    Done,
+    Failed(String),
+}
+
+fn garage_command_status(response: &Value) -> GarageCommandStatus {
+    match response.get("status").and_then(Value::as_str) {
+        Some("done") => GarageCommandStatus::Done,
+        Some("failed") => GarageCommandStatus::Failed(
+            response
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("Command failed")
+                .to_string(),
+        ),
+        _ => GarageCommandStatus::Pending,
+    }
+}
+
+fn encode_query_component(value: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push('%');
+            encoded.push(HEX[(byte >> 4) as usize] as char);
+            encoded.push(HEX[(byte & 0x0f) as usize] as char);
+        }
+    }
+    encoded
+}
+
+/// Poll an IslePilot async command to completion. Transient GET failures are
+/// retried because the server often drops individual overlay connections.
+pub fn garage_wait_command(
+    client: &reqwest::blocking::Client,
+    token: &str,
+    command_id: &str,
+) -> Result<Value, String> {
+    let command_id = command_id.trim();
+    if command_id.is_empty() || command_id.len() > 256 {
+        return Err("Invalid garage command id".to_string());
+    }
+    let status_path = format!(
+        "/api/overlay/garage/status?id={}",
+        encode_query_component(command_id)
+    );
+    for _ in 0..40 {
+        std::thread::sleep(Duration::from_millis(1500));
+        let Ok(status) = get(client, &status_path, token) else {
+            continue;
+        };
+        match garage_command_status(&status) {
+            GarageCommandStatus::Done => return Ok(status),
+            GarageCommandStatus::Failed(error) => return Err(error),
+            GarageCommandStatus::Pending => {}
+        }
+    }
+    Err("Timed out waiting for the server to confirm the garage command".to_string())
+}
+
+pub fn garage_park_start(
+    client: &reqwest::blocking::Client,
+    token: &str,
+) -> Result<GarageParkStart, String> {
+    let response = garage_post(
+        client,
+        token,
+        "/api/overlay/garage/park",
+        &serde_json::json!({ "step": "start" }),
+    )?;
+    parse_garage_park_start(&response)
+}
+
+pub fn garage_park_finalize(
+    client: &reqwest::blocking::Client,
+    token: &str,
+) -> Result<String, String> {
+    let response = garage_post(
+        client,
+        token,
+        "/api/overlay/garage/park",
+        &serde_json::json!({ "step": "finalize" }),
+    )?;
+    garage_command_id(&response)
+        .ok_or_else(|| "The server did not return a garage command id".to_string())
+}
+
+pub fn garage_park_cancel(
+    client: &reqwest::blocking::Client,
+    token: &str,
+) -> Result<Value, String> {
+    garage_post(
+        client,
+        token,
+        "/api/overlay/garage/park",
+        &serde_json::json!({ "step": "cancel" }),
+    )
+}
+
+/// POST a normal garage command and, when it is asynchronous, poll its
+/// status to completion: 1.5 s x 40 tries (~60 s).
 pub fn garage_command(
     client: &reqwest::blocking::Client,
     token: &str,
     path: &str,
     body: Value,
 ) -> Result<Value, String> {
-    let res = post(client, path, token, &body).map_err(|e| e.to_string())?;
-    if let Some(err) = res.get("error").and_then(|e| e.as_str()) {
-        return Err(err.to_string());
-    }
-    let Some(command_id) = res
-        .get("commandId")
-        .and_then(|c| c.as_str())
-        .map(String::from)
-    else {
-        return Ok(res); // synchronous command (e.g. rename, sell)
+    let response = garage_post(client, token, path, &body)?;
+    let Some(command_id) = garage_command_id(&response) else {
+        return Ok(response); // synchronous command (e.g. rename, sell)
     };
-    for _ in 0..40 {
-        std::thread::sleep(Duration::from_millis(1500));
-        let s = get(
-            client,
-            &format!("/api/overlay/garage/status?id={command_id}"),
-            token,
-        )
-        .map_err(|e| e.to_string())?;
-        match s.get("status").and_then(|st| st.as_str()) {
-            Some("done") => return Ok(s),
-            Some("failed") => {
-                return Err(s
-                    .get("error")
-                    .and_then(|e| e.as_str())
-                    .unwrap_or("failed")
-                    .to_string())
-            }
-            _ => {} // pending — keep waiting
-        }
-    }
-    Err("timeout".to_string())
+    garage_wait_command(client, token, &command_id)
 }
 
 /// Serialized state for the frontend garage panel.
@@ -883,6 +1037,65 @@ mod tests {
         assert!(state.online);
         assert!(state.has_active_dino);
         assert_eq!(state.server_name.as_deref(), Some("DinoVietnam VIP"));
+    }
+
+    #[test]
+    fn garage_park_start_reads_islepilot_web_countdown_contract() {
+        let start = parse_garage_park_start(&serde_json::json!({
+            "ok": true,
+            "pending": true,
+            "delaySec": 12
+        }))
+        .unwrap();
+        assert!(start.pending);
+        assert_eq!(start.delay_sec, 12);
+        assert_eq!(start.command_id, None);
+
+        let compatible = parse_garage_park_start(&serde_json::json!({
+            "delay_sec": "8",
+            "command_id": 184
+        }))
+        .unwrap();
+        assert_eq!(compatible.delay_sec, 8);
+        assert_eq!(compatible.command_id.as_deref(), Some("184"));
+    }
+
+    #[test]
+    fn garage_command_id_accepts_every_islepilot_client_shape() {
+        assert_eq!(
+            garage_command_id(&serde_json::json!({"commandId": "abc-123"})).as_deref(),
+            Some("abc-123")
+        );
+        assert_eq!(
+            garage_command_id(&serde_json::json!({"command_id": 42})).as_deref(),
+            Some("42")
+        );
+        assert_eq!(
+            garage_command_id(&serde_json::json!({"id": "fallback"})).as_deref(),
+            Some("fallback")
+        );
+    }
+
+    #[test]
+    fn garage_status_matches_islepilot_web_polling_contract() {
+        assert_eq!(
+            garage_command_status(&serde_json::json!({"status": "done"})),
+            GarageCommandStatus::Done
+        );
+        assert_eq!(
+            garage_command_status(&serde_json::json!({
+                "status": "failed",
+                "error": "moved"
+            })),
+            GarageCommandStatus::Failed("moved".to_string())
+        );
+        assert_eq!(
+            garage_command_status(&serde_json::json!({
+                "status": "pending",
+                "error": "temporary read error"
+            })),
+            GarageCommandStatus::Pending
+        );
     }
 
     #[test]

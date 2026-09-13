@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**islemap-thienvyma 2.4.3** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**islemap-thienvyma 2.4.4** is developed by **Huỳnh Vỹ**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.

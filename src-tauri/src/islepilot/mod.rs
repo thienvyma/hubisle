@@ -45,6 +45,10 @@ const BUILD_ID_CHECK_S: f64 = 600.0;
 /// Poller generation: bumping it makes any running poll loop exit on its
 /// next tick. This is how login/logout/settings changes restart cleanly.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
+/// Garage commands are time-sensitive and the official IslePilot client
+/// pauses its background HTTP loop while they run. Keep local packet heading
+/// capture alive; only defer this module's web requests.
+static HTTP_PAUSED: AtomicBool = AtomicBool::new(false);
 static LAST_UPDATE: Mutex<Option<DinoUpdate>> = Mutex::new(None);
 /// Prime-quest count of the last GOOD update (error publishes keep the
 /// previous value so a network hiccup can't collapse the overlay panel).
@@ -647,6 +651,10 @@ pub fn restart_poller(app: &AppHandle) {
             if !config.enabled {
                 return;
             }
+            if HTTP_PAUSED.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(250));
+                continue;
+            }
 
             if last_build_check.elapsed().as_secs_f64() > BUILD_ID_CHECK_S && !layout_changed {
                 last_build_check = std::time::Instant::now();
@@ -846,6 +854,10 @@ fn run_token_poll(app: AppHandle, generation: u64, tok: token::OverlayToken) {
             if !config.enabled || config.auth_mode != "token" {
                 return;
             }
+            if HTTP_PAUSED.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(250));
+                continue;
+            }
 
             match api::get_me_with_raw(&client, &tok.token) {
                 Ok((me, raw_me)) => {
@@ -1029,8 +1041,13 @@ pub(crate) fn backoff_s(base: f64, failures: u32) -> f64 {
 
 pub fn stop_poller() {
     GENERATION.fetch_add(1, Ordering::SeqCst);
+    HTTP_PAUSED.store(false, Ordering::SeqCst);
     *LAST_UPDATE.lock_safe() = None;
     QUEST_COUNT.store(0, Ordering::SeqCst);
+}
+
+pub fn set_http_paused(paused: bool) {
+    HTTP_PAUSED.store(paused, Ordering::SeqCst);
 }
 
 /// Open the panel in a login window; once the user finishes Steam sign-in
@@ -1717,6 +1734,32 @@ pub fn garage_action(path: &str, body: serde_json::Value) -> Result<serde_json::
     let tok = token_or_err()?;
     let client = http_client()?;
     api::garage_command(&client, &tok.token, path, body)
+}
+
+/// Begin IslePilot's server-controlled garage countdown. The finalize request
+/// must be sent by the UI only after `delaySec` has elapsed.
+pub fn garage_park_start() -> Result<api::GarageParkStart, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::garage_park_start(&client, &tok.token)
+}
+
+pub fn garage_park_finalize() -> Result<String, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::garage_park_finalize(&client, &tok.token)
+}
+
+pub fn garage_park_cancel() -> Result<serde_json::Value, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::garage_park_cancel(&client, &tok.token)
+}
+
+pub fn garage_wait(command_id: &str) -> Result<serde_json::Value, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::garage_wait_command(&client, &tok.token, command_id)
 }
 
 pub fn skin_state() -> Result<serde_json::Value, String> {

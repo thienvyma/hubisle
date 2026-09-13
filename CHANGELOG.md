@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [2.4.4] — 2026-09-13
+
+- Sửa thao tác cất Dino trên IslePilot theo đúng quy trình server: nhận thời
+  gian chờ từ `start`, đếm ngược, gửi `finalize`, rồi theo dõi trạng thái lệnh.
+- Hiện số giây còn lại, nhắc đứng yên/không nhận sát thương và cho phép hủy
+  quá trình cất ngay trong tab Garage.
+- Tự thử lại bước xác nhận và các lần đọc trạng thái bị rớt kết nối tạm thời;
+  tạm dừng request IslePilot nền khi Garage đang xử lý để tránh tranh kết nối.
+- Nhận `commandId`, `command_id` hoặc `id` ở cả dạng chuỗi và số để tương thích
+  các phiên bản backend IslePilot khác nhau.
+
 ## [2.4.3] — 2026-09-13
 
 - Xóa tab và backend mở trình cài Việt hóa The Isle khỏi hub.
