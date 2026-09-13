@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.4.9] — 2026-09-14
+
+- Bổ sung các skin mẫu xanh đậm gân đen, đen, trắng, rừng, sa mạc, bóng tối,
+  tuyết, đại dương và dung nham trên cả IslePilot, Titan và Era.
+- Thêm nút Ngẫu nhiên để tạo bảng màu hài hòa mới; Titan random cả biến thể
+  hoa văn, còn các vùng màu bị server khóa luôn được giữ nguyên.
+- Mỗi skin mẫu có dải màu xem nhanh và có thể lưu lại bằng thư viện skin như
+  bảng màu tự chọn.
+
 ## [2.4.8] — 2026-09-14
 
 - Sửa màu skin trong mô hình 3D bị tối sai do bảng màu từng bị giảm còn 55%;

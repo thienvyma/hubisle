@@ -9,6 +9,13 @@
     upsertSkinPreset,
     type SavedSkinPreset,
   } from "$lib/skin-library";
+  import {
+    randomSkinPalette,
+    presetPalette,
+    SKIN_PRESETS,
+    SKIN_PRESET_KEYS,
+    type SkinPresetKey,
+  } from "$lib/skin-palettes";
 
   let { provider }: { provider: ProviderId } = $props();
   type Obj = Record<string, unknown>;
@@ -19,25 +26,6 @@
   const TITAN_DEFAULT = ["#B06A3C", "#5A3C28", "#7A5A3C", "#6A4A30", "#C8B090", "#3C2C1C", "#D0A020"];
   const ISLEPILOT_DEFAULT = ["#7A5A3C", "#5A3C28", "#C8B090", "#8A6A42", "#A88A5A", "#6A5230", "#D0A020", "#F0E0B8", "#C8C8C8", "#3C2C1C"];
   const ERA_FREE = ["#111827", "#F3F4F6", "#6B7280", "#DC2626", "#7F1D1D", "#F97316", "#EAB308", "#16A34A", "#3F6212", "#2563EB", "#0891B2", "#7C3AED", "#DB2777", "#78350F", "#C08457", "#D6B38B"];
-  const PRESETS: Record<string, { era: string[]; titan: string[] }> = {
-    forest: {
-      era: ["#1C4D3B", "#5CA65E", "#D1B75A", "#55733C", "#D9E6B4", "#203C3A", "#F1E9C8"],
-      titan: ["#4A5A2C", "#2C3A1C", "#3E4A26", "#334020", "#8A9A6A", "#1C260F", "#C8D020"],
-    },
-    desert: {
-      era: ["#8B2C21", "#E15F2D", "#F2C24D", "#B74325", "#FFF0A0", "#682D26", "#FFF7D1"],
-      titan: ["#C8A86A", "#9A7A4A", "#BFA070", "#A88A5A", "#E0D0A8", "#6A5230", "#E0B020"],
-    },
-    shadow: {
-      era: ["#22234D", "#4543A1", "#A84EAF", "#34356F", "#E08FD0", "#272746", "#F3D7F2"],
-      titan: ["#3A3A42", "#202028", "#2C2C34", "#26262C", "#4A4A52", "#101014", "#8060C0"],
-    },
-    snow: {
-      era: ["#123F4B", "#1B8C83", "#63D3A4", "#246272", "#D9F4B8", "#102B3D", "#E5FFF2"],
-      titan: ["#D8DDE4", "#A8B0BC", "#C4CCD6", "#B4BCC8", "#EEF2F6", "#7A8290", "#60A0D0"],
-    },
-  };
-
   const obj = (value: unknown): Obj =>
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? (value as Obj)
@@ -177,13 +165,29 @@
     colors = [...colors];
     saveDraft();
   }
-  function applyPreset(name: string) {
-    if (provider === "isle-pilot") return;
-    const preset = PRESETS[name];
-    if (!preset) return;
-    const next = provider === "era" ? preset.era : preset.titan;
-    colors = fullColor ? [...next] : next.map(nearestFreeColor);
+  function lockedIndexSet(): Set<number> {
+    const result = new Set<number>();
+    fieldKeys.forEach((key, index) => {
+      if (provider === "isle-pilot" && lockedZones.includes(key)) result.add(index);
+    });
+    return result;
+  }
+  function applyPreset(name: SkinPresetKey) {
+    error = null;
+    let next = presetPalette(name, provider, colors, lockedIndexSet());
+    if (provider === "era" && !fullColor) next = next.map(nearestFreeColor);
+    colors = next;
     saveDraft();
+    note = tNow("skin.preset_loaded", { name: tNow(`skin.preset_${name}` as "skin.preset_green_black") });
+  }
+  function randomizePalette() {
+    error = null;
+    let next = randomSkinPalette(colors, lockedIndexSet());
+    if (provider === "era" && !fullColor) next = next.map(nearestFreeColor);
+    colors = next;
+    if (provider === "titan") variation = Math.round(Math.random() * 100) / 100;
+    saveDraft();
+    note = tNow("skin.randomized");
   }
   function nearestFreeColor(value: string): string {
     if (ERA_FREE.includes(value.toUpperCase())) return value.toUpperCase();
@@ -349,14 +353,20 @@
     {/if}
   </section>
 
-  {#if provider !== "isle-pilot"}
-    <section class="preset-row">
-      <span>{$t("skin.presets")}</span>
-      {#each Object.keys(PRESETS) as preset}
-        <button onclick={() => applyPreset(preset)}>{$t(`skin.preset_${preset}` as "skin.preset_forest")}</button>
+  <section class="preset-row">
+    <span>{$t("skin.presets")}</span>
+    <div class="preset-list">
+      {#each SKIN_PRESET_KEYS as preset}
+        <button class="preset-button" disabled={colors.length === 0} onclick={() => applyPreset(preset)}>
+          <span>{$t(`skin.preset_${preset}` as "skin.preset_green_black")}</span>
+          <small aria-hidden="true">
+            {#each SKIN_PRESETS[preset].preview as color}<i style:background={color}></i>{/each}
+          </small>
+        </button>
       {/each}
-    </section>
-  {/if}
+      <button class="random-button" disabled={colors.length === 0} onclick={randomizePalette}>↻ {$t("skin.random")}</button>
+    </div>
+  </section>
 
   <div class="color-grid">
     {#each names as name, index}
@@ -413,8 +423,13 @@
   .preview-head strong { color:var(--color-accent); }
   .preview-strip { display:flex; height:40px; overflow:hidden; clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%); }
   .preview-strip i { flex:1; box-shadow:inset -1px 0 rgba(0,0,0,.25); }
-  .preset-row { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin:14px 0; }
-  .preset-row > span { margin-right:5px; color:var(--color-muted); font:9px Consolas,monospace; }
+  .preset-row { display:grid; gap:8px; margin:14px 0; }
+  .preset-row > span { color:var(--color-muted); font:9px Consolas,monospace; }
+  .preset-list { display:flex; flex-wrap:wrap; gap:7px; }
+  .preset-button { display:grid; min-width:112px; gap:6px; text-align:left; }
+  .preset-button small { display:flex; width:100%; height:5px; overflow:hidden; }
+  .preset-button small i { flex:1; }
+  .random-button { border-color:rgba(114,214,83,.48); color:#8bea69; }
   .skin-library { margin:14px 0 18px; border:1px solid var(--color-border); background:rgba(6,18,32,.58); padding:13px; }
   .library-head { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
   .library-head > div:first-child { display:grid; gap:4px; }
