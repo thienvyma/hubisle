@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.4.8] — 2026-09-14
+
 - Sửa màu skin trong mô hình 3D bị tối sai do bảng màu từng bị giảm còn 55%;
   giữ nguyên giá trị sRGB đã chọn, cache normal map theo loài và giảm khối lượng
   compositing để đổi màu/tải preview nhanh hơn.
@@ -16,6 +18,8 @@
   Authenticode hợp lệ có dấu thời gian.
 - Tắt số liệu sử dụng theo mặc định và bỏ dịch Prime trực tuyến; chuỗi Prime
   chưa có trong từ điển cục bộ giữ nguyên tiếng Anh.
+- Phát hành chuyển tiếp vẫn có chữ ký cập nhật Tauri để app cũ xác minh gói;
+  Authenticode đáng tin cậy sẽ được bật sau khi SignPath duyệt đơn mã nguồn mở.
 
 ## [2.4.7] — 2026-09-13
 

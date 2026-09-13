@@ -62,10 +62,12 @@ test("release input contains only project-owned bundled artwork", () => {
   assert.doesNotMatch(text("src/lib/dino3d/skin.ts"), /official overlay/i);
 });
 
-test("release workflow refuses to publish without valid Authenticode", () => {
+test("release workflow verifies Authenticode before publishing when enforcement is enabled", () => {
   const workflow = text(".github/workflows/release.yml");
   const authenticode = text("scripts/check-authenticode.ps1");
   assert.match(workflow, /check-authenticode\.ps1/i);
+  assert.match(workflow, /SIGNPATH_ENFORCE_AUTHENTICODE/);
+  assert.match(workflow, /without trusted Windows Authenticode/);
   assert.match(authenticode, /Status\s+-ne\s+['"]Valid['"]/i);
   assert.match(authenticode, /TimeStamperCertificate/);
   assert.match(authenticode, /SignPath Foundation/);
@@ -73,4 +75,20 @@ test("release workflow refuses to publish without valid Authenticode", () => {
     workflow.indexOf("check-authenticode.ps1") < workflow.indexOf("--draft=false"),
     "Authenticode must be verified before a release is made public",
   );
+});
+
+test("SignPath handoff documents every required repository setting", () => {
+  const setup = text("docs/SIGNPATH_SETUP.md");
+  for (const name of [
+    "SIGNPATH_API_TOKEN",
+    "SIGNPATH_ORGANIZATION_ID",
+    "SIGNPATH_PROJECT_SLUG",
+    "SIGNPATH_SIGNING_POLICY_SLUG",
+    "SIGNPATH_APP_ARTIFACT_CONFIGURATION_SLUG",
+    "SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG",
+    "SIGNPATH_ENFORCE_AUTHENTICODE",
+  ]) {
+    assert.match(setup, new RegExp(name));
+  }
+  assert.match(setup, /Tauri updater `\.sig`/);
 });

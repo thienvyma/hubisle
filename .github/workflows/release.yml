@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -103,7 +104,7 @@ jobs:
             throw "Set TAURI_SIGNING_PRIVATE_KEY in thienvyma/hubisle Actions secrets before releasing."
           }
 
-      - name: Build signed release and updater manifest
+      - name: Build release and Tauri updater signature
         id: release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -116,6 +117,7 @@ jobs:
           releaseBody: |
             Bản phát hành chính thức của islemap-thienvyma.
             Kênh cập nhật: https://github.com/thienvyma/hubisle/releases
+            Chữ ký Windows: ${{ vars.SIGNPATH_ENFORCE_AUTHENTICODE == 'true' && 'đã xác minh Authenticode qua SignPath Foundation.' || 'đang chờ SignPath duyệt; Windows có thể hiện cảnh báo SmartScreen.' }}
             Xem CHANGELOG.md trong repository để biết chi tiết thay đổi.
           generateReleaseNotes: true
           releaseDraft: true
@@ -128,6 +130,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNPATH_ENFORCE_AUTHENTICODE: ${{ vars.SIGNPATH_ENFORCE_AUTHENTICODE }}
         run: |
           $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
           $manifestDir = Join-Path $env:RUNNER_TEMP "islemap-thienvyma-updater"
@@ -152,7 +155,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Cannot download signed installer for verification." }
           $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/islemap-thienvyma.exe"
           $sidecar = Join-Path $env:GITHUB_WORKSPACE "src-tauri/binaries/islemap-thienvyma-telemetry-x86_64-pc-windows-msvc.exe"
-          ./scripts/check-authenticode.ps1 -Path (Join-Path $manifestDir $assetName), $exe, $sidecar
+          if ($env:SIGNPATH_ENFORCE_AUTHENTICODE -eq "true") {
+            ./scripts/check-authenticode.ps1 -Path (Join-Path $manifestDir $assetName), $exe, $sidecar
+          } else {
+            Write-Warning "SignPath approval is pending. Publishing a transition release with a valid Tauri updater signature but without trusted Windows Authenticode."
+          }
           node scripts/verify-signed-installer.mjs (Join-Path $manifestDir $assetName) (Join-Path $manifestDir "$assetName.sig") src-tauri/tauri.conf.json (Join-Path $manifestDir "latest.json")
           if ($LASTEXITCODE -ne 0) { throw "Installer signature verification failed." }
           $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/islemap-thienvyma.exe"

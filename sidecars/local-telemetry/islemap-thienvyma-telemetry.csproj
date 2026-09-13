@@ -11,9 +11,9 @@
     <Authors>thienvyma</Authors>
     <Company>thienvyma</Company>
     <Copyright>Copyright © 2026 thienvyma</Copyright>
-    <Version>2.4.7</Version>
-    <FileVersion>2.4.7.0</FileVersion>
-    <AssemblyVersion>2.4.7.0</AssemblyVersion>
+    <Version>2.4.8</Version>
+    <FileVersion>2.4.8.0</FileVersion>
+    <AssemblyVersion>2.4.8.0</AssemblyVersion>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
