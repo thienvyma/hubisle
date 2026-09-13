@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.4.1] — 2026-09-13
+
+- Bổ sung đầy đủ quản lý bạn bè IslePilot trong hub: thêm SteamID64, nhận/từ
+  chối lời mời, hủy, xóa và bật/tắt chia sẻ vị trí theo API trung tâm.
+- Thêm tab Voice DinoVietnam để tự nhận client chính thức, trạng thái đăng nhập
+  Steam và tiến trình đang chạy; một nút mở đúng hệ thống Voice gốc hoặc luồng
+  đăng nhập của DinoVietnam.
+- Không sao chép token mã hóa hoặc khóa ứng dụng riêng của DinoVietnam. Quyền
+  LiveKit, micro và phím nhấn để nói tiếp tục được client chính thức quản lý.
+
 ## [2.4.0] — 2026-09-13
 
 - Hoàn tất nghiên cứu khả năng tương thích Voice DinoVietnam và không đóng gói

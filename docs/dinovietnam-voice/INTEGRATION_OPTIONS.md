@@ -41,5 +41,8 @@ Required server work:
 5. Keep all service credentials on the server; never embed a reusable secret
    in either desktop application.
 
-Until DinoVietnam exposes this contract, the v2.4 Hub intentionally ships no
-DinoVietnam Voice runtime or background-client dependency.
+Until DinoVietnam exposes this contract, the Hub cannot ship an independent
+DinoVietnam Voice runtime. Version 2.4.1 provides a companion tab instead: it
+detects an installed official client and whether that client has a Steam
+session, then launches the original Voice flow. The official client remains
+the process that obtains the room grant and runs LiveKit.

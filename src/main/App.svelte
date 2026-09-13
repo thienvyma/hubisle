@@ -35,9 +35,10 @@
   import ConnectionGate from "./connection/ConnectionGate.svelte";
   import IslemapLogo from "./IslemapLogo.svelte";
   import UpdateBanner from "./UpdateBanner.svelte";
+  import DinoVoiceTab from "./voice/DinoVoiceTab.svelte";
   import VietnamesePatchTab from "./viethoa/VietnamesePatchTab.svelte";
 
-  type Tab = "map" | "dino" | "friends" | "garage" | "skin" | "history" | "viethoa" | "settings";
+  type Tab = "map" | "dino" | "friends" | "garage" | "skin" | "history" | "voice" | "viethoa" | "settings";
   const TAB_ITEMS: readonly [Tab, string][] = [
     ["map", "tab.map"],
     ["dino", "tab.dino"],
@@ -45,6 +46,7 @@
     ["garage", "tab.garage"],
     ["skin", "tab.skin"],
     ["history", "tab.history"],
+    ["voice", "tab.voice"],
     ["viethoa", "tab.viethoa"],
     ["settings", "tab.settings"],
   ];
@@ -66,6 +68,8 @@
       '<path d="M3 3v5h5"/><path d="M3.6 15a9 9 0 1 0 .6-7.1L3 8"/><path d="M12 7v5l3 2"/><path d="m8 17 8-10"/>',
     friends:
       '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    voice:
+      '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
     viethoa:
       '<path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/>',
     settings:
@@ -88,6 +92,7 @@
     garage: "islepilot_garage",
     skin: null,
     history: null,
+    voice: null,
     viethoa: null,
     settings: "settings_open",
   };
@@ -252,6 +257,8 @@
       <div class="h-full overflow-y-auto"><Settings /></div>
     {:else if tab === "history"}
       <div class="h-full overflow-y-auto"><CombatHistory /></div>
+    {:else if tab === "voice"}
+      <div class="h-full overflow-y-auto"><DinoVoiceTab /></div>
     {:else if tab === "viethoa"}
       <div class="h-full overflow-y-auto"><VietnamesePatchTab /></div>
     {/if}

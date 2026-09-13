@@ -245,6 +245,17 @@ export interface VietHoaStatus {
 export const viethoaStatus = () => invoke<VietHoaStatus>("viethoa_status");
 export const viethoaLaunch = () => invoke<VietHoaStatus>("viethoa_launch");
 
+export interface DinoVoiceStatus {
+  installed: boolean;
+  running: boolean;
+  steamAuthenticated: boolean;
+  executablePath: string | null;
+  officialReleaseUrl: string;
+}
+
+export const dinovoiceStatus = () => invoke<DinoVoiceStatus>("dinovoice_status");
+export const dinovoiceLaunch = () => invoke<DinoVoiceStatus>("dinovoice_launch");
+
 /** Last known position (null before the first sample) — for initial paint. */
 export const getCurrentPosition = () =>
   invoke<PositionUpdate | null>("get_current_position");
@@ -540,6 +551,35 @@ export interface IslepilotOverlayMap {
 /** IslePilot POIs for the full map (token mode; Rust caches ~15 s). */
 export const islepilotOverlayMap = () =>
   invoke<IslepilotOverlayMap>("islepilot_overlay_map");
+
+export interface IslepilotFriend {
+  id: string | null;
+  steamId: string | null;
+  name: string | null;
+  species: string | null;
+  dinoName: string | null;
+  online: boolean | null;
+  status: string | null;
+  incoming: boolean | null;
+}
+
+export interface IslepilotFriendsState {
+  shareLocation: boolean | null;
+  limit: number | null;
+  used: number | null;
+  friends: IslepilotFriend[];
+}
+
+export type IslepilotFriendAction = "add" | "accept" | "decline" | "remove" | "share";
+
+export const islepilotFriends = () =>
+  invoke<IslepilotFriendsState>("islepilot_friends");
+
+export const islepilotFriendAction = (
+  action: IslepilotFriendAction,
+  value: string | null = null,
+  share: boolean | null = null,
+) => invoke<IslepilotFriendsState>("islepilot_friend_action", { action, value, share });
 
 /**
  * Download-and-cache a skinviewer CDN asset (3D model / texture) via Rust

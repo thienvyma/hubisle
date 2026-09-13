@@ -64,7 +64,16 @@ fn request(
         return Err(ApiError::NotFound);
     }
     if !status.is_success() {
-        return Err(ApiError::Http(format!("{path} -> HTTP {status}")));
+        let message = serde_json::from_str::<Value>(&text)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| format!("{path} -> HTTP {status}"));
+        return Err(ApiError::Http(message));
     }
     let v: Value =
         serde_json::from_str(&text).map_err(|e| ApiError::Http(format!("{path}: {e}")))?;
@@ -116,7 +125,7 @@ pub struct OverlayMe {
     pub prime: Option<OverlayPrime>,
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OverlayNutrition {
     pub carb: f64,
@@ -124,7 +133,7 @@ pub struct OverlayNutrition {
     pub lipid: f64,
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OverlayPosition {
     pub x: Option<f64>,
@@ -240,7 +249,7 @@ pub fn position_heading_with_calibration(
 // /api/overlay/friends — relationship list, with optional live positions
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OverlayFriends {
     pub share_location: Option<bool>,
@@ -249,7 +258,7 @@ pub struct OverlayFriends {
     pub friends: Vec<OverlayFriend>,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OverlayFriend {
     pub id: Option<String>,
@@ -307,6 +316,64 @@ pub fn get_friends(
 ) -> Result<OverlayFriends, ApiError> {
     let v = get(client, "/api/overlay/friends", token)?;
     serde_json::from_value(v).map_err(|e| ApiError::Http(format!("/api/overlay/friends: {e}")))
+}
+
+fn valid_relation_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+/// Build the exact POST contract used by IslePilot's central friends API.
+/// Keeping the allowlist here prevents arbitrary API actions from crossing
+/// the Tauri command boundary.
+pub fn friend_action_body(
+    action: &str,
+    value: Option<&str>,
+    share: Option<bool>,
+) -> Result<Value, String> {
+    match action {
+        "add" => {
+            let steam_id = value.map(str::trim).unwrap_or_default();
+            if steam_id.len() != 17 || !steam_id.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err("SteamID64 phải có đúng 17 chữ số.".to_string());
+            }
+            Ok(serde_json::json!({ "action": "add", "steamId": steam_id }))
+        }
+        "accept" | "decline" | "remove" => {
+            let id = value.map(str::trim).unwrap_or_default();
+            if !valid_relation_id(id) {
+                return Err("Mã quan hệ bạn bè không hợp lệ.".to_string());
+            }
+            Ok(serde_json::json!({ "action": action, "id": id }))
+        }
+        "share" => Ok(serde_json::json!({
+            "action": "share",
+            "share": share.ok_or_else(|| "Thiếu trạng thái chia sẻ vị trí.".to_string())?
+        })),
+        _ => Err("Thao tác bạn bè không hợp lệ.".to_string()),
+    }
+}
+
+pub fn friend_action(
+    client: &reqwest::blocking::Client,
+    token: &str,
+    action: &str,
+    value: Option<&str>,
+    share: Option<bool>,
+) -> Result<Value, String> {
+    let body = friend_action_body(action, value, share)?;
+    let response = post(client, "/api/overlay/friends", token, &body).map_err(|e| e.to_string())?;
+    if response.get("ok").and_then(Value::as_bool) == Some(false) {
+        return Err(response
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("IslePilot rejected the friend action.")
+            .to_string());
+    }
+    Ok(response)
 }
 
 // ---------------------------------------------------------------------------
@@ -787,5 +854,24 @@ mod tests {
         assert!(state.online);
         assert!(state.has_active_dino);
         assert_eq!(state.server_name.as_deref(), Some("DinoVietnam VIP"));
+    }
+
+    #[test]
+    fn friend_actions_build_only_the_verified_islepilot_schema() {
+        assert_eq!(
+            friend_action_body("add", Some("76561198000000001"), None).unwrap(),
+            serde_json::json!({"action": "add", "steamId": "76561198000000001"})
+        );
+        assert_eq!(
+            friend_action_body("accept", Some("relation_123"), None).unwrap(),
+            serde_json::json!({"action": "accept", "id": "relation_123"})
+        );
+        assert_eq!(
+            friend_action_body("share", None, Some(true)).unwrap(),
+            serde_json::json!({"action": "share", "share": true})
+        );
+        assert!(friend_action_body("add", Some("not-steam"), None).is_err());
+        assert!(friend_action_body("remove", Some("bad id!"), None).is_err());
+        assert!(friend_action_body("unknown", None, None).is_err());
     }
 }

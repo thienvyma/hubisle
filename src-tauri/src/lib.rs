@@ -8,6 +8,7 @@
 pub mod clipboard;
 pub mod combat;
 pub mod commands;
+pub mod dinovoice;
 pub mod events;
 pub mod fetch;
 pub mod hotkeys;
@@ -82,6 +83,8 @@ pub fn run(replay_file: Option<PathBuf>) {
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::patch_settings,
+            dinovoice::dinovoice_status,
+            dinovoice::dinovoice_launch,
             viethoa::viethoa_status,
             viethoa::viethoa_launch,
             commands::get_current_position,
@@ -116,6 +119,8 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::islepilot_token_login,
             commands::islepilot_set_token,
             commands::islepilot_overlay_map,
+            commands::islepilot_friends,
+            commands::islepilot_friend_action,
             commands::islepilot_cdn_asset,
             commands::islepilot_garage,
             commands::islepilot_garage_park,

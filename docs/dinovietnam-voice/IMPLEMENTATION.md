@@ -1,22 +1,25 @@
 # Implementation status
 
-No DinoVietnam Voice runtime is shipped in v2.4.
+Version 2.4.1 ships a small companion tab for the official DinoVietnam client.
+It safely:
 
-The investigation first produced a bounded background-process adapter, but that
-adapter depended on DinoVietNam.exe and its existing local login state. It was
-deleted after the clean-machine requirement was finalized. The application now:
+- locates `DinoVietNam.exe` from the registered `dinovietnam:` protocol or the
+  usual Desktop locations;
+- reports whether the official process is running;
+- checks only whether the official settings contain a SteamID and encrypted
+  session, without reading, decrypting, returning or copying their values;
+- opens the installed client for Steam sign-in and the original Voice flow;
+- links to the official release when the client is absent.
 
-- does not locate, start, minimize, restore or monitor DinoVietNam.exe;
-- does not read its encrypted session or WebView storage;
-- does not call the private Voice token endpoint;
-- does not embed LiveKit for DinoVietnam Voice;
-- does not include a Voice tab or background-start setting.
+The Hub does not call the private Voice token endpoint, copy a reusable app
+credential, or embed a second LiveKit connection. DinoVietnam's client keeps
+ownership of room authorization, microphone, noise suppression and PTT.
 
 A future `DinoVietnamVoiceProvider` can be implemented without changing the
 rest of the Hub once DinoVietnam supplies the public OAuth/PKCE client and
 player-scoped Voice broker described in `INTEGRATION_OPTIONS.md`.
 
-The Vietnamese translation feature is independent of Voice. It opens the
+The Vietnamese translation feature remains independent of Voice. It opens the
 official translation installer already present on the user's machine or links
 to DinoVietnam's public translation release. It does not copy, decrypt or
 bundle the encrypted translation archive.

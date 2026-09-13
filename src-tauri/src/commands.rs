@@ -798,6 +798,29 @@ pub async fn islepilot_overlay_map(
         .map_err(|e| e.to_string())?
 }
 
+/// Read accepted friends plus incoming/outgoing requests from IslePilot.
+#[tauri::command]
+pub async fn islepilot_friends() -> Result<crate::islepilot::api::OverlayFriends, String> {
+    tauri::async_runtime::spawn_blocking(crate::islepilot::friends_fetch)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Add, accept, decline, remove, or update location sharing. The Rust API
+/// layer validates the complete allowlisted request before network I/O.
+#[tauri::command]
+pub async fn islepilot_friend_action(
+    action: String,
+    value: Option<String>,
+    share: Option<bool>,
+) -> Result<crate::islepilot::api::OverlayFriends, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::islepilot::friend_action(&action, value.as_deref(), share)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Download-and-cache a skinviewer CDN asset (3D model / texture); returns
 /// the local file path for convertFileSrc. Public CDN, no auth — routed
 /// through Rust because the CDN sends no CORS headers.

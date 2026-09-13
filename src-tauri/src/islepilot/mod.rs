@@ -1579,6 +1579,25 @@ fn token_or_err() -> Result<token::OverlayToken, String> {
     token::get().ok_or_else(|| "not-logged-in".to_string())
 }
 
+/// Relationship state from the central IslePilot account. This is separate
+/// from the live-map friend markers because pending requests have no position.
+pub fn friends_fetch() -> Result<api::OverlayFriends, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::get_friends(&client, &tok.token).map_err(|e| e.to_string())
+}
+
+pub fn friend_action(
+    action: &str,
+    value: Option<&str>,
+    share: Option<bool>,
+) -> Result<api::OverlayFriends, String> {
+    let tok = token_or_err()?;
+    let client = http_client()?;
+    api::friend_action(&client, &tok.token, action, value, share)?;
+    api::get_friends(&client, &tok.token).map_err(|e| e.to_string())
+}
+
 /// GET the garage (parked dinos + server flags). Token mode only.
 pub fn garage_fetch() -> Result<api::GarageState, String> {
     let tok = token_or_err()?;
