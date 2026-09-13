@@ -128,6 +128,7 @@ pub fn run(replay_file: Option<PathBuf>) {
             commands::islepilot_http_pause,
             commands::islepilot_garage_restore,
             commands::islepilot_garage_sell,
+            commands::islepilot_garage_self_slay,
             commands::islepilot_garage_rename,
             commands::islepilot_logout,
             commands::islepilot_apply,

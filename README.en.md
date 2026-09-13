@@ -2,7 +2,7 @@
 
 [Tiếng Việt](README.md) · **English**
 
-**islemap-thienvyma 2.4.5** is developed by **Huỳnh Vỹ**. Its in-game minimap
+**islemap-thienvyma 2.4.6** is developed by **Huỳnh Vỹ**. Its in-game minimap
 reads the player's coordinates automatically from the server's account
 website. Adapters currently support **Era Gaming VN**, **The Real Server VN
 (Titan)**, and **IslePilot**.
@@ -47,7 +47,8 @@ adapter; the app never guesses an API or sends cookies to an unknown domain.
   Steam session and running state, then opens the original Voice system. Voice
   requires the server's official hub; islemap-thienvyma only detects and opens it.
 - **Multi-provider Garage**: IslePilot keeps its 3D cards and Park/Restore/
-  Rename/Sell flow; Era and Titan get five official API slots with store,
+  Rename/Delete-or-sell flow, plus self-slay for the active dino when the server
+  enables each capability; Era and Titan get five official API slots with store,
   restore, delete, connection gating, and server job progress.
 - **Skin editor in the hub**: seven current Era/Titan color regions, presets,
   local drafts and a named skin library stored separately for each provider,

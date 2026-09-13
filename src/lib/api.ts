@@ -609,6 +609,7 @@ export type GarageDino = Record<string, unknown> & { id?: string };
 export interface GarageState {
   dinos: GarageDino[];
   sellingEnabled: boolean;
+  selfSlayEnabled: boolean;
   liveSwap: boolean;
   currencyName: string | null;
   online: boolean;
@@ -639,6 +640,8 @@ export const islepilotGarageRestore = (id: string) =>
   invoke("islepilot_garage_restore", { id });
 export const islepilotGarageSell = (id: string) =>
   invoke("islepilot_garage_sell", { id });
+export const islepilotGarageSelfSlay = () =>
+  invoke("islepilot_garage_self_slay");
 export const islepilotGarageRename = (id: string, name: string) =>
   invoke("islepilot_garage_rename", { id, name });
 export const islepilotLogout = () => invoke("islepilot_logout");

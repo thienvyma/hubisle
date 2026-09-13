@@ -17,8 +17,11 @@ use crate::state::LockExt;
 
 use super::FriendUpdate;
 
-const REFRESH_MS: u64 = 20_000;
-const CACHE_MAX_AGE: Duration = Duration::from_secs(70);
+// The relay is a fallback for servers that omit official friend positions, so
+// a slow cadence is acceptable and keeps 500 daily users inside Cloudflare's
+// free 100k-request / 100k-D1-write budget at roughly four hours per user.
+const REFRESH_MS: u64 = 90_000;
+const CACHE_MAX_AGE: Duration = Duration::from_secs(210);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(3);
 const RELEASE_API_BASE: &str = "https://islemap-thienvyma-api.islemap-thienvyma-api.workers.dev";
 

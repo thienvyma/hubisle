@@ -2,7 +2,7 @@
 
 **Tiếng Việt** · [English](README.en.md)
 
-**islemap-thienvyma 2.4.5** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
+**islemap-thienvyma 2.4.6** do **Huỳnh Vỹ** phát triển. Minimap hiện đè lên
 game và tự lấy tọa độ nhân vật từ website quản lý của server. Ứng dụng có adapter
 cho **Era Gaming VN**, **The Real Server VN (Titan)** và **IslePilot**.
 
@@ -46,7 +46,8 @@ gửi cookie sang domain lạ hoặc đoán cấu trúc API.
 - **Vị trí và chỉ số realtime**: tọa độ, growth, máu, đói, khát và thể lực được
   chuẩn hóa từ provider đã chọn rồi đưa vào cùng minimap. Trường nào server không
   cung cấp sẽ để trống, không dựng dữ liệu giả.
-- **Garage đa server**: IslePilot giữ card/model 3D cùng Park/Restore/Đổi tên/Bán;
+- **Garage đa server**: IslePilot giữ card/model 3D cùng Park/Restore/Đổi tên,
+  xóa/bán Dino đã cất và tự sát Dino đang chơi khi server bật quyền tương ứng;
   Era và Titan có 5 slot cất/lấy/xóa theo API chính thức, khóa thao tác theo
   trạng thái online/cầu nối và theo dõi tiến trình xử lý của server.
 - **Đổi skin trong hub**: 7 vùng màu theo giao thức hiện hành của Era/Titan,

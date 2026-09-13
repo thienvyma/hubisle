@@ -908,6 +908,16 @@ pub async fn islepilot_garage_sell(id: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
+pub async fn islepilot_garage_self_slay() -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let (path, body) = crate::islepilot::api::garage_self_slay_request();
+        crate::islepilot::garage_action(path, body)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn islepilot_garage_rename(id: String, name: String) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         crate::islepilot::garage_action(

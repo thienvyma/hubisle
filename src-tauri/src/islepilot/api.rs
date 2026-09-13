@@ -808,6 +808,7 @@ pub fn garage_command(
 pub struct GarageState {
     pub dinos: Value,
     pub selling_enabled: bool,
+    pub self_slay_enabled: bool,
     pub live_swap: bool,
     pub currency_name: Option<String>,
     /// Current central-overlay player state. The Garage endpoint itself can
@@ -828,6 +829,10 @@ pub fn garage_state(raw: &Value) -> GarageState {
             .get("sellingEnabled")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
+        self_slay_enabled: settings
+            .get("selfSlayEnabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
         live_swap: settings
             .get("liveSwap")
             .and_then(|v| v.as_bool())
@@ -840,6 +845,13 @@ pub fn garage_state(raw: &Value) -> GarageState {
         has_active_dino: false,
         server_name: None,
     }
+}
+
+/// Build the official IslePilot request used to kill the currently active
+/// dinosaur. Keeping the route and payload here makes the external contract
+/// independently testable without sending a destructive request.
+pub fn garage_self_slay_request() -> (&'static str, Value) {
+    ("/api/overlay/garage/slay", serde_json::json!({}))
 }
 
 pub fn attach_garage_player_state(state: &mut GarageState, player: &OverlayMe) {
@@ -1012,14 +1024,27 @@ mod tests {
     fn garage_state_reads_settings_flags() {
         let raw: Value = serde_json::json!({
             "dinos": [{"id": "d1", "species": "Carnotaurus"}],
-            "settings": {"liveSwap": true, "sellingEnabled": false, "currencyName": "Points"}
+            "settings": {
+                "liveSwap": true,
+                "sellingEnabled": false,
+                "selfSlayEnabled": true,
+                "currencyName": "Points"
+            }
         });
         let g = garage_state(&raw);
         assert!(g.live_swap);
         assert!(!g.selling_enabled);
+        assert!(g.self_slay_enabled);
         assert_eq!(g.currency_name.as_deref(), Some("Points"));
         assert_eq!(g.dinos.as_array().unwrap().len(), 1);
         assert!(!g.online);
+    }
+
+    #[test]
+    fn garage_self_slay_request_matches_islepilot_contract() {
+        let (path, body) = garage_self_slay_request();
+        assert_eq!(path, "/api/overlay/garage/slay");
+        assert_eq!(body, serde_json::json!({}));
     }
 
     #[test]

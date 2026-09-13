@@ -16,8 +16,8 @@ cron 02:10 UTC       rollup AE → D1, xoá dữ liệu quá hạn
 `/v1/presence` chuyển tiếp bearer token đến đúng hai endpoint chính thức
 `/api/overlay/me` và `/api/overlay/friends` để xác nhận danh tính, quan hệ đã
 chấp nhận, tùy chọn chia sẻ và server hiện tại. Token không được ghi xuống D1.
-SteamID và tên server được băm kèm secret trước khi lưu; tọa độ tự hết hiệu lực
-sau 60 giây và cron xóa bản ghi cũ.
+SteamID và tên server được băm kèm secret trước khi lưu; app gửi tối đa một lần
+mỗi 90 giây, tọa độ tự hết hiệu lực sau 210 giây và cron xóa bản ghi cũ.
 
 ## Ba quyết định định hình phần còn lại
 
@@ -111,11 +111,16 @@ nếu hai danh sách lệch nhau.
 
 | | Free/ngày | Ta dùng |
 |---|---|---|
-| Worker request | 100.000 | 1 / lần mở app |
+| Worker request | 100.000 | 1 / lần mở app + tối đa 1 relay / 90 giây khi cần |
 | Static assets | không giới hạn | dashboard |
-| D1 dòng ghi | 100.000 | 1 / thiết bị / ngày |
+| D1 dòng ghi | 100.000 | 1 / thiết bị / ngày + tối đa 1 presence / 90 giây khi cần |
 | AE data point | 100.000 | 1 / lần mở app |
 
-Trần thực tế khoảng **60k DAU** (giả sử 1,5 lần mở/người/ngày). Vượt rồi thì
-Workers Paid $5/tháng bao tới khoảng 150k DAU. Vượt quota trả về lỗi 1027 /
-HTTP 429, không tự động tính tiền.
+Với **500 người dùng**, mỗi người dùng relay trung bình 4 giờ/ngày tạo khoảng
+80.000 request và 80.000 dòng ghi presence/ngày. Cộng lượt mở app và dọn dữ
+liệu vẫn còn khoảng dự phòng trước hai trần 100.000/ngày; truy vấn tối đa 32
+bạn/request tương đương 2,56 triệu dòng đọc, dưới trần D1 5 triệu/ngày.
+
+Tài khoản này dùng Workers Free và không bật Workers Paid. Vượt quota thì
+Worker trả lỗi 1027 hoặc D1 từ chối truy vấn tới khi quota reset; Cloudflare
+không tự chuyển sang gói trả phí và không phát sinh phí vượt mức.

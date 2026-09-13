@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.4.6] — 2026-09-13
+
+- Bổ sung nút tự sát Dino đang chơi cho Titan và DinoVietnam qua đúng endpoint
+  `/api/overlay/garage/slay`, chỉ bật khi IslePilot xác nhận server cho phép và
+  người chơi đang online với một Dino hoạt động.
+- Luôn hiển thị thao tác xóa/bán Dino đã cất. Hub gọi đúng API `/sell` của
+  IslePilot khi server bật `sellingEnabled`; nếu server tắt quyền này, nút được
+  khóa kèm giải thích thay vì biến mất.
+- Giảm relay vị trí bạn bè từ 20 xuống một lần mỗi 90 giây và giới hạn Worker
+  còn hai request/phút/token. Với 500 người dùng trung bình bốn giờ/ngày, phần
+  relay dùng khoảng 80.000 request và dòng ghi D1/ngày, nằm trong free tier.
+
 ## [2.4.5] — 2026-09-13
 
 - Đổi website gợi ý mặc định trên màn hình kết nối của bản cài mới từ EraGaming

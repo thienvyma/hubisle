@@ -17,6 +17,7 @@
     islepilotGarageRename,
     islepilotGarageRestore,
     islepilotGarageSell,
+    islepilotGarageSelfSlay,
     islepilotGarageWait,
     islepilotHttpPause,
     islepilotState,
@@ -238,6 +239,29 @@
         >
           {$t("garage.park")}
         </button>
+        <span
+          title={garage?.selfSlayEnabled !== true
+            ? tNow("garage.self_slay_disabled")
+            : garage?.online !== true || garage?.hasActiveDino !== true
+              ? tNow("garage.self_slay_offline")
+              : ""}
+        >
+          <button
+            class="cursor-pointer rounded border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            style="border-color: #e2664a; color: #ff8d75"
+            disabled={garageBusy ||
+              garage?.selfSlayEnabled !== true ||
+              garage?.online !== true ||
+              garage?.hasActiveDino !== true}
+            onclick={() =>
+              void garageDo(
+                islepilotGarageSelfSlay,
+                tNow("garage.confirm_self_slay"),
+              )}
+          >
+            {$t("garage.self_slay")}
+          </button>
+        </span>
         {#if parkProgress?.phase === "countdown"}
           <button
             class="cursor-pointer rounded border px-3 py-1 text-sm disabled:opacity-50"
@@ -319,6 +343,11 @@
     {/if}
 
     {#if garage}
+      {#if !garage.sellingEnabled && garage.dinos.length > 0}
+        <p class="text-xs" style="color: var(--color-muted)">
+          {$t("garage.delete_disabled")}
+        </p>
+      {/if}
       {#if garage.dinos.length === 0}
         <section
           class="rounded border p-6 text-center"
@@ -390,11 +419,11 @@
                     >
                       {$t("garage.rename")}
                     </button>
-                    {#if garage.sellingEnabled}
+                    <span title={garage.sellingEnabled ? "" : tNow("garage.delete_disabled")}>
                       <button
-                        class="cursor-pointer rounded border px-2 py-0.5 text-xs disabled:opacity-50"
+                        class="cursor-pointer rounded border px-2 py-0.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         style="border-color: #e2664a; color: #e2664a"
-                        disabled={garageBusy}
+                        disabled={garageBusy || !garage.sellingEnabled}
                         onclick={() =>
                           void garageDo(
                             () => islepilotGarageSell(id),
@@ -403,7 +432,7 @@
                       >
                         {$t("garage.sell")}
                       </button>
-                    {/if}
+                    </span>
                   </div>
                 {/if}
                 {#if id && renamingId === id}

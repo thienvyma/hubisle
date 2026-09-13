@@ -2,7 +2,9 @@ import { json, sha256Hex } from "./util";
 import type { Env } from "./env";
 
 const ISLEPILOT_ORIGIN = "https://islepilot.eu";
-const PRESENCE_TTL_S = 60;
+// The desktop app refreshes every 90 seconds. Keep two missed intervals plus
+// a small network allowance before a friend's fallback position expires.
+const PRESENCE_TTL_S = 210;
 const MAX_FRIENDS = 32;
 
 interface OverlayMe {
