@@ -31,12 +31,19 @@ fn quoted_tokens(line: &str) -> Vec<String> {
     tokens
 }
 
+fn value_after_key<'a>(tokens: &'a [String], key: &str) -> Option<&'a str> {
+    tokens
+        .windows(2)
+        .find(|pair| pair[0].eq_ignore_ascii_case(key))
+        .map(|pair| pair[1].as_str())
+}
+
 pub(crate) fn parse_steam_library_paths(input: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     for line in input.lines() {
         let tokens = quoted_tokens(line);
-        if tokens.len() >= 2 && tokens[0].eq_ignore_ascii_case("path") {
-            paths.push(PathBuf::from(&tokens[1]));
+        if let Some(value) = value_after_key(&tokens, "path") {
+            paths.push(PathBuf::from(value));
         }
     }
     paths
@@ -45,9 +52,14 @@ pub(crate) fn parse_steam_library_paths(input: &str) -> Vec<PathBuf> {
 pub(crate) fn parse_install_dir(input: &str) -> Option<String> {
     for line in input.lines() {
         let tokens = quoted_tokens(line);
-        if tokens.len() >= 2 && tokens[0].eq_ignore_ascii_case("installdir") {
-            let value = tokens[1].trim();
-            if !value.is_empty() && !value.contains('/') && !value.contains('\\') && value != "." && value != ".." {
+        if let Some(raw) = value_after_key(&tokens, "installdir") {
+            let value = raw.trim();
+            if !value.is_empty()
+                && !value.contains('/')
+                && !value.contains('\\')
+                && value != "."
+                && value != ".."
+            {
                 return Some(value.to_string());
             }
         }
