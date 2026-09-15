@@ -44,6 +44,7 @@ jobs:
       - run: npm run test:minimap-friends
       - run: npm run test:provider-defaults
       - run: npm run test:voice
+      - run: npm run test:mutations
       - run: npm run test:updater
       - run: npm run build
       - name: Check source safety boundary

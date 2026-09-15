@@ -83,6 +83,9 @@ jobs:
       - name: Test server Voice provider boundary
         run: npm run test:voice
 
+      - name: Test offline Mutation library
+        run: npm run test:mutations
+
       - name: Check frontend
         run: npm run check
 

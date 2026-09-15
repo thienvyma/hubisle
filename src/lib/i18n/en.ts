@@ -292,6 +292,14 @@ export const en: Record<MsgKey, string> = {
   "provider.offline_hint": "Signed in, but no online game character is currently visible.",
   "provider.capability_missing": "This server does not provide the missing detailed stats.",
   "provider.mutations": "Mutations",
+  "mutations.library_title": "Mutation library",
+  "mutations.library_count": "{count} EVRIMA mutations · available offline",
+  "mutations.library_hint":
+    "Mutation names always remain in English. The detailed content follows the hub language.",
+  "mutations.search_placeholder": "Search an English name or description…",
+  "mutations.search_empty": "No matching mutation found.",
+  "mutations.source_note":
+    "This catalog covers the public EVRIMA branch and is stored in the hub. New server mutations still appear by their original name until a description is added.",
   "poi.islepilot_provider_only": "Live server POIs are available only with IslePilot.",
 
   "dino.title": "Your dino",

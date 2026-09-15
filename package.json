@@ -1,7 +1,7 @@
 {
   "name": "islemap-thienvyma",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.6.0",
   "author": "thienvyma",
   "homepage": "https://github.com/thienvyma/hubisle",
   "repository": {
@@ -24,6 +24,7 @@
     "test:provider-defaults": "node --experimental-strip-types --test scripts/provider-defaults.test.mjs",
     "test:skin": "node --experimental-strip-types --test scripts/skin-*.test.mjs",
     "test:voice": "node --test scripts/voice-provider.test.mjs",
+    "test:mutations": "node --experimental-strip-types --test scripts/mutations.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

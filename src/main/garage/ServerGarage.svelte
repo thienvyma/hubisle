@@ -8,6 +8,7 @@
   } from "$lib/api";
   import { t, tNow } from "$lib/i18n";
   import { providerLabel } from "$lib/provider-ui";
+  import MutationDetails from "$lib/components/MutationDetails.svelte";
 
   let { provider }: { provider: ProviderId } = $props();
 
@@ -278,7 +279,7 @@
             <span>{slot.growthPct === null ? "—" : `${slot.growthPct.toFixed(1)}%`}</span>
             {#if slot.prime !== null}<span class:prime={slot.prime}>PRIME {slot.prime ? "ON" : "OFF"}</span>{/if}
           </div>
-          {#if slot.mutations.length}<p class="mutations">{slot.mutations.join(" · ")}</p>{/if}
+          {#if slot.mutations.length}<MutationDetails names={slot.mutations} compact />{/if}
           <div class="actions">
             <button disabled={!canUse(slot, "restore")} onclick={() => void run("restore", slot)}>{$t("server_garage.restore")}</button>
             <button class="danger" disabled={!canUse(slot, "delete")} onclick={() => void run("delete", slot)}>{$t("server_garage.delete")}</button>
@@ -322,7 +323,6 @@
   .meta { display:flex; flex-wrap:wrap; gap:6px; }
   .meta span { border:1px solid #1d3a51; padding:4px 7px; color:var(--color-muted); font:9px Consolas,monospace; }
   .meta span.prime { color:#ffd166; border-color:rgba(255,209,102,.45); }
-  .mutations { min-height:24px; margin:10px 0; color:#9db2c7; }
   .actions { display:flex; gap:8px; margin-top:18px; }
   .empty-visual { display:flex; min-height:143px; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:#50677d; font:10px Consolas,monospace; text-align:center; }
   .empty-visual i { width:44px; height:44px; border:1px dashed #29465d; transform:rotate(45deg); }

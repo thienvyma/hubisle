@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-09-16
+
+- Thêm thư viện ngoại tuyến cho 42 mutation hiện hành trên nhánh EVRIMA công
+  khai. Tên mutation luôn giữ nguyên bằng tiếng Anh; nội dung chi tiết được
+  dịch sang tiếng Việt khi hub dùng giao diện tiếng Việt.
+- Mutation của Dino đang chơi được trình bày thành từng thẻ mô tả; mutation của
+  Dino trong Garage có thể mở ngay tại ô lưu để xem nội dung mà không làm thay
+  đổi giao thức hoặc dữ liệu do server cung cấp.
+- Thêm thư viện Mutation có tìm kiếm theo tên tiếng Anh hoặc nội dung tiếng
+  Việt. Tên mutation mới/chưa nhận diện từ server vẫn được hiển thị nguyên bản
+  và không bị dịch sai.
+- Danh mục và bản dịch được đóng gói trong hub, không gọi dịch vụ dịch trực
+  tuyến và vẫn tra cứu được khi server hoặc mạng tạm mất kết nối.
+
 ## [2.5.0] — 2026-09-14
 
 - Thay cầu nối Voice phụ thuộc ứng dụng ngoài bằng kiến trúc provider chung cho

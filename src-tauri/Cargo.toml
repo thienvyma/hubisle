@@ -1,6 +1,6 @@
 [package]
 name = "islemap-thienvyma"
-version = "2.5.0"
+version = "2.6.0"
 description = "Map overlay for The Isle: Evrima (Gateway)"
 authors = ["thienvyma"]
 homepage = "https://github.com/thienvyma/hubisle"

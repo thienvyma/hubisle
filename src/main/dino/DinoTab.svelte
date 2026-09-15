@@ -15,6 +15,8 @@
     type SharedStatBar,
   } from "$lib/api";
   import { locale, t } from "$lib/i18n";
+  import MutationDetails from "$lib/components/MutationDetails.svelte";
+  import MutationLibrary from "$lib/components/MutationLibrary.svelte";
   import { formatStat, providerLabel } from "$lib/provider-ui";
 
   let settings = $state<Settings | null>(null);
@@ -178,10 +180,10 @@
 
       {#if player.mutations.length > 0}
         <div class="mt-4 border-t pt-3" style="border-color: var(--color-border)">
-          <div class="mb-1 text-sm font-semibold" style="color: var(--color-accent)">
+          <div class="mb-3 text-sm font-semibold" style="color: var(--color-accent)">
             {$t("provider.mutations")}
           </div>
-          <p class="text-sm">{player.mutations.join(", ")}</p>
+          <MutationDetails names={player.mutations} />
         </div>
       {/if}
 
@@ -246,6 +248,8 @@
       </p>
     {/if}
   </section>
+
+  <MutationLibrary />
 
   {#if snapshot}
     <section

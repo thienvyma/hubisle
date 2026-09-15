@@ -307,6 +307,14 @@ export const vi = {
   "provider.offline_hint": "Đã đăng nhập nhưng hiện chưa thấy nhân vật online trong game.",
   "provider.capability_missing": "Server này chưa cung cấp các chỉ số chi tiết còn thiếu.",
   "provider.mutations": "Đột biến",
+  "mutations.library_title": "Thư viện Mutation",
+  "mutations.library_count": "{count} mutation EVRIMA · dùng ngoại tuyến",
+  "mutations.library_hint":
+    "Tên mutation luôn được giữ nguyên bằng tiếng Anh; phần nội dung bên dưới được dịch sang tiếng Việt.",
+  "mutations.search_placeholder": "Tìm theo tên tiếng Anh hoặc nội dung tiếng Việt…",
+  "mutations.search_empty": "Không tìm thấy mutation phù hợp.",
+  "mutations.source_note":
+    "Danh mục dành cho nhánh EVRIMA công khai và được lưu ngay trong hub; mutation mới từ server vẫn hiện nguyên tên dù chưa có bản dịch.",
   "poi.islepilot_provider_only": "POI trực tiếp của server chỉ có khi đang dùng IslePilot.",
 
   // --- khủng long của bạn ---
