@@ -72,10 +72,6 @@ fn ownership_path() -> PathBuf {
     mutation_locale_dir().join("ownership.json")
 }
 
-fn total() -> usize {
-    catalog::total_descriptions()
-}
-
 fn status(
     state: MutationLocaleState,
     game_path: Option<&Path>,
@@ -87,7 +83,7 @@ fn status(
         game_path: game_path.map(|path| path.to_string_lossy().into_owned()),
         pack_version: PACK_VERSION.to_string(),
         matched,
-        total: total(),
+        total: catalog::total_descriptions(),
         message,
     }
 }
@@ -98,7 +94,8 @@ fn sha256_bytes(bytes: &[u8]) -> String {
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {
-    let bytes = fs::read(path).map_err(|error| format!("Không thể đọc {}: {error}", path.display()))?;
+    let bytes = fs::read(path)
+        .map_err(|error| format!("Không thể đọc {}: {error}", path.display()))?;
     Ok(sha256_bytes(&bytes))
 }
 
@@ -174,13 +171,17 @@ fn collect_english_locres(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), Stri
         }
         if file_type.is_dir() {
             collect_english_locres(&path, out)?;
-        } else if file_type.is_file()
-            && path.extension().and_then(|value| value.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("locres"))
-            && path.components().any(|component| {
-                let value = component.as_os_str().to_string_lossy();
-                value.eq_ignore_ascii_case("en") || value.eq_ignore_ascii_case("en-US")
-            })
-        {
+            continue;
+        }
+        let is_locres = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("locres"));
+        let in_english_culture = path.components().any(|component| {
+            let value = component.as_os_str().to_string_lossy();
+            value.eq_ignore_ascii_case("en") || value.eq_ignore_ascii_case("en-US")
+        });
+        if file_type.is_file() && is_locres && in_english_culture {
             out.push(path);
         }
     }
@@ -189,24 +190,24 @@ fn collect_english_locres(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), Stri
 
 fn destination_for_source(root: &Path, source: &Path) -> Option<PathBuf> {
     let relative = source.strip_prefix(root).ok()?;
-    let mut out = PathBuf::new();
+    let mut output = PathBuf::new();
     let mut replaced = false;
     for component in relative.components() {
         match component {
             Component::Normal(value) if !replaced => {
                 let text = value.to_string_lossy();
                 if text.eq_ignore_ascii_case("en") || text.eq_ignore_ascii_case("en-US") {
-                    out.push("vi");
+                    output.push("vi");
                     replaced = true;
                 } else {
-                    out.push(value);
+                    output.push(value);
                 }
             }
-            Component::Normal(value) => out.push(value),
+            Component::Normal(value) => output.push(value),
             _ => return None,
         }
     }
-    replaced.then(|| root.join(out))
+    replaced.then(|| root.join(output))
 }
 
 fn config_text() -> String {
@@ -238,6 +239,7 @@ fn set_culture_text(text: &str, culture: Option<&str>) -> String {
     let mut lines = text.lines().map(str::to_string).collect::<Vec<_>>();
     let mut section_start = None;
     let mut section_end = lines.len();
+
     for (index, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
         if trimmed.starts_with('[') && trimmed.ends_with(']') {
@@ -282,8 +284,7 @@ fn set_culture_text(text: &str, culture: Option<&str>) -> String {
 
 fn write_culture(culture: Option<&str>) -> Result<(), String> {
     let path = settings::game_config_path();
-    let current = config_text();
-    let next = set_culture_text(&current, culture);
+    let next = set_culture_text(&config_text(), culture);
     write_atomic(&path, next.as_bytes())
 }
 
@@ -301,7 +302,9 @@ fn relative_owned_path(game_root: &Path, path: &Path) -> Result<String, String> 
 fn resolve_owned_path(game_root: &Path, relative: &str) -> Result<PathBuf, String> {
     let relative_path = Path::new(relative);
     if relative_path.is_absolute()
-        || relative_path.components().any(|component| !matches!(component, Component::Normal(_)))
+        || relative_path
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
     {
         return Err("Manifest Việt hoá chứa đường dẫn không an toàn.".to_string());
     }
@@ -335,8 +338,16 @@ fn installed_status(manifest: &OwnershipManifest, game_root: &Path) -> MutationL
         );
     }
 
-    let fingerprint = match fingerprint_sources(game_root, &manifest.sources) {
-        Ok(value) => value,
+    match fingerprint_sources(game_root, &manifest.sources) {
+        Ok(value) if value == manifest.source_fingerprint => {}
+        Ok(_) => {
+            return status(
+                MutationLocaleState::Incompatible,
+                Some(game_root),
+                matched,
+                Some("The Isle đã thay đổi. Cần cập nhật lại gói Việt hoá trước khi cài tiếp.".to_string()),
+            )
+        }
         Err(message) => {
             return status(
                 MutationLocaleState::Incompatible,
@@ -345,14 +356,6 @@ fn installed_status(manifest: &OwnershipManifest, game_root: &Path) -> MutationL
                 Some(message),
             )
         }
-    };
-    if fingerprint != manifest.source_fingerprint {
-        return status(
-            MutationLocaleState::Incompatible,
-            Some(game_root),
-            matched,
-            Some("The Isle đã thay đổi. Cần cập nhật lại gói Việt hoá trước khi cài tiếp.".to_string()),
-        );
     }
 
     for owned in &manifest.files {
@@ -374,12 +377,7 @@ fn installed_status(manifest: &OwnershipManifest, game_root: &Path) -> MutationL
         }
     }
 
-    status(
-        MutationLocaleState::Installed,
-        Some(game_root),
-        matched,
-        None,
-    )
+    status(MutationLocaleState::Installed, Some(game_root), matched, None)
 }
 
 #[tauri::command]
@@ -408,9 +406,10 @@ pub fn mutation_locale_status() -> Result<MutationLocaleStatus, String> {
 #[tauri::command]
 pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
     if win::game_window::find_game_window(settings::GAME_PROCESS_NAME).is_some() {
+        let detected = steam::detect_game_root();
         return Ok(status(
             MutationLocaleState::GameRunning,
-            steam::detect_game_root().as_deref(),
+            detected.as_deref(),
             0,
             Some("Hãy đóng The Isle trước khi cài Việt hoá.".to_string()),
         ));
@@ -432,10 +431,17 @@ pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
         ));
     }
 
-    let existing = read_ownership().filter(|manifest| Path::new(&manifest.game_path) == game_root);
+    let existing = read_ownership()
+        .filter(|manifest| Path::new(&manifest.game_path) == game_root.as_path());
     let existing_owned: HashSet<String> = existing
         .as_ref()
-        .map(|manifest| manifest.files.iter().map(|file| file.relative_path.clone()).collect())
+        .map(|manifest| {
+            manifest
+                .files
+                .iter()
+                .map(|file| file.relative_path.clone())
+                .collect()
+        })
         .unwrap_or_default();
     let previous_culture = existing
         .as_ref()
@@ -457,6 +463,7 @@ pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
         if patched.replaced == 0 {
             continue;
         }
+
         let target = destination_for_source(&root, &source)
             .ok_or_else(|| format!("Không xác định được đích Việt hoá cho {}", source.display()))?;
         let target_relative = relative_owned_path(&game_root, &target)?;
@@ -466,13 +473,13 @@ pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
                 target.display()
             ));
         }
-        // Parse the generated bytes once more before any game file is touched.
-        locres::patch_locres(&patched.bytes, &HashMap::new())
+
+        locres::patch_locres(&patched.bytes, &std::collections::HashMap::new())
             .map_err(|error| format!("Gói Việt hoá tạo ra không hợp lệ: {error}"))?;
+
         matched.extend(patched.matched_sources.iter().cloned());
-        let source_relative = relative_owned_path(&game_root, &source)?;
         source_records.push(SourceFile {
-            relative_path: source_relative,
+            relative_path: relative_owned_path(&game_root, &source)?,
             sha256: sha256_bytes(&bytes),
         });
         let temp = target.with_extension(format!(
@@ -529,9 +536,10 @@ pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
 #[tauri::command]
 pub fn mutation_locale_uninstall() -> Result<MutationLocaleStatus, String> {
     if win::game_window::find_game_window(settings::GAME_PROCESS_NAME).is_some() {
+        let detected = read_ownership().and_then(|manifest| manifest_game_root(&manifest));
         return Ok(status(
             MutationLocaleState::GameRunning,
-            read_ownership().and_then(|manifest| manifest_game_root(&manifest)).as_deref(),
+            detected.as_deref(),
             0,
             Some("Hãy đóng The Isle trước khi gỡ Việt hoá.".to_string()),
         ));
@@ -542,6 +550,7 @@ pub fn mutation_locale_uninstall() -> Result<MutationLocaleStatus, String> {
     };
     let game_root = manifest_game_root(&manifest)
         .ok_or_else(|| "Không còn tìm thấy bản cài The Isle đã được Việt hoá.".to_string())?;
+
     let mut modified = Vec::new();
     for owned in &manifest.files {
         let path = resolve_owned_path(&game_root, &owned.relative_path)?;
@@ -554,8 +563,8 @@ pub fn mutation_locale_uninstall() -> Result<MutationLocaleStatus, String> {
         }
         fs::remove_file(&path)
             .map_err(|error| format!("Không thể xoá {}: {error}", path.display()))?;
-        let mut parent = path.parent();
         let stop = localization_root(&game_root);
+        let mut parent = path.parent();
         while let Some(dir) = parent {
             if dir == stop || !dir.starts_with(&stop) {
                 break;
@@ -622,7 +631,11 @@ mod tests {
     #[test]
     fn owned_paths_cannot_escape_game_root() {
         let root = Path::new(r"C:\Steam\The Isle");
-        assert!(resolve_owned_path(root, "TheIsle/Content/Localization/Game/vi/Game.locres").is_ok());
+        assert!(resolve_owned_path(
+            root,
+            "TheIsle/Content/Localization/Game/vi/Game.locres"
+        )
+        .is_ok());
         assert!(resolve_owned_path(root, "../other/file.locres").is_err());
         assert!(resolve_owned_path(root, r"C:\Windows\file.locres").is_err());
     }
