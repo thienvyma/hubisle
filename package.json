@@ -25,6 +25,7 @@
     "test:skin": "node --experimental-strip-types --test scripts/skin-*.test.mjs",
     "test:voice": "node --test scripts/voice-provider.test.mjs",
     "test:mutations": "node --experimental-strip-types --test scripts/mutations.test.mjs",
+    "test:mutation-locale-ui": "node --test scripts/mutation-localization-ui.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
