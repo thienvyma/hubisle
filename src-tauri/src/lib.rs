@@ -14,6 +14,7 @@ pub mod hotkeys;
 pub mod islepilot;
 pub mod local_telemetry;
 pub mod minimap;
+pub mod mutation_locale;
 pub mod pipeline;
 pub mod prime;
 pub mod providers;
@@ -86,6 +87,9 @@ pub fn run(replay_file: Option<PathBuf>) {
             voice::voice_status,
             voice::voice_start_login,
             voice::voice_logout,
+            mutation_locale::mutation_locale_status,
+            mutation_locale::mutation_locale_install,
+            mutation_locale::mutation_locale_uninstall,
             commands::get_current_position,
             commands::get_current_heading,
             commands::list_waypoints,

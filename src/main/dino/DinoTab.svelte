@@ -17,6 +17,7 @@
   import { locale, t } from "$lib/i18n";
   import MutationDetails from "$lib/components/MutationDetails.svelte";
   import MutationLibrary from "$lib/components/MutationLibrary.svelte";
+  import MutationGameLocalization from "$lib/components/MutationGameLocalization.svelte";
   import { formatStat, providerLabel } from "$lib/provider-ui";
 
   let settings = $state<Settings | null>(null);
@@ -250,6 +251,7 @@
   </section>
 
   <MutationLibrary />
+  <MutationGameLocalization />
 
   {#if snapshot}
     <section
