@@ -20,12 +20,7 @@ pub struct NormalizedRect {
 
 impl Default for NormalizedRect {
     fn default() -> Self {
-        Self {
-            x: 0.61,
-            y: 0.28,
-            w: 0.28,
-            h: 0.22,
-        }
+        Self { x: 0.61, y: 0.28, w: 0.28, h: 0.22 }
     }
 }
 
@@ -109,11 +104,11 @@ impl fmt::Display for CaptureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
             Self::InvalidBounds => "invalid capture bounds",
-            Self::DeviceContext => "Windows screen capture context is unavailable",
-            Self::Bitmap => "Windows screen capture bitmap could not be created",
-            Self::Blit => "Windows could not copy the requested screen region",
+            Self::DeviceContext => "Windows game capture context is unavailable",
+            Self::Bitmap => "Windows game capture bitmap could not be created",
+            Self::Blit => "Windows could not copy the requested game region",
             Self::Readback => "Windows could not read back the captured pixels",
-            Self::BlankFrame => "captured region is blank",
+            Self::BlankFrame => "captured game region is blank",
         };
         f.write_str(message)
     }
@@ -136,29 +131,36 @@ pub struct GdiFrameSource;
 impl MutationFrameSource for GdiFrameSource {
     fn capture(
         &self,
-        _hwnd: isize,
+        hwnd: isize,
         game_rect: (i32, i32, i32, i32),
         rect: NormalizedRect,
     ) -> Result<GrayFrame, CaptureError> {
-        let (x, y, width, height) = rect.to_screen_rect(game_rect);
+        let (screen_x, screen_y, width, height) = rect.to_screen_rect(game_rect);
         if width <= 0 || height <= 0 {
             return Err(CaptureError::InvalidBounds);
         }
+        let (game_x, game_y, _, _) = game_rect;
+        let source_x = screen_x - game_x;
+        let source_y = screen_y - game_y;
+        let game_hwnd = HWND(hwnd as *mut c_void);
 
         unsafe {
-            let screen_dc = GetDC(HWND::default());
-            if screen_dc.is_invalid() {
+            // Capture the target window's client DC, not the composited
+            // desktop. That keeps our own topmost translation overlay out of
+            // the next OCR frame and avoids a visual hide/show flicker.
+            let game_dc = GetDC(game_hwnd);
+            if game_dc.is_invalid() {
                 return Err(CaptureError::DeviceContext);
             }
-            let memory_dc = CreateCompatibleDC(Some(screen_dc));
+            let memory_dc = CreateCompatibleDC(Some(game_dc));
             if memory_dc.is_invalid() {
-                ReleaseDC(HWND::default(), screen_dc);
+                ReleaseDC(game_hwnd, game_dc);
                 return Err(CaptureError::DeviceContext);
             }
-            let bitmap = CreateCompatibleBitmap(screen_dc, width, height);
+            let bitmap = CreateCompatibleBitmap(game_dc, width, height);
             if bitmap.is_invalid() {
                 let _ = DeleteDC(memory_dc);
-                ReleaseDC(HWND::default(), screen_dc);
+                ReleaseDC(game_hwnd, game_dc);
                 return Err(CaptureError::Bitmap);
             }
             let old_object = SelectObject(memory_dc, HGDIOBJ(bitmap.0));
@@ -169,16 +171,16 @@ impl MutationFrameSource for GdiFrameSource {
                 0,
                 width,
                 height,
-                Some(screen_dc),
-                x,
-                y,
+                Some(game_dc),
+                source_x,
+                source_y,
                 SRCCOPY | CAPTUREBLT,
             );
-            if copied.is_err() {
+            if !copied.as_bool() {
                 let _ = SelectObject(memory_dc, old_object);
                 let _ = DeleteObject(HGDIOBJ(bitmap.0));
                 let _ = DeleteDC(memory_dc);
-                ReleaseDC(HWND::default(), screen_dc);
+                ReleaseDC(game_hwnd, game_dc);
                 return Err(CaptureError::Blit);
             }
 
@@ -192,8 +194,7 @@ impl MutationFrameSource for GdiFrameSource {
                 biCompression: BI_RGB.0,
                 ..Default::default()
             };
-            let byte_len = width as usize * height as usize * 4;
-            let mut bgra = vec![0u8; byte_len];
+            let mut bgra = vec![0u8; width as usize * height as usize * 4];
             let lines = GetDIBits(
                 memory_dc,
                 bitmap,
@@ -207,7 +208,7 @@ impl MutationFrameSource for GdiFrameSource {
             let _ = SelectObject(memory_dc, old_object);
             let _ = DeleteObject(HGDIOBJ(bitmap.0));
             let _ = DeleteDC(memory_dc);
-            ReleaseDC(HWND::default(), screen_dc);
+            ReleaseDC(game_hwnd, game_dc);
 
             if lines == 0 {
                 return Err(CaptureError::Readback);
@@ -218,7 +219,6 @@ impl MutationFrameSource for GdiFrameSource {
                 let b = pixel[0] as u16;
                 let g = pixel[1] as u16;
                 let r = pixel[2] as u16;
-                // Integer approximation of Rec. 601 luminance.
                 pixels.push(((77 * r + 150 * g + 29 * b) >> 8) as u8);
             }
             let frame = GrayFrame {
@@ -241,12 +241,7 @@ mod tests {
 
     #[test]
     fn normalized_rect_scales_across_common_resolutions() {
-        let rect = NormalizedRect {
-            x: 0.50,
-            y: 0.25,
-            w: 0.25,
-            h: 0.20,
-        };
+        let rect = NormalizedRect { x: 0.50, y: 0.25, w: 0.25, h: 0.20 };
         assert_eq!(rect.to_screen_rect((0, 0, 1920, 1080)), (960, 270, 480, 216));
         assert_eq!(rect.to_screen_rect((100, 50, 2560, 1440)), (1380, 410, 640, 288));
         assert_eq!(rect.to_screen_rect((-200, 20, 3440, 1440)), (1520, 380, 860, 288));
@@ -254,12 +249,7 @@ mod tests {
 
     #[test]
     fn normalized_rect_is_clamped_inside_game_client() {
-        let rect = NormalizedRect {
-            x: -0.2,
-            y: 0.95,
-            w: 2.0,
-            h: 0.5,
-        };
+        let rect = NormalizedRect { x: -0.2, y: 0.95, w: 2.0, h: 0.5 };
         let (x, y, w, h) = rect.to_screen_rect((10, 20, 1000, 500));
         assert!(x >= 10 && y >= 20);
         assert!(x + w <= 1010);
@@ -277,22 +267,14 @@ mod tests {
 
     #[test]
     fn blank_frames_are_detected_without_disk_io() {
-        let blank = GrayFrame {
-            width: 20,
-            height: 20,
-            pixels: vec![3; 400],
-        };
+        let blank = GrayFrame { width: 20, height: 20, pixels: vec![3; 400] };
         assert!(blank.is_blank());
 
         let mut pixels = vec![0; 400];
         for (index, value) in pixels.iter_mut().enumerate() {
             *value = (index % 255) as u8;
         }
-        let detailed = GrayFrame {
-            width: 20,
-            height: 20,
-            pixels,
-        };
+        let detailed = GrayFrame { width: 20, height: 20, pixels };
         assert!(!detailed.is_blank());
     }
 }
