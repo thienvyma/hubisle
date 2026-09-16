@@ -174,7 +174,7 @@
       overlay = readOverlaySettings(settings);
       void refreshStatus();
     });
-    void bag.add(onSettingsChanged((settings) => (overlay = readOverlaySettings(settings)));
+    void bag.add(onSettingsChanged((settings) => (overlay = readOverlaySettings(settings))));
     void bag.add(onMutationOverlayState((next) => (status = next)));
     return () => bag.dispose();
   });
