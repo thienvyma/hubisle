@@ -148,19 +148,19 @@ impl MutationFrameSource for GdiFrameSource {
             // Capture the target window's client DC, not the composited
             // desktop. That keeps our own topmost translation overlay out of
             // the next OCR frame and avoids a visual hide/show flicker.
-            let game_dc = GetDC(game_hwnd);
+            let game_dc = GetDC(Some(game_hwnd));
             if game_dc.is_invalid() {
                 return Err(CaptureError::DeviceContext);
             }
             let memory_dc = CreateCompatibleDC(Some(game_dc));
             if memory_dc.is_invalid() {
-                ReleaseDC(game_hwnd, game_dc);
+                ReleaseDC(Some(game_hwnd), game_dc);
                 return Err(CaptureError::DeviceContext);
             }
             let bitmap = CreateCompatibleBitmap(game_dc, width, height);
             if bitmap.is_invalid() {
                 let _ = DeleteDC(memory_dc);
-                ReleaseDC(game_hwnd, game_dc);
+                ReleaseDC(Some(game_hwnd), game_dc);
                 return Err(CaptureError::Bitmap);
             }
             let old_object = SelectObject(memory_dc, HGDIOBJ(bitmap.0));
@@ -176,11 +176,11 @@ impl MutationFrameSource for GdiFrameSource {
                 source_y,
                 SRCCOPY | CAPTUREBLT,
             );
-            if !copied.as_bool() {
+            if copied.is_err() {
                 let _ = SelectObject(memory_dc, old_object);
                 let _ = DeleteObject(HGDIOBJ(bitmap.0));
                 let _ = DeleteDC(memory_dc);
-                ReleaseDC(game_hwnd, game_dc);
+                ReleaseDC(Some(game_hwnd), game_dc);
                 return Err(CaptureError::Blit);
             }
 
@@ -208,7 +208,7 @@ impl MutationFrameSource for GdiFrameSource {
             let _ = SelectObject(memory_dc, old_object);
             let _ = DeleteObject(HGDIOBJ(bitmap.0));
             let _ = DeleteDC(memory_dc);
-            ReleaseDC(game_hwnd, game_dc);
+            ReleaseDC(Some(game_hwnd), game_dc);
 
             if lines == 0 {
                 return Err(CaptureError::Readback);
