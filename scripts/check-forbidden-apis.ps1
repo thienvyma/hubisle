@@ -2,7 +2,7 @@
 # appears in the Rust sources. The sole reviewed exception is SendInput in the
 # foreground-gated, fixed `!unstuck` macro; arbitrary input remains forbidden.
 # (Matches call sites `Name(` — the names may legitimately appear in comments.)
-$forbidden = "OpenProcess|ReadProcessMemory|WriteProcessMemory|SetWindowsHookEx\w*|SendInput|keybd_event|mouse_event|SetParent|CreateRemoteThread"
+$forbidden = "OpenProcess|ReadProcessMemory|WriteProcessMemory|VirtualAllocEx|VirtualProtectEx|SetWindowsHookEx\w*|SendInput|keybd_event|mouse_event|SetParent|CreateRemoteThread|NtCreateThreadEx"
 $pattern = "\b($forbidden)\s*\("
 
 $unstuckMacro = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\src-tauri\src\win\unstuck.rs"))
