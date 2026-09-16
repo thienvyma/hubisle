@@ -1,4 +1,5 @@
 mod catalog;
+mod iostore;
 mod locres;
 mod steam;
 
@@ -11,7 +12,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{settings, win};
 
-const PACK_VERSION: &str = "1.0.0";
+const PACK_VERSION: &str = "1.1.0";
 const OWNERSHIP_SCHEMA: u32 = 1;
 
 #[derive(Debug, Clone, Serialize)]
@@ -158,6 +159,9 @@ fn localization_root(game_root: &Path) -> PathBuf {
 }
 
 fn collect_english_locres(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    if !dir.is_dir() {
+        return Ok(());
+    }
     for entry in fs::read_dir(dir)
         .map_err(|error| format!("Không thể đọc {}: {error}", dir.display()))?
     {
@@ -403,6 +407,44 @@ pub fn mutation_locale_status() -> Result<MutationLocaleStatus, String> {
     ))
 }
 
+fn stage_patched_file(
+    game_root: &Path,
+    existing_owned: &HashSet<String>,
+    replacements: &std::collections::HashMap<&str, &str>,
+    source_label: &str,
+    bytes: &[u8],
+    target: PathBuf,
+    matched: &mut BTreeSet<String>,
+    staged: &mut Vec<(PathBuf, PathBuf, Vec<u8>)>,
+) -> Result<bool, String> {
+    let patched = match locres::patch_locres(bytes, replacements) {
+        Ok(value) => value,
+        Err(_) => return Ok(false),
+    };
+    if patched.replaced == 0 {
+        return Ok(false);
+    }
+
+    let target_relative = relative_owned_path(game_root, &target)?;
+    if target.exists() && !existing_owned.contains(&target_relative) {
+        return Err(format!(
+            "{} đã tồn tại và không thuộc gói Việt hoá của hub; không ghi đè file này.",
+            target.display()
+        ));
+    }
+
+    locres::patch_locres(&patched.bytes, &std::collections::HashMap::new())
+        .map_err(|error| format!("Gói Việt hoá tạo ra từ {source_label} không hợp lệ: {error}"))?;
+
+    matched.extend(patched.matched_sources.iter().cloned());
+    let temp = target.with_extension(format!(
+        "{}.hubtmp",
+        target.extension().and_then(|value| value.to_str()).unwrap_or("locres")
+    ));
+    staged.push((temp, target, patched.bytes));
+    Ok(true)
+}
+
 #[tauri::command]
 pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
     if win::game_window::find_game_window(settings::GAME_PROCESS_NAME).is_some() {
@@ -419,15 +461,21 @@ pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
         "Không tìm thấy The Isle EVRIMA. Hãy kiểm tra lại thư viện Steam.".to_string()
     })?;
     let root = localization_root(&game_root);
-    let mut sources = Vec::new();
-    collect_english_locres(&root, &mut sources)?;
-    sources.sort();
-    if sources.is_empty() {
+    let mut loose_sources = Vec::new();
+    collect_english_locres(&root, &mut loose_sources)?;
+    loose_sources.sort();
+
+    let iostore_sources = if loose_sources.is_empty() {
+        iostore::collect_iostore_locres(&game_root, &mutation_locale_dir().join("tools"))?
+    } else {
+        Vec::new()
+    };
+    if loose_sources.is_empty() && iostore_sources.is_empty() {
         return Ok(status(
             MutationLocaleState::Incompatible,
             Some(&game_root),
             0,
-            Some("Không tìm thấy localization tiếng Anh của The Isle hiện tại.".to_string()),
+            Some("Không tìm thấy localization tiếng Anh trong các container IoStore của The Isle hiện tại.".to_string()),
         ));
     }
 
@@ -452,41 +500,55 @@ pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
     let mut matched = BTreeSet::new();
     let mut staged = Vec::<(PathBuf, PathBuf, Vec<u8>)>::new();
     let mut source_records = Vec::<SourceFile>::new();
+    let mut recorded_source_paths = BTreeSet::<String>::new();
 
-    for source in sources {
+    for source in loose_sources {
         let bytes = fs::read(&source)
             .map_err(|error| format!("Không thể đọc {}: {error}", source.display()))?;
-        let patched = match locres::patch_locres(&bytes, &replacements) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        if patched.replaced == 0 {
-            continue;
-        }
-
         let target = destination_for_source(&root, &source)
             .ok_or_else(|| format!("Không xác định được đích Việt hoá cho {}", source.display()))?;
-        let target_relative = relative_owned_path(&game_root, &target)?;
-        if target.exists() && !existing_owned.contains(&target_relative) {
-            return Err(format!(
-                "{} đã tồn tại và không thuộc gói Việt hoá của hub; không ghi đè file này.",
-                target.display()
-            ));
+        if stage_patched_file(
+            &game_root,
+            &existing_owned,
+            &replacements,
+            &source.to_string_lossy(),
+            &bytes,
+            target,
+            &mut matched,
+            &mut staged,
+        )? {
+            let relative = relative_owned_path(&game_root, &source)?;
+            if recorded_source_paths.insert(relative.clone()) {
+                source_records.push(SourceFile {
+                    relative_path: relative,
+                    sha256: sha256_bytes(&bytes),
+                });
+            }
         }
+    }
 
-        locres::patch_locres(&patched.bytes, &std::collections::HashMap::new())
-            .map_err(|error| format!("Gói Việt hoá tạo ra không hợp lệ: {error}"))?;
-
-        matched.extend(patched.matched_sources.iter().cloned());
-        source_records.push(SourceFile {
-            relative_path: relative_owned_path(&game_root, &source)?,
-            sha256: sha256_bytes(&bytes),
-        });
-        let temp = target.with_extension(format!(
-            "{}.hubtmp",
-            target.extension().and_then(|value| value.to_str()).unwrap_or("locres")
-        ));
-        staged.push((temp, target, patched.bytes));
+    for source in iostore_sources {
+        let Some(target) = iostore::destination_for_virtual_source(&game_root, &source.virtual_path) else {
+            continue;
+        };
+        if stage_patched_file(
+            &game_root,
+            &existing_owned,
+            &replacements,
+            &source.virtual_path,
+            &source.bytes,
+            target,
+            &mut matched,
+            &mut staged,
+        )? {
+            let relative = relative_owned_path(&game_root, &source.utoc_path)?;
+            if recorded_source_paths.insert(relative.clone()) {
+                source_records.push(SourceFile {
+                    relative_path: relative,
+                    sha256: sha256_file(&source.utoc_path)?,
+                });
+            }
+        }
     }
 
     if matched.is_empty() {
