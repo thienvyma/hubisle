@@ -31,11 +31,10 @@
 
 <div class:calibrating class="surface">
   {#if calibrating}
-    <div class="calibration-label">MUTATION NAME + DESCRIPTION</div>
-    <div class="calibration-hint">Kéo và đổi kích thước khung này cho khớp vùng mô tả trong The Isle</div>
+    <div class="calibration-label">MUTATION DESCRIPTION ONLY</div>
+    <div class="calibration-hint">Kéo và đổi kích thước khung chỉ phủ phần mô tả tiếng Anh</div>
   {:else if payload}
-    <div class="mask" data-source={payload.source}>
-      <div class="name">{payload.nameEn}</div>
+    <div class="mask" data-source={payload.source} aria-label={payload.nameEn}>
       <div class="description">{payload.descriptionVi}</div>
     </div>
   {/if}
@@ -67,25 +66,22 @@
   .mask {
     width: 100%;
     min-height: 100%;
-    padding: 10px 12px 12px;
-    background: rgba(8, 10, 12, 0.92);
-    color: #f3f5f6;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
-  }
-
-  .name {
-    margin-bottom: 6px;
-    font-size: clamp(13px, 1.35vw, 21px);
-    font-weight: 600;
-    line-height: 1.16;
-    color: rgba(245, 246, 247, 0.98);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 7px 12px 10px;
+    background: rgba(2, 7, 9, 0.96);
+    color: #aeeef4;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
   }
 
   .description {
-    font-size: clamp(12px, 1.05vw, 18px);
+    width: 100%;
+    text-align: center;
+    font-size: clamp(13px, 1.25vw, 21px);
     font-weight: 400;
-    line-height: 1.34;
-    color: rgba(231, 234, 236, 0.96);
+    line-height: 1.3;
+    color: rgba(174, 238, 244, 0.98);
   }
 
   .surface.calibrating {
