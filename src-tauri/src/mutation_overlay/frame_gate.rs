@@ -5,21 +5,25 @@ use super::capture::GrayFrame;
 #[derive(Debug)]
 pub struct FrameGate {
     min_interval: Duration,
+    unchanged_retry_interval: Duration,
     last_attempt: Option<Instant>,
+    last_ocr: Option<Instant>,
     last_hash: Option<u64>,
 }
 
 impl Default for FrameGate {
     fn default() -> Self {
-        Self::new(Duration::from_millis(500))
+        Self::new(Duration::from_millis(500), Duration::from_secs(2))
     }
 }
 
 impl FrameGate {
-    pub fn new(min_interval: Duration) -> Self {
+    pub fn new(min_interval: Duration, unchanged_retry_interval: Duration) -> Self {
         Self {
             min_interval,
+            unchanged_retry_interval,
             last_attempt: None,
+            last_ocr: None,
             last_hash: None,
         }
     }
@@ -31,18 +35,32 @@ impl FrameGate {
         {
             return false;
         }
+        self.last_attempt = Some(now);
 
         let hash = perceptual_hash(frame);
-        self.last_attempt = Some(now);
-        if self.last_hash.is_some_and(|previous| hamming_distance(previous, hash) <= 3) {
+        let unchanged = self
+            .last_hash
+            .is_some_and(|previous| hamming_distance(previous, hash) <= 3);
+
+        if unchanged
+            && self.last_ocr.is_some_and(|previous| {
+                now.saturating_duration_since(previous) < self.unchanged_retry_interval
+            })
+        {
             return false;
         }
+
+        // Record the latest frame whenever OCR is actually allowed. This means
+        // a static Mutation screen is retried periodically instead of getting
+        // stuck forever after one transient/empty Windows OCR result.
         self.last_hash = Some(hash);
+        self.last_ocr = Some(now);
         true
     }
 
     pub fn reset(&mut self) {
         self.last_attempt = None;
+        self.last_ocr = None;
         self.last_hash = None;
     }
 }
@@ -106,12 +124,14 @@ mod tests {
     }
 
     #[test]
-    fn identical_frames_do_not_repeat_ocr() {
+    fn identical_frames_are_skipped_between_periodic_retries() {
         let start = Instant::now();
         let mut gate = FrameGate::default();
         let sample = frame(3);
         assert!(gate.should_ocr(&sample, start));
         assert!(!gate.should_ocr(&sample, start + Duration::from_millis(600)));
+        assert!(!gate.should_ocr(&sample, start + Duration::from_millis(1500)));
+        assert!(gate.should_ocr(&sample, start + Duration::from_millis(2100)));
     }
 
     #[test]
@@ -128,5 +148,15 @@ mod tests {
         let mut gate = FrameGate::default();
         assert!(gate.should_ocr(&frame(1), start));
         assert!(gate.should_ocr(&frame(80), start + Duration::from_millis(600)));
+    }
+
+    #[test]
+    fn reset_allows_immediate_retry() {
+        let start = Instant::now();
+        let mut gate = FrameGate::default();
+        let sample = frame(9);
+        assert!(gate.should_ocr(&sample, start));
+        gate.reset();
+        assert!(gate.should_ocr(&sample, start + Duration::from_millis(10)));
     }
 }
