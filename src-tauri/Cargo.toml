@@ -42,7 +42,7 @@ tauri-plugin-opener = "2"
 tauri-plugin-log = "2"
 tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
-reqwest = { version = "0.12", features = ["blocking", "gzip"] }
+reqwest = { version = "0.12", features = ["blocking", "gzip", "json"] }
 regex = "1"
 scraper = "0.20"
 # Direct ICoreWebView2 access for TrySuspend/memory-target (hidden-window RAM).
