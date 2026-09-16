@@ -40,12 +40,7 @@ use crate::state::{AppState, LockExt};
 pub fn run(replay_file: Option<PathBuf>) {
     settings::ensure_dirs().expect("failed to prepare islemap-thienvyma data directories");
     let builder = tauri::Builder::default()
-        // Must be the FIRST plugin: RegisterHotKey is system-exclusive, so a
-        // second instance would silently lose half its hotkeys. The old app
-        // used a named mutex for the same reason.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // The "deep-link" feature forwards islemap-thienvyma:// URLs and
-            // legacy theisle-overlay:// URLs from a second instance.
             tray::show_main(app);
         }))
         .plugin(tauri_plugin_deep_link::init())
@@ -65,9 +60,6 @@ pub fn run(replay_file: Option<PathBuf>) {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .on_window_event(|window, event| match event {
-            // X hides to the tray, Steam/Discord-style. Quit lives in the
-            // tray menu; app.exit bypasses CloseRequested so it cannot be
-            // trapped here. The login window keeps its own close handling.
             tauri::WindowEvent::CloseRequested { api, .. }
                 if window.label() == "main" && !tray::is_quitting() =>
             {
@@ -88,9 +80,13 @@ pub fn run(replay_file: Option<PathBuf>) {
             voice::voice_status,
             voice::voice_start_login,
             voice::voice_logout,
-            mutation_locale::mutation_locale_status,
-            mutation_locale::mutation_locale_install,
-            mutation_locale::mutation_locale_uninstall,
+            mutation_overlay::mutation_overlay_status,
+            mutation_overlay::mutation_overlay_set_manual,
+            mutation_overlay::mutation_overlay_clear_manual,
+            mutation_overlay::mutation_overlay_begin_calibration,
+            mutation_overlay::mutation_overlay_save_calibration,
+            mutation_overlay::mutation_overlay_cancel_calibration,
+            mutation_overlay::mutation_overlay_preview,
             commands::get_current_position,
             commands::get_current_heading,
             commands::list_waypoints,
@@ -163,11 +159,6 @@ pub fn run(replay_file: Option<PathBuf>) {
 
     builder
         .setup(move |app| {
-            // Own protocols: islemap-thienvyma:// and the legacy
-            // theisle-overlay:// scheme (HKCU, this exe — works for dev builds
-            // too). A clicked URL with sid/token logs the token in, exactly
-            // like the paste box. We never take over the official app's
-            // isle-overlay:// scheme.
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 if let Err(e) = app.deep_link().register_all() {
@@ -193,16 +184,8 @@ pub fn run(replay_file: Option<PathBuf>) {
                     }
                 });
             }
-            // Upgrade pois_gateway.json in place (offline, from cache) when
-            // an app update added new layers.
             fetch::ensure_pois_current();
-            // ...and quietly fetch sources an update added that the offline
-            // path cannot produce (islemaps animal sightings).
             fetch::spawn_topup(app.handle());
-            // Heal settings that point at deleted islemaps imagery (LOCALDATA
-            // wiped, roaming settings kept) BEFORE any window exists, so
-            // every later path/calibration resolve can trust the settings
-            // without per-call file checks.
             {
                 let state = app.state::<AppState>();
                 let source = state.active_source();
@@ -212,8 +195,6 @@ pub fn run(replay_file: Option<PathBuf>) {
                             "selected basemap {} missing on disk - reverting to vulnona",
                             source.key()
                         );
-                        // Direct settings write, not apply_settings_patch —
-                        // there are no windows to broadcast to yet.
                         let mut s = state.settings.lock_safe();
                         *s = settings::merge(
                             &s,
@@ -230,6 +211,7 @@ pub fn run(replay_file: Option<PathBuf>) {
                 }
             }
             minimap::create(app.handle())?;
+            mutation_overlay::create(app.handle())?;
             tray::create(app.handle())?;
             clipboard::spawn(app.handle().clone());
             pipeline::spawn_heading_watchdog(app.handle().clone());
@@ -240,7 +222,6 @@ pub fn run(replay_file: Option<PathBuf>) {
                 state.hotkeys.restart(app.handle().clone());
             }
             providers::orchestrator::initialize(app.handle());
-            // Last, and on its own thread: nothing above may wait on it.
             telemetry::spawn(app.handle());
             if let Some(path) = replay_file {
                 replay::spawn(app.handle().clone(), path);
