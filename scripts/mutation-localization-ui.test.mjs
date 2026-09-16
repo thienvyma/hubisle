@@ -26,6 +26,10 @@ const iostore = readFileSync(
   new URL("../src-tauri/src/mutation_locale/iostore.rs", import.meta.url),
   "utf8",
 );
+const publicPack = readFileSync(
+  new URL("../src-tauri/src/mutation_locale/iostore/public_pack.rs", import.meta.url),
+  "utf8",
+);
 const nativeLocale = readFileSync(
   new URL("../src-tauri/src/mutation_locale/mod.rs", import.meta.url),
   "utf8",
@@ -54,12 +58,19 @@ test("game pack replacements never translate canonical mutation names", () => {
   assert.match(catalog, /!replacements\.contains_key\(entry\.name_en\)/);
 });
 
-test("EVRIMA IoStore localization is supported instead of assuming loose Content/Localization input", () => {
-  assert.match(iostore, /retoc_cli-x86_64-pc-windows-msvc\.zip/);
-  assert.match(iostore, /RETOC_ZIP_SHA256/);
-  assert.match(iostore, /\"list\"/);
-  assert.match(iostore, /\"--path\"/);
-  assert.match(iostore, /\"get\"/);
-  assert.match(iostore, /\.locres/);
+test("encrypted EVRIMA localization uses a checksum-verified public locres reference instead of container key recovery", () => {
+  assert.match(iostore, /public_pack::build_english_mutation_locres/);
+  assert.match(iostore, /pakchunk0-WindowsClient\.utoc/);
+  assert.doesNotMatch(iostore, /retoc_cli|RETOC_ZIP_URL|AesKey/);
+
+  assert.match(publicPack, /https:\/\/isle\.klong\.dev\/v1\/releases\/translation\/latest/);
+  assert.match(publicPack, /PUBLIC_ARTIFACT_PREFIX/);
+  assert.match(publicPack, /TheIsle\/Content\/Localization\/Game\/vi\/Game\.locres/);
+  assert.match(publicPack, /sha256/i);
+  assert.match(publicPack, /filter_vietnamese_locres/);
+  assert.match(publicPack, /entry\.vi/);
+  assert.match(publicPack, /entry\.source/);
+  assert.match(publicPack, /retain_mut/);
+
   assert.match(nativeLocale, /collect_iostore_locres/);
 });
