@@ -4,8 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 import pkg from "./package.json";
 
-// Two entries on purpose: the minimap overlay webview must stay minimal (no
-// Skeleton, no Leaflet), so it is its own HTML entry with a tiny bundle.
+// Overlay entries stay separate from the main app so their WebViews remain
+// small and event-driven while the game is running.
 export default defineConfig({
   plugins: [svelte(), tailwindcss()],
   define: {
@@ -22,6 +22,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         minimap: fileURLToPath(new URL("./minimap.html", import.meta.url)),
+        mutationOverlay: fileURLToPath(new URL("./mutation-overlay.html", import.meta.url)),
       },
     },
   },
