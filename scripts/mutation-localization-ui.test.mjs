@@ -18,6 +18,10 @@ const api = readFileSync(
   new URL("../src/lib/mutation-overlay-api.ts", import.meta.url),
   "utf8",
 );
+const mutationWindow = readFileSync(
+  new URL("../src-tauri/src/mutation_overlay/window.rs", import.meta.url),
+  "utf8",
+);
 
 test("mutation translation stays in Settings while Dino keeps its mutation library", () => {
   assert.match(card, /VIỆT HOÁ THE ISLE MUTATIONS/);
@@ -45,4 +49,12 @@ test("frontend overlay API stays narrow and outside the game process", () => {
   assert.match(api, /mutation_overlay_cancel_calibration/);
   assert.match(api, /mutation_overlay_preview/);
   assert.doesNotMatch(api, /OpenProcess|ReadProcessMemory|WriteProcessMemory|inject/i);
+});
+
+test("mutation overlay keeps WebView2 rendering while covered by The Isle", () => {
+  assert.match(mutationWindow, /additional_browser_args\(WEBVIEW_ARGS\)/);
+  assert.match(mutationWindow, /--disable-background-timer-throttling/);
+  assert.match(mutationWindow, /--disable-backgrounding-occluded-windows/);
+  assert.match(mutationWindow, /--disable-renderer-backgrounding/);
+  assert.match(mutationWindow, /CalculateNativeWinOcclusion/);
 });
