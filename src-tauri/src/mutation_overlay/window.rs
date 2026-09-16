@@ -13,6 +13,15 @@ pub const WINDOW_LABEL: &str = "mutation-overlay";
 const DEFAULT_WIDTH: f64 = 540.0;
 const DEFAULT_HEIGHT: f64 = 190.0;
 
+// Keep the transparent WebView2 renderer alive while The Isle covers it.
+// The minimap uses the same flags: without them, WebView2 can classify a
+// passive HUD as occluded and stop presenting pixels even though the native
+// window remains visible/topmost.
+const WEBVIEW_ARGS: &str = "--disable-background-timer-throttling \
+                            --disable-backgrounding-occluded-windows \
+                            --disable-renderer-backgrounding \
+                            --disable-features=CalculateNativeWinOcclusion,msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     if app.get_webview_window(WINDOW_LABEL).is_some() {
         return Ok(());
@@ -25,6 +34,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     )
     .title("Mutation Translation")
     .data_directory(settings::local_dir().join("mutation-overlay-webview2"))
+    .additional_browser_args(WEBVIEW_ARGS)
     .inner_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     .transparent(true)
     .decorations(false)
