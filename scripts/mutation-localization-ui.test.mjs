@@ -10,6 +10,10 @@ const dinoTab = readFileSync(
   new URL("../src/main/dino/DinoTab.svelte", import.meta.url),
   "utf8",
 );
+const settings = readFileSync(
+  new URL("../src/main/settings/Settings.svelte", import.meta.url),
+  "utf8",
+);
 const api = readFileSync(
   new URL("../src/lib/mutation-locale-api.ts", import.meta.url),
   "utf8",
@@ -19,11 +23,13 @@ const catalog = readFileSync(
   "utf8",
 );
 
-test("the in-hub installer uses the approved title and keeps current mutation UI", () => {
+test("the approved localization installer lives in Settings while Dino keeps its mutation UI", () => {
   assert.match(card, /VIỆT HOÁ THE ISLE MUTATIONS/);
   assert.match(dinoTab, /<MutationLibrary\s*\/>/);
-  assert.match(dinoTab, /<MutationGameLocalization\s*\/>/);
   assert.match(dinoTab, /<MutationDetails\s+names=\{player\.mutations\}\s*\/>/);
+  assert.doesNotMatch(dinoTab, /MutationGameLocalization/);
+  assert.match(settings, /MutationGameLocalization/);
+  assert.match(settings, /<MutationGameLocalization\s*\/>/);
 });
 
 test("the frontend exposes only narrow localization commands", () => {
