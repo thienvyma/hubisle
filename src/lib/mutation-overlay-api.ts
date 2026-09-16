@@ -21,6 +21,7 @@ export type MutationOverlayState =
   | "recognizing"
   | "recognized"
   | "manual"
+  | "calibrating"
   | "needs-calibration"
   | "capture-unavailable"
   | "ocr-unavailable";
