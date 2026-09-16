@@ -185,14 +185,14 @@ mod tests {
     }
 
     #[test]
-    fn validates_expected_evrima_markers() {
-        let root = temp_root("valid-game");
+    fn validates_packaged_evrima_markers_without_loose_localization() {
+        let root = temp_root("valid-packaged-game");
         let exe_dir = root.join("TheIsle/Binaries/Win64");
-        let loc_dir = root.join("TheIsle/Content/Localization/Game/en");
+        let paks_dir = root.join("TheIsle/Content/Paks");
         fs::create_dir_all(&exe_dir).unwrap();
-        fs::create_dir_all(&loc_dir).unwrap();
+        fs::create_dir_all(&paks_dir).unwrap();
         fs::write(exe_dir.join("TheIsleClient-Win64-Shipping.exe"), b"").unwrap();
-        fs::write(loc_dir.join("Game.locres"), b"fixture").unwrap();
+        fs::write(paks_dir.join("TheIsle-WindowsClient.pak"), b"fixture").unwrap();
         assert!(validate_game_root(&root).is_ok());
         let _ = fs::remove_dir_all(root);
     }
