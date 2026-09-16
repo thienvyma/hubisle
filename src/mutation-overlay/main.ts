@@ -1,5 +1,8 @@
+import { mount } from "svelte";
 import MutationOverlay from "./MutationOverlay.svelte";
 
-new MutationOverlay({
+const app = mount(MutationOverlay, {
   target: document.getElementById("app")!,
 });
+
+export default app;
