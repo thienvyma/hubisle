@@ -30,5 +30,11 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    // Cargo creates and locks executables under src-tauri/target while Tauri
+    // dev is running. Vite must not try to watch those Windows build outputs;
+    // doing so can fail with EBUSY and terminate beforeDevCommand.
+    watch: {
+      ignored: ["**/src-tauri/target/**"],
+    },
   },
 })
