@@ -22,6 +22,14 @@ const catalog = readFileSync(
   new URL("../src-tauri/src/mutation_locale/catalog.rs", import.meta.url),
   "utf8",
 );
+const iostore = readFileSync(
+  new URL("../src-tauri/src/mutation_locale/iostore.rs", import.meta.url),
+  "utf8",
+);
+const nativeLocale = readFileSync(
+  new URL("../src-tauri/src/mutation_locale/mod.rs", import.meta.url),
+  "utf8",
+);
 
 test("the approved localization installer lives in Settings while Dino keeps its mutation UI", () => {
   assert.match(card, /VIỆT HOÁ THE ISLE MUTATIONS/);
@@ -44,4 +52,14 @@ test("game pack replacements never translate canonical mutation names", () => {
   assert.match(catalog, /description_replacements/);
   assert.doesNotMatch(catalog, /vi_name|name_vi|viName|nameVi/);
   assert.match(catalog, /!replacements\.contains_key\(entry\.name_en\)/);
+});
+
+test("EVRIMA IoStore localization is supported instead of assuming loose Content/Localization input", () => {
+  assert.match(iostore, /retoc_cli-x86_64-pc-windows-msvc\.zip/);
+  assert.match(iostore, /RETOC_ZIP_SHA256/);
+  assert.match(iostore, /\"list\"/);
+  assert.match(iostore, /\"--path\"/);
+  assert.match(iostore, /\"get\"/);
+  assert.match(iostore, /\.locres/);
+  assert.match(nativeLocale, /collect_iostore_locres/);
 });
