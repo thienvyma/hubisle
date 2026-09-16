@@ -23,9 +23,18 @@ code in this repository. Its understanding of Unreal Engine `.locres` binary
 layout was cross-checked against the MIT-licensed `akintos/UnrealLocres`
 project. Exact public English Mutation description wording and Vietnamese
 meaning were cross-checked against the MIT-licensed `klong-dev/IsleLiveMap`
-Mutation catalog. This project does not ship that project's Vietnamese
-Mutation-name fields; canonical Mutation names remain English.
+Mutation catalog.
+
+Current EVRIMA `pakchunk` IoStore containers are encrypted, so this feature does
+not recover, request, or use The Isle's container encryption key. Instead, when
+no loose English localization exists, the hub downloads the public Vietnamese
+localization package published for `klong-dev/IsleLiveMap` from
+`https://isle.klong.dev`, verifies the package and selected `Game.locres` with
+SHA-256 metadata supplied by that service, and keeps only entries whose values
+match the reviewed Mutation-description catalog. Mutation-name translations
+and unrelated UI translations are discarded before the hub writes its own
+minimal local resource.
 
 The Isle game files and localization keys remain property of their respective
-copyright holders. The hub generates only user-local localization files from
-the user's installed game data and does not redistribute original game assets.
+copyright holders. The hub does not redistribute original encrypted game
+containers and does not modify or bypass EAC.
