@@ -77,13 +77,52 @@ fn steam_root_candidates() -> Vec<PathBuf> {
     if let Some(home) = std::env::var_os("USERPROFILE") {
         roots.insert(PathBuf::from(home).join("Steam"));
     }
+
+    // Steam itself is often installed outside Program Files. Probe only the
+    // conventional client roots; this is a bounded set of cheap existence
+    // checks and does not recursively scan drives.
+    for letter in b'C'..=b'Z' {
+        let drive = format!("{}:\\", letter as char);
+        let drive = PathBuf::from(drive);
+        roots.insert(drive.join("Steam"));
+        roots.insert(drive.join("Program Files").join("Steam"));
+        roots.insert(drive.join("Program Files (x86)").join("Steam"));
+    }
     roots.into_iter().collect()
+}
+
+fn direct_library_candidates() -> Vec<PathBuf> {
+    let mut libraries = BTreeSet::new();
+    for letter in b'C'..=b'Z' {
+        let drive = PathBuf::from(format!("{}:\\", letter as char));
+        libraries.insert(drive.join("SteamLibrary"));
+        libraries.insert(drive.join("Steam"));
+    }
+    libraries.into_iter().collect()
 }
 
 fn canonical_child(root: &Path, child: &Path) -> Option<PathBuf> {
     let root = root.canonicalize().ok()?;
     let child = child.canonicalize().ok()?;
     child.starts_with(&root).then_some(child)
+}
+
+fn has_packaged_content(paks: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(paks) else {
+        return false;
+    };
+    entries.filter_map(Result::ok).any(|entry| {
+        if !entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            return false;
+        }
+        entry
+            .path()
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|ext| {
+                ext.eq_ignore_ascii_case("pak") || ext.eq_ignore_ascii_case("utoc")
+            })
+    })
 }
 
 pub(crate) fn validate_game_root(path: &Path) -> Result<PathBuf, String> {
@@ -95,8 +134,8 @@ pub(crate) fn validate_game_root(path: &Path) -> Result<PathBuf, String> {
         .join("Binaries")
         .join("Win64")
         .join("TheIsleClient-Win64-Shipping.exe");
-    let localization = root.join("TheIsle").join("Content").join("Localization");
-    if !exe.is_file() || !localization.is_dir() {
+    let paks = root.join("TheIsle").join("Content").join("Paks");
+    if !exe.is_file() || !paks.is_dir() || !has_packaged_content(&paks) {
         return Err("Thư mục được tìm thấy không phải bản cài The Isle EVRIMA hợp lệ.".to_string());
     }
     Ok(root)
@@ -133,18 +172,19 @@ fn game_from_library(library: &Path) -> Option<PathBuf> {
 }
 
 pub(crate) fn detect_game_root() -> Option<PathBuf> {
-    let mut seen = BTreeSet::new();
+    let mut libraries = BTreeSet::new();
     for steam_root in steam_root_candidates() {
-        for library in libraries_from_root(&steam_root) {
-            if !seen.insert(library.clone()) {
-                continue;
-            }
-            if let Some(game) = game_from_library(&library) {
-                return Some(game);
-            }
+        libraries.extend(libraries_from_root(&steam_root));
+    }
+    for direct in direct_library_candidates() {
+        if let Ok(canonical) = direct.canonicalize() {
+            libraries.insert(canonical);
         }
     }
-    None
+
+    libraries
+        .into_iter()
+        .find_map(|library| game_from_library(&library))
 }
 
 #[cfg(test)]
