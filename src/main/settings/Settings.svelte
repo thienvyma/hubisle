@@ -17,6 +17,7 @@
     type FeedbackCategory,
     type Settings,
   } from "$lib/api";
+  import MutationGameLocalization from "$lib/components/MutationGameLocalization.svelte";
   import { t } from "$lib/i18n";
   import { updates, updateState } from "$lib/updates";
   import HotkeyEditor from "./HotkeyEditor.svelte";
@@ -133,6 +134,9 @@
         <span class="text-xs" style="color: var(--color-muted)">{$t("update.manual_hint")}</span>
       </div>
     </section>
+
+    <!-- Optional The Isle Mutation localization package -->
+    <MutationGameLocalization />
 
     <!-- Minimap -->
     <section>
