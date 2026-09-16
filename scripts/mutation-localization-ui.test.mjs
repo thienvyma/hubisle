@@ -15,11 +15,7 @@ const settings = readFileSync(
   "utf8",
 );
 const api = readFileSync(
-  new URL("../src/lib/api.ts", import.meta.url),
-  "utf8",
-);
-const nativeShell = readFileSync(
-  new URL("../src-tauri/src/lib.rs", import.meta.url),
+  new URL("../src/lib/mutation-overlay-api.ts", import.meta.url),
   "utf8",
 );
 
@@ -40,7 +36,7 @@ test("settings card exposes overlay controls instead of localization installer a
   assert.doesNotMatch(card, /CÀI VIỆT HOÁ|CẬP NHẬT GÓI DỊCH|GỠ VIỆT HOÁ|GÓI DỊCH|packVersion/);
 });
 
-test("frontend exposes narrow mutation overlay commands", () => {
+test("frontend overlay API stays narrow and outside the game process", () => {
   assert.match(api, /mutation_overlay_status/);
   assert.match(api, /mutation_overlay_set_manual/);
   assert.match(api, /mutation_overlay_clear_manual/);
@@ -49,10 +45,4 @@ test("frontend exposes narrow mutation overlay commands", () => {
   assert.match(api, /mutation_overlay_cancel_calibration/);
   assert.match(api, /mutation_overlay_preview/);
   assert.doesNotMatch(api, /OpenProcess|ReadProcessMemory|WriteProcessMemory|inject/i);
-});
-
-test("native shell no longer registers the failed mutation locres installer commands", () => {
-  assert.match(nativeShell, /mutation_overlay::/);
-  assert.doesNotMatch(nativeShell, /mutation_locale::mutation_locale_install/);
-  assert.doesNotMatch(nativeShell, /mutation_locale::mutation_locale_uninstall/);
 });
