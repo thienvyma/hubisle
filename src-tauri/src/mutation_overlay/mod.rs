@@ -18,7 +18,7 @@ use crate::state::{AppState, LockExt};
 use crate::win::game_window;
 
 use self::capture::{CaptureError, GdiFrameSource, MutationFrameSource, NormalizedRect};
-use self::detect::detect_mutation_with_threshold;
+use self::detect::detect_mutation_name_with_threshold;
 use self::frame_gate::FrameGate;
 use self::ocr::{MutationOcr, OcrError, WindowsMutationOcr};
 
@@ -26,6 +26,25 @@ const TICK_MS: u64 = 250;
 const CAPTURE_INTERVAL_MS: u64 = 500;
 const AMBIGUOUS_GRACE_MS: u64 = 1500;
 const PREVIEW_MS: u64 = 5000;
+
+// The current Evrima Mutation screen keeps the selected Mutation title in a
+// stable right-side band. OCR only this title so the full Mutation list on the
+// left cannot create ambiguous name matches.
+const DEFAULT_SCAN_RECT: NormalizedRect = NormalizedRect {
+    x: 0.53,
+    y: 0.095,
+    w: 0.31,
+    h: 0.075,
+};
+
+// Keep the native English title visible. Only cover the description line(s)
+// below it with Vietnamese text.
+const DEFAULT_DESCRIPTION_RECT: NormalizedRect = NormalizedRect {
+    x: 0.455,
+    y: 0.155,
+    w: 0.43,
+    h: 0.095,
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,8 +119,35 @@ fn with_runtime<R>(f: impl FnOnce(&mut RuntimeState) -> R) -> R {
 struct OverlayConfig {
     enabled: bool,
     auto_detect: bool,
-    rect: NormalizedRect,
+    scan_rect: NormalizedRect,
+    description_rect: NormalizedRect,
     confidence_threshold: f32,
+}
+
+fn read_rect(settings_value: &serde_json::Value, key: &str, fallback: NormalizedRect) -> NormalizedRect {
+    NormalizedRect {
+        x: settings::get_f64(
+            settings_value,
+            &["mutation_overlay", key, "x"],
+            fallback.x,
+        ),
+        y: settings::get_f64(
+            settings_value,
+            &["mutation_overlay", key, "y"],
+            fallback.y,
+        ),
+        w: settings::get_f64(
+            settings_value,
+            &["mutation_overlay", key, "w"],
+            fallback.w,
+        ),
+        h: settings::get_f64(
+            settings_value,
+            &["mutation_overlay", key, "h"],
+            fallback.h,
+        ),
+    }
+    .clamped()
 }
 
 fn config(app: &AppHandle) -> OverlayConfig {
@@ -114,17 +160,19 @@ fn config(app: &AppHandle) -> OverlayConfig {
             &["mutation_overlay", "auto_detect"],
             true,
         ),
-        rect: NormalizedRect {
-            x: settings::get_f64(&settings_value, &["mutation_overlay", "rect", "x"], 0.61),
-            y: settings::get_f64(&settings_value, &["mutation_overlay", "rect", "y"], 0.28),
-            w: settings::get_f64(&settings_value, &["mutation_overlay", "rect", "w"], 0.28),
-            h: settings::get_f64(&settings_value, &["mutation_overlay", "rect", "h"], 0.22),
-        }
-        .clamped(),
+        // Deliberately use new keys instead of the legacy `rect`. Previous test
+        // builds used one rectangle for both OCR and rendering, which cannot
+        // work reliably with a DirectX game and can capture our own overlay.
+        scan_rect: read_rect(&settings_value, "scan_rect", DEFAULT_SCAN_RECT),
+        description_rect: read_rect(
+            &settings_value,
+            "description_rect",
+            DEFAULT_DESCRIPTION_RECT,
+        ),
         confidence_threshold: settings::get_f64(
             &settings_value,
             &["mutation_overlay", "confidence_threshold"],
-            0.82,
+            0.78,
         ) as f32,
     }
 }
@@ -171,12 +219,20 @@ fn clear_render(app: &AppHandle) {
     window::hide(app);
 }
 
-fn active_game() -> Option<(isize, (i32, i32, i32, i32))> {
+fn game_window_any() -> Option<(isize, (i32, i32, i32, i32))> {
     let hwnd = game_window::find_game_window(GAME_PROCESS_NAME)?;
-    if game_window::is_iconic(hwnd) || !game_window::is_foreground(hwnd) {
+    if game_window::is_iconic(hwnd) {
         return None;
     }
     let rect = game_window::client_rect_on_screen(hwnd)?;
+    Some((hwnd, rect))
+}
+
+fn active_game() -> Option<(isize, (i32, i32, i32, i32))> {
+    let (hwnd, rect) = game_window_any()?;
+    if !game_window::is_foreground(hwnd) {
+        return None;
+    }
     Some((hwnd, rect))
 }
 
@@ -236,7 +292,7 @@ fn spawn_supervisor(app: AppHandle) {
                 continue;
             };
 
-            if let Err(error) = window::anchor(&app, game_rect, cfg.rect) {
+            if let Err(error) = window::anchor(&app, game_rect, cfg.description_rect) {
                 clear_render(&app);
                 publish_status(
                     &app,
@@ -278,7 +334,7 @@ fn spawn_supervisor(app: AppHandle) {
             }
             last_capture = now;
 
-            let frame = match frame_source.capture(game_hwnd, game_rect, cfg.rect) {
+            let frame = match frame_source.capture(game_hwnd, game_rect, cfg.scan_rect) {
                 Ok(frame) => frame,
                 Err(CaptureError::BlankFrame) => {
                     let should_clear = with_runtime(|runtime| {
@@ -302,7 +358,7 @@ fn spawn_supervisor(app: AppHandle) {
                     publish_status(
                         &app,
                         MutationOverlayStatus::new("capture-unavailable")
-                            .message(format!("Không chụp được vùng Mutation: {error}")),
+                            .message(format!("Không chụp được tiêu đề Mutation: {error}")),
                     );
                     continue;
                 }
@@ -333,7 +389,9 @@ fn spawn_supervisor(app: AppHandle) {
                 }
             };
 
-            if let Some(found) = detect_mutation_with_threshold(&text, cfg.confidence_threshold) {
+            if let Some(found) =
+                detect_mutation_name_with_threshold(&text, cfg.confidence_threshold)
+            {
                 let payload = MutationOverlayPayload {
                     name_en: found.name_en.clone(),
                     description_vi: found.description_vi,
@@ -357,8 +415,10 @@ fn spawn_supervisor(app: AppHandle) {
                     clear_render(&app);
                     publish_status(
                         &app,
-                        MutationOverlayStatus::new("manual")
-                            .message("Không nhận diện đủ chắc chắn — hãy chọn thủ công"),
+                        MutationOverlayStatus::new("recognizing").message(format!(
+                            "Chưa nhận ra tiêu đề Mutation (OCR: {})",
+                            text.trim().replace(['\r', '\n'], " ")
+                        )),
                     );
                 }
             }
@@ -411,8 +471,8 @@ pub fn mutation_overlay_preview(
         source: "preview".to_string(),
     };
 
-    if let Some((_hwnd, game_rect)) = active_game() {
-        let _ = window::anchor(&app, game_rect, config(&app).rect);
+    if let Some((_hwnd, game_rect)) = game_window_any() {
+        let _ = window::anchor(&app, game_rect, config(&app).description_rect);
     } else {
         window::preview_without_game(&app);
     }
@@ -426,9 +486,9 @@ pub fn mutation_overlay_preview(
 
 #[tauri::command]
 pub fn mutation_overlay_begin_calibration(app: AppHandle) -> Result<MutationOverlayStatus, String> {
-    let (_hwnd, game_rect) = active_game()
+    let (_hwnd, game_rect) = game_window_any()
         .ok_or_else(|| "Hãy mở The Isle và màn hình Mutations trước khi căn chỉnh".to_string())?;
-    let rect = config(&app).rect;
+    let rect = config(&app).description_rect;
     with_runtime(|runtime| {
         runtime.saved_rect = Some(rect);
         runtime.calibrating = true;
@@ -438,14 +498,14 @@ pub fn mutation_overlay_begin_calibration(app: AppHandle) -> Result<MutationOver
     Ok(publish_status(
         &app,
         MutationOverlayStatus::new("calibrating")
-            .message("Kéo/resize khung rồi bấm LƯU VỊ TRÍ"),
+            .message("Kéo/resize khung chỉ phủ phần DESCRIPTION rồi bấm LƯU VỊ TRÍ"),
     ))
 }
 
 #[tauri::command]
 pub fn mutation_overlay_save_calibration(app: AppHandle) -> Result<MutationOverlayStatus, String> {
-    let (_hwnd, game_rect) = active_game()
-        .ok_or_else(|| "The Isle phải đang ở foreground để lưu căn chỉnh".to_string())?;
+    let (_hwnd, game_rect) = game_window_any()
+        .ok_or_else(|| "The Isle phải đang mở để lưu căn chỉnh".to_string())?;
     let overlay_rect = window::current_client_rect(&app)
         .ok_or_else(|| "Không đọc được vị trí khung căn chỉnh".to_string())?;
     let rect = NormalizedRect::from_screen_rect(overlay_rect, game_rect);
@@ -454,7 +514,7 @@ pub fn mutation_overlay_save_calibration(app: AppHandle) -> Result<MutationOverl
         &app,
         json!({
             "mutation_overlay": {
-                "rect": { "x": rect.x, "y": rect.y, "w": rect.w, "h": rect.h }
+                "description_rect": { "x": rect.x, "y": rect.y, "w": rect.w, "h": rect.h }
             }
         }),
     );
@@ -465,7 +525,7 @@ pub fn mutation_overlay_save_calibration(app: AppHandle) -> Result<MutationOverl
     });
     Ok(publish_status(
         &app,
-        MutationOverlayStatus::new("recognizing").message("Đã lưu vị trí — đang nhận diện"),
+        MutationOverlayStatus::new("recognizing").message("Đã lưu vùng mô tả — quay lại game để tự nhận diện"),
     ))
 }
 
@@ -473,11 +533,15 @@ pub fn mutation_overlay_save_calibration(app: AppHandle) -> Result<MutationOverl
 pub fn mutation_overlay_cancel_calibration(
     app: AppHandle,
 ) -> Result<MutationOverlayStatus, String> {
-    let (_hwnd, game_rect) = active_game()
-        .ok_or_else(|| "The Isle phải đang ở foreground để huỷ căn chỉnh".to_string())?;
+    let (_hwnd, game_rect) = game_window_any()
+        .ok_or_else(|| "The Isle phải đang mở để huỷ căn chỉnh".to_string())?;
     let rect = with_runtime(|runtime| {
-        runtime.calibrating = false;
-        runtime.saved_rect.take().unwrap_or_else(|| config(&app).rect)
+        runtime
+            .calibrating = false;
+        runtime
+            .saved_rect
+            .take()
+            .unwrap_or_else(|| config(&app).description_rect)
     });
     window::end_calibration(&app, game_rect, rect)?;
     Ok(publish_status(
