@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{settings, win};
 
-const PACK_VERSION: &str = "1.1.0";
+const PACK_VERSION: &str = "1.2.0";
 const OWNERSHIP_SCHEMA: u32 = 1;
 
 #[derive(Debug, Clone, Serialize)]
@@ -475,7 +475,7 @@ pub fn mutation_locale_install() -> Result<MutationLocaleStatus, String> {
             MutationLocaleState::Incompatible,
             Some(&game_root),
             0,
-            Some("Không tìm thấy localization tiếng Anh trong các container IoStore của The Isle hiện tại.".to_string()),
+            Some("Không tìm thấy localization tiếng Anh tương thích cho The Isle hiện tại.".to_string()),
         ));
     }
 
