@@ -3,7 +3,6 @@ use std::fmt;
 use std::mem::size_of;
 
 use serde::{Deserialize, Serialize};
-use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
     ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, CAPTUREBLT, DIB_RGB_COLORS,
@@ -104,9 +103,9 @@ impl fmt::Display for CaptureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
             Self::InvalidBounds => "invalid capture bounds",
-            Self::DeviceContext => "Windows game capture context is unavailable",
-            Self::Bitmap => "Windows game capture bitmap could not be created",
-            Self::Blit => "Windows could not copy the requested game region",
+            Self::DeviceContext => "Windows screen capture context is unavailable",
+            Self::Bitmap => "Windows screen capture bitmap could not be created",
+            Self::Blit => "Windows could not copy the requested screen region",
             Self::Readback => "Windows could not read back the captured pixels",
             Self::BlankFrame => "captured game region is blank",
         };
@@ -131,7 +130,7 @@ pub struct GdiFrameSource;
 impl MutationFrameSource for GdiFrameSource {
     fn capture(
         &self,
-        hwnd: isize,
+        _hwnd: isize,
         game_rect: (i32, i32, i32, i32),
         rect: NormalizedRect,
     ) -> Result<GrayFrame, CaptureError> {
@@ -139,28 +138,26 @@ impl MutationFrameSource for GdiFrameSource {
         if width <= 0 || height <= 0 {
             return Err(CaptureError::InvalidBounds);
         }
-        let (game_x, game_y, _, _) = game_rect;
-        let source_x = screen_x - game_x;
-        let source_y = screen_y - game_y;
-        let game_hwnd = HWND(hwnd as *mut c_void);
 
         unsafe {
-            // Capture the target window's client DC, not the composited
-            // desktop. That keeps our own topmost translation overlay out of
-            // the next OCR frame and avoids a visual hide/show flicker.
-            let game_dc = GetDC(Some(game_hwnd));
-            if game_dc.is_invalid() {
+            // The Isle renders its UI through DirectX, so GetDC(game_hwnd)
+            // can return a blank/stale surface. Capture the composed desktop
+            // instead. The OCR scan rectangle is deliberately title-only and
+            // does not overlap our translation overlay, so there is no
+            // self-capture feedback loop.
+            let screen_dc = GetDC(None);
+            if screen_dc.is_invalid() {
                 return Err(CaptureError::DeviceContext);
             }
-            let memory_dc = CreateCompatibleDC(Some(game_dc));
+            let memory_dc = CreateCompatibleDC(Some(screen_dc));
             if memory_dc.is_invalid() {
-                ReleaseDC(Some(game_hwnd), game_dc);
+                ReleaseDC(None, screen_dc);
                 return Err(CaptureError::DeviceContext);
             }
-            let bitmap = CreateCompatibleBitmap(game_dc, width, height);
+            let bitmap = CreateCompatibleBitmap(screen_dc, width, height);
             if bitmap.is_invalid() {
                 let _ = DeleteDC(memory_dc);
-                ReleaseDC(Some(game_hwnd), game_dc);
+                ReleaseDC(None, screen_dc);
                 return Err(CaptureError::Bitmap);
             }
             let old_object = SelectObject(memory_dc, HGDIOBJ(bitmap.0));
@@ -171,16 +168,16 @@ impl MutationFrameSource for GdiFrameSource {
                 0,
                 width,
                 height,
-                Some(game_dc),
-                source_x,
-                source_y,
+                Some(screen_dc),
+                screen_x,
+                screen_y,
                 SRCCOPY | CAPTUREBLT,
             );
             if copied.is_err() {
                 let _ = SelectObject(memory_dc, old_object);
                 let _ = DeleteObject(HGDIOBJ(bitmap.0));
                 let _ = DeleteDC(memory_dc);
-                ReleaseDC(Some(game_hwnd), game_dc);
+                ReleaseDC(None, screen_dc);
                 return Err(CaptureError::Blit);
             }
 
@@ -208,7 +205,7 @@ impl MutationFrameSource for GdiFrameSource {
             let _ = SelectObject(memory_dc, old_object);
             let _ = DeleteObject(HGDIOBJ(bitmap.0));
             let _ = DeleteDC(memory_dc);
-            ReleaseDC(Some(game_hwnd), game_dc);
+            ReleaseDC(None, screen_dc);
 
             if lines == 0 {
                 return Err(CaptureError::Readback);
