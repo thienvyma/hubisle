@@ -106,6 +106,14 @@ fn phrase_score(ocr_text: &str, phrase: &str) -> f32 {
     token.max(edit)
 }
 
+fn to_detected(entry: &catalog::CatalogEntry, confidence: f32) -> DetectedMutation {
+    DetectedMutation {
+        name_en: entry.name_en.clone(),
+        description_vi: entry.description_vi.clone(),
+        confidence,
+    }
+}
+
 fn score_entry(ocr_text: &str, entry: &catalog::CatalogEntry) -> f32 {
     let name_score = phrase_score(ocr_text, &entry.name_en);
     let description_score = entry
@@ -114,9 +122,8 @@ fn score_entry(ocr_text: &str, entry: &catalog::CatalogEntry) -> f32 {
         .map(|description| phrase_score(ocr_text, description))
         .fold(0.0f32, f32::max);
 
-    // A Mutation list can contain several exact names at once. Never allow a
-    // name-only hit to become a translation. Strong detail text can identify
-    // a Mutation on its own; otherwise require both name and detail evidence.
+    // A broad Mutation panel can contain several names at once, so this
+    // general detector still requires detail evidence.
     if description_score >= 0.90 {
         (0.88 + 0.12 * name_score).min(1.0)
     } else if name_score >= 0.82 && description_score >= 0.42 {
@@ -146,11 +153,34 @@ pub fn detect_mutation_with_threshold(
         return None;
     }
 
-    Some(DetectedMutation {
-        name_en: best.name_en.clone(),
-        description_vi: best.description_vi.clone(),
-        confidence: best_score,
-    })
+    Some(to_detected(best, best_score))
+}
+
+/// Detector for the narrow, selected-Mutation title region. Because that
+/// region contains only one selected title (not the full list on the left),
+/// a strong name match is sufficient and avoids OCR'ing the description.
+pub fn detect_mutation_name_with_threshold(
+    ocr_text: &str,
+    threshold: f32,
+) -> Option<DetectedMutation> {
+    let normalized = normalize(ocr_text);
+    if normalized.len() < 5 {
+        return None;
+    }
+
+    let mut scored: Vec<(&catalog::CatalogEntry, f32)> = catalog::catalog()
+        .iter()
+        .map(|entry| (entry, phrase_score(&normalized, &entry.name_en)))
+        .collect();
+    scored.sort_by(|a, b| b.1.total_cmp(&a.1));
+
+    let (best, best_score) = scored.first().copied()?;
+    let second_score = scored.get(1).map(|(_, score)| *score).unwrap_or(0.0);
+    if best_score < threshold || best_score - second_score < 0.08 {
+        return None;
+    }
+
+    Some(to_detected(best, best_score))
 }
 
 pub fn detect_mutation(ocr_text: &str) -> Option<DetectedMutation> {
@@ -159,7 +189,9 @@ pub fn detect_mutation(ocr_text: &str) -> Option<DetectedMutation> {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_mutation, detect_mutation_with_threshold};
+    use super::{
+        detect_mutation, detect_mutation_name_with_threshold, detect_mutation_with_threshold,
+    };
 
     #[test]
     fn exact_detail_identifies_cellular_regeneration() {
@@ -195,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn names_without_detail_do_not_trigger_translation() {
+    fn names_without_detail_do_not_trigger_general_panel_detector() {
         let found = detect_mutation(
             "Cellular Regeneration Advanced Gestation Efficient Digestion Featherweight Wader",
         );
@@ -203,8 +235,33 @@ mod tests {
     }
 
     #[test]
+    fn selected_title_detector_accepts_one_mutation_name() {
+        let found = detect_mutation_name_with_threshold("Xerocole Adaptation", 0.78)
+            .expect("selected title should identify the mutation");
+        assert_eq!(found.name_en, "Xerocole Adaptation");
+        assert!(found.confidence >= 0.99);
+    }
+
+    #[test]
+    fn selected_title_detector_tolerates_small_ocr_damage() {
+        let found = detect_mutation_name_with_threshold("Xerocole Adaptatlon", 0.78)
+            .expect("minor title OCR damage should still match");
+        assert_eq!(found.name_en, "Xerocole Adaptation");
+    }
+
+    #[test]
+    fn selected_title_detector_rejects_multiple_exact_names() {
+        assert!(detect_mutation_name_with_threshold(
+            "Xerocole Adaptation Hypervigilance",
+            0.78,
+        )
+        .is_none());
+    }
+
+    #[test]
     fn unrelated_text_does_not_match() {
         assert!(detect_mutation("Resume Settings Logout Server Browser").is_none());
+        assert!(detect_mutation_name_with_threshold("MUTATIONS NEST GROUP", 0.78).is_none());
     }
 
     #[test]
