@@ -22,6 +22,12 @@ const mutationWindow = readFileSync(
   new URL("../src-tauri/src/mutation_overlay/window.rs", import.meta.url),
   "utf8",
 );
+const defaultCapability = JSON.parse(
+  readFileSync(
+    new URL("../src-tauri/capabilities/default.json", import.meta.url),
+    "utf8",
+  ),
+);
 
 test("mutation translation stays in Settings while Dino keeps its mutation library", () => {
   assert.match(card, /VIỆT HOÁ THE ISLE MUTATIONS/);
@@ -57,4 +63,11 @@ test("mutation overlay keeps WebView2 rendering while covered by The Isle", () =
   assert.match(mutationWindow, /--disable-backgrounding-occluded-windows/);
   assert.match(mutationWindow, /--disable-renderer-backgrounding/);
   assert.match(mutationWindow, /CalculateNativeWinOcclusion/);
+});
+
+test("mutation overlay window is covered by a Tauri capability", () => {
+  assert.ok(
+    defaultCapability.windows.includes("mutation-overlay"),
+    "mutation-overlay must be listed in src-tauri/capabilities/default.json so its WebView can use Tauri IPC/event listeners",
+  );
 });
