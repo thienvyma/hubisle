@@ -33,22 +33,23 @@
   let error = $state<string | null>(null);
 
   const matches = $derived(searchMutations(query, "vi").slice(0, 8));
+  const calibrating = $derived(status?.state === "calibrating");
 
   function readOverlaySettings(settings: Settings): MutationOverlaySettings {
     const raw = (settings as Record<string, unknown>).mutation_overlay as
       | Partial<MutationOverlaySettings>
       | undefined;
-    const rawRect = raw?.rect ?? {};
+    const rawRect = raw?.rect ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.rect;
     return {
       enabled: raw?.enabled ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.enabled,
       auto_detect: raw?.auto_detect ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.auto_detect,
       confidence_threshold:
         raw?.confidence_threshold ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.confidence_threshold,
       rect: {
-        x: rawRect.x ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.rect.x,
-        y: rawRect.y ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.rect.y,
-        w: rawRect.w ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.rect.w,
-        h: rawRect.h ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.rect.h,
+        x: rawRect.x,
+        y: rawRect.y,
+        w: rawRect.w,
+        h: rawRect.h,
       },
     };
   }
@@ -61,6 +62,7 @@
       case "recognizing": return "Đang nhận diện";
       case "recognized": return "Đã nhận diện";
       case "manual": return "Chọn thủ công";
+      case "calibrating": return "Đang căn chỉnh";
       case "needs-calibration": return "Cần căn chỉnh vị trí";
       case "capture-unavailable": return "Không chụp được vùng Mutation";
       case "ocr-unavailable": return "OCR không khả dụng";
@@ -80,12 +82,11 @@
 
   async function patchOverlay(patch: Partial<MutationOverlaySettings>) {
     error = null;
-    const merged = {
+    overlay = {
       ...overlay,
       ...patch,
       rect: patch.rect ? { ...overlay.rect, ...patch.rect } : overlay.rect,
     };
-    overlay = merged;
     try {
       await patchSettings({ mutation_overlay: patch });
       await refreshStatus();
@@ -223,18 +224,19 @@
     </div>
   {/if}
 
-  {#if status?.message}
-    <p class="notice">{status.message}</p>
-  {/if}
+  {#if status?.message}<p class="notice">{status.message}</p>{/if}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 
   <div class="actions">
-    <button class="primary" disabled={busy || !overlay.enabled} onclick={() => void calibrate()}>
-      CĂN CHỈNH VỊ TRÍ
-    </button>
-    <button disabled={busy} onclick={() => void preview()}>HIỆN THỬ</button>
-    <button disabled={busy} onclick={() => void saveCalibration()}>LƯU VỊ TRÍ</button>
-    <button disabled={busy} onclick={() => void cancelCalibration()}>HUỶ CĂN CHỈNH</button>
+    {#if calibrating}
+      <button class="primary" disabled={busy} onclick={() => void saveCalibration()}>LƯU VỊ TRÍ</button>
+      <button disabled={busy} onclick={() => void cancelCalibration()}>HUỶ CĂN CHỈNH</button>
+    {:else}
+      <button class="primary" disabled={busy || !overlay.enabled} onclick={() => void calibrate()}>
+        CĂN CHỈNH VỊ TRÍ
+      </button>
+      <button disabled={busy} onclick={() => void preview()}>HIỆN THỬ</button>
+    {/if}
   </div>
 
   <div class="manual">
@@ -242,12 +244,7 @@
       <span>CHỌN THỦ CÔNG</span>
       <button class="clear" disabled={busy} onclick={() => void clearManual()}>XÓA CHỌN</button>
     </div>
-    <input
-      class="search"
-      type="search"
-      placeholder="Tìm Mutation…"
-      bind:value={query}
-    />
+    <input class="search" type="search" placeholder="Tìm Mutation…" bind:value={query} />
     <div class="results">
       {#each matches as mutation (mutation.nameEn)}
         <button
@@ -268,12 +265,7 @@
 </section>
 
 <style>
-  .locale-card {
-    border: 1px solid var(--color-border);
-    border-radius: 4px;
-    background: var(--color-panel);
-    padding: 16px;
-  }
+  .locale-card { border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); padding: 16px; }
   .heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
   .eyebrow { color: var(--color-muted); font: 9px Consolas, monospace; letter-spacing: .18em; }
   h3 { margin: 4px 0 0; color: var(--color-accent); font-size: 14px; letter-spacing: .04em; }
