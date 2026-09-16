@@ -35,7 +35,7 @@ pub trait MutationOcr: Send + Sync {
 pub struct WindowsMutationOcr;
 
 fn map_windows(error: windows::core::Error) -> OcrError {
-    OcrError::Windows(error.message().to_string_lossy())
+    OcrError::Windows(error.message())
 }
 
 fn software_bitmap(frame: &GrayFrame) -> Result<SoftwareBitmap, OcrError> {
