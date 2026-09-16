@@ -15,6 +15,7 @@ pub mod islepilot;
 pub mod local_telemetry;
 pub mod minimap;
 pub mod mutation_locale;
+pub mod mutation_overlay;
 pub mod pipeline;
 pub mod prime;
 pub mod providers;
