@@ -54,6 +54,9 @@ test("frontend overlay API stays narrow and outside the game process", () => {
   assert.match(api, /mutation_overlay_save_calibration/);
   assert.match(api, /mutation_overlay_cancel_calibration/);
   assert.match(api, /mutation_overlay_preview/);
+  assert.match(api, /scan_rect: NormalizedRect/);
+  assert.match(api, /description_rect: NormalizedRect/);
+  assert.doesNotMatch(api, /\n\s*rect: NormalizedRect/);
   assert.doesNotMatch(api, /OpenProcess|ReadProcessMemory|WriteProcessMemory|inject/i);
 });
 

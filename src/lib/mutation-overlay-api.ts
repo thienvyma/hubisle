@@ -11,7 +11,8 @@ export interface NormalizedRect {
 export interface MutationOverlaySettings {
   enabled: boolean;
   auto_detect: boolean;
-  rect: NormalizedRect;
+  scan_rect: NormalizedRect;
+  description_rect: NormalizedRect;
   confidence_threshold: number;
 }
 
@@ -43,8 +44,9 @@ export interface MutationOverlayPayload {
 export const DEFAULT_MUTATION_OVERLAY_SETTINGS: MutationOverlaySettings = {
   enabled: false,
   auto_detect: true,
-  rect: { x: 0.61, y: 0.28, w: 0.28, h: 0.22 },
-  confidence_threshold: 0.82,
+  scan_rect: { x: 0.53, y: 0.095, w: 0.31, h: 0.075 },
+  description_rect: { x: 0.455, y: 0.155, w: 0.43, h: 0.095 },
+  confidence_threshold: 0.78,
 };
 
 export const mutationOverlayStatus = () =>

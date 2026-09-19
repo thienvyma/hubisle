@@ -17,6 +17,7 @@
     mutationOverlaySetManual,
     mutationOverlayStatus,
     onMutationOverlayState,
+    type NormalizedRect,
     type MutationOverlaySettings,
     type MutationOverlayStatus,
   } from "$lib/mutation-overlay-api";
@@ -24,7 +25,8 @@
 
   let overlay = $state<MutationOverlaySettings>({
     ...DEFAULT_MUTATION_OVERLAY_SETTINGS,
-    rect: { ...DEFAULT_MUTATION_OVERLAY_SETTINGS.rect },
+    scan_rect: { ...DEFAULT_MUTATION_OVERLAY_SETTINGS.scan_rect },
+    description_rect: { ...DEFAULT_MUTATION_OVERLAY_SETTINGS.description_rect },
   });
   let status = $state<MutationOverlayStatus | null>(null);
   let query = $state("");
@@ -35,22 +37,32 @@
   const matches = $derived(searchMutations(query, "vi").slice(0, 8));
   const calibrating = $derived(status?.state === "calibrating");
 
+  function readRect(
+    raw: Partial<NormalizedRect> | undefined,
+    fallback: NormalizedRect,
+  ): NormalizedRect {
+    return {
+      x: typeof raw?.x === "number" ? raw.x : fallback.x,
+      y: typeof raw?.y === "number" ? raw.y : fallback.y,
+      w: typeof raw?.w === "number" ? raw.w : fallback.w,
+      h: typeof raw?.h === "number" ? raw.h : fallback.h,
+    };
+  }
+
   function readOverlaySettings(settings: Settings): MutationOverlaySettings {
     const raw = (settings as Record<string, unknown>).mutation_overlay as
       | Partial<MutationOverlaySettings>
       | undefined;
-    const rawRect = raw?.rect ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.rect;
     return {
       enabled: raw?.enabled ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.enabled,
       auto_detect: raw?.auto_detect ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.auto_detect,
       confidence_threshold:
         raw?.confidence_threshold ?? DEFAULT_MUTATION_OVERLAY_SETTINGS.confidence_threshold,
-      rect: {
-        x: rawRect.x,
-        y: rawRect.y,
-        w: rawRect.w,
-        h: rawRect.h,
-      },
+      scan_rect: readRect(raw?.scan_rect, DEFAULT_MUTATION_OVERLAY_SETTINGS.scan_rect),
+      description_rect: readRect(
+        raw?.description_rect,
+        DEFAULT_MUTATION_OVERLAY_SETTINGS.description_rect,
+      ),
     };
   }
 
@@ -85,7 +97,12 @@
     overlay = {
       ...overlay,
       ...patch,
-      rect: patch.rect ? { ...overlay.rect, ...patch.rect } : overlay.rect,
+      scan_rect: patch.scan_rect
+        ? { ...overlay.scan_rect, ...patch.scan_rect }
+        : overlay.scan_rect,
+      description_rect: patch.description_rect
+        ? { ...overlay.description_rect, ...patch.description_rect }
+        : overlay.description_rect,
     };
     try {
       await patchSettings({ mutation_overlay: patch });

@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.6.1] — 2026-09-19
+
+- Thêm lớp dịch Mutation trực tiếp trên màn hình The Isle: tên Mutation vẫn
+  giữ nguyên tiếng Anh, còn vùng mô tả được phủ bằng nội dung tiếng Việt từ
+  danh mục ngoại tuyến đã đóng gói trong Hub.
+- Tự nhận diện tên Mutation bằng Windows OCR trên một vùng màn hình nhỏ, chỉ xử
+  lý ảnh trong RAM; không sửa file game, inject DLL hay đọc bộ nhớ tiến trình.
+- Bổ sung chế độ chọn Mutation thủ công, xem thử và căn chỉnh vùng mô tả cho
+  các độ phân giải/tỉ lệ màn hình khác nhau.
+- Tách riêng vùng OCR tên và vùng hiển thị mô tả để overlay không tự chụp lại
+  chính nó; đồng bộ mặc định giữa frontend và backend, đồng thời sửa bài test
+  trong workflow phát hành.
+
 ## [2.6.0] — 2026-09-16
 
 - Thêm thư viện ngoại tuyến cho 42 mutation hiện hành trên nhánh EVRIMA công

@@ -87,7 +87,7 @@ jobs:
         run: npm run test:mutations
 
       - name: Test Mutation game localization installer UI
-        run: npm run test:mutation-locale-ui
+        run: npm run test:mutation-overlay-ui
 
       - name: Check frontend
         run: npm run check
