@@ -18,7 +18,7 @@ use crate::state::{AppState, LockExt};
 use crate::win::game_window;
 
 use self::capture::{CaptureError, GdiFrameSource, MutationFrameSource, NormalizedRect};
-use self::detect::detect_mutation_name_with_threshold;
+use self::detect::{description_with_observed_value, detect_mutation_name_with_threshold};
 use self::frame_gate::FrameGate;
 use self::ocr::{MutationOcr, OcrError, WindowsMutationOcr};
 
@@ -392,9 +392,35 @@ fn spawn_supervisor(app: AppHandle) {
             if let Some(found) =
                 detect_mutation_name_with_threshold(&text, cfg.confidence_threshold)
             {
+                let existing_description = with_runtime(|runtime| {
+                    runtime.last_payload.as_ref().and_then(|payload| {
+                        (payload.source == "auto" && payload.name_en == found.name_en)
+                            .then(|| payload.description_vi.clone())
+                    })
+                });
+                let description_vi = existing_description.unwrap_or_else(|| {
+                    // The description area is normally covered by our own
+                    // overlay. Hide it only when the selected Mutation changes,
+                    // let DWM present the original game text, then OCR its live
+                    // `Value:`. This preserves per-server overrides without a
+                    // continuous second capture/OCR loop.
+                    window::hide(&app);
+                    std::thread::sleep(Duration::from_millis(40));
+                    frame_source
+                        .capture(game_hwnd, game_rect, cfg.description_rect)
+                        .ok()
+                        .and_then(|frame| ocr.recognize(&frame).ok())
+                        .map(|detail_text| {
+                            description_with_observed_value(
+                                &found.description_vi,
+                                &detail_text,
+                            )
+                        })
+                        .unwrap_or_else(|| found.description_vi.clone())
+                });
                 let payload = MutationOverlayPayload {
                     name_en: found.name_en.clone(),
-                    description_vi: found.description_vi,
+                    description_vi,
                     confidence: Some(found.confidence),
                     source: "auto".to_string(),
                 };

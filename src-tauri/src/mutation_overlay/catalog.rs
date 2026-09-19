@@ -125,7 +125,7 @@ mod tests {
             find_by_name("Cellular Regeneration")
                 .expect("known mutation")
                 .description_vi,
-            "Hồi phục máu nhanh hơn 15%."
+            "Hồi phục máu nhanh hơn một chút. Giá trị: 10%."
         );
         assert_eq!(catalog().len(), 42);
     }
@@ -137,6 +137,9 @@ mod tests {
             .match_texts
             .iter()
             .any(|text| text == "Recovers health slightly faster"));
-        assert_eq!(cellular.description_en, "Recover health 15% faster.");
+        assert_eq!(
+            cellular.description_en,
+            "Recover health slightly faster. Value: 10%."
+        );
     }
 }

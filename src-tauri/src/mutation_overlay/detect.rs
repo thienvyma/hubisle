@@ -1,5 +1,8 @@
 use std::cmp::{max, min};
 use std::collections::HashSet;
+use std::sync::LazyLock;
+
+use regex::Regex;
 
 use super::catalog;
 
@@ -114,6 +117,34 @@ fn to_detected(entry: &catalog::CatalogEntry, confidence: f32) -> DetectedMutati
     }
 }
 
+static OBSERVED_VALUE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\bvalue\s*[:=\-]?\s*(\d+(?:[.,]\d+)?\s*%?)")
+        .expect("observed Mutation value regex must compile")
+});
+
+static TRANSLATED_VALUE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?iu)(giá\s+trị\s*:\s*)(\d+(?:[.,]\d+)?\s*%?)")
+        .expect("translated Mutation value regex must compile")
+});
+
+/// Preserve the effect value shown by the active server. Evrima server owners
+/// can override Mutation values, so the bundled Vietnamese fallback must not
+/// replace a live `Value:` with an older hard-coded number.
+pub fn description_with_observed_value(description_vi: &str, ocr_text: &str) -> String {
+    let Some(captures) = OBSERVED_VALUE.captures(ocr_text) else {
+        return description_vi.to_string();
+    };
+    let Some(observed) = captures.get(1) else {
+        return description_vi.to_string();
+    };
+    let observed = observed.as_str().replace(' ', "");
+    TRANSLATED_VALUE
+        .replace(description_vi, |captures: &regex::Captures<'_>| {
+            format!("{}{}", &captures[1], observed)
+        })
+        .into_owned()
+}
+
 fn score_entry(ocr_text: &str, entry: &catalog::CatalogEntry) -> f32 {
     let name_score = phrase_score(ocr_text, &entry.name_en);
     let description_score = entry
@@ -190,7 +221,8 @@ pub fn detect_mutation(ocr_text: &str) -> Option<DetectedMutation> {
 #[cfg(test)]
 mod tests {
     use super::{
-        detect_mutation, detect_mutation_name_with_threshold, detect_mutation_with_threshold,
+        description_with_observed_value, detect_mutation, detect_mutation_name_with_threshold,
+        detect_mutation_with_threshold,
     };
 
     #[test]
@@ -199,7 +231,10 @@ mod tests {
             .expect("mutation detail should be recognized");
         assert_eq!(found.name_en, "Cellular Regeneration");
         assert!(found.confidence >= 0.95);
-        assert_eq!(found.description_vi, "Hồi phục máu nhanh hơn 15%.");
+        assert_eq!(
+            found.description_vi,
+            "Hồi phục máu nhanh hơn một chút. Giá trị: 10%."
+        );
     }
 
     #[test]
@@ -268,5 +303,30 @@ mod tests {
     fn confidence_threshold_is_respected() {
         assert!(detect_mutation_with_threshold("Recovers health slightly faster", 0.99).is_none());
         assert!(detect_mutation_with_threshold("Recovers health slightly faster", 0.80).is_some());
+    }
+
+    #[test]
+    fn live_server_value_replaces_only_the_translated_effect_value() {
+        let translated = description_with_observed_value(
+            "Giảm hao hụt. Giá trị: 10%. Mở khóa cho ô 2 và 3.",
+            "Decrease nutrition decay rate\nValue: 37.5%",
+        );
+        assert_eq!(
+            translated,
+            "Giảm hao hụt. Giá trị: 37.5%. Mở khóa cho ô 2 và 3."
+        );
+    }
+
+    #[test]
+    fn missing_or_unreadable_live_value_keeps_the_verified_fallback() {
+        let fallback = "Hồi phục máu nhanh hơn một chút. Giá trị: 10%.";
+        assert_eq!(
+            description_with_observed_value(fallback, "Recovers health slightly faster"),
+            fallback
+        );
+        assert_eq!(
+            description_with_observed_value(fallback, "Value: none"),
+            fallback
+        );
     }
 }

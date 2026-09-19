@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.6.2] — 2026-09-19
+
+- Sửa các chỉ số Mutation đã cũ trong bản dịch, gồm Cellular Regeneration,
+  Featherweight và các Mutation có giá trị hiệu ứng nhưng trước đây bị bỏ sót.
+- Khi tự nhận diện, Hub đọc thêm dòng `Value:` gốc đang hiện trong game và đưa
+  chính giá trị đó vào mô tả tiếng Việt. Giá trị riêng do từng server cấu hình
+  vì vậy không còn bị số mặc định trong Hub ghi đè.
+- Cập nhật điều kiện mở khóa theo danh sách EVRIMA hiện hành và sửa mô tả
+  Tactile Endurance từ mất thể lực thành hồi thể lực theo sát thương nhận vào.
+- Thêm kiểm thử đối chiếu mọi chữ số giữa nội dung Anh–Việt, ghim bảng giá trị
+  mặc định hiện hành và bảo đảm thay giá trị trực tiếp không làm đổi số ô hoặc
+  điều kiện mở khóa.
+
 ## [2.6.1] — 2026-09-19
 
 - Thêm lớp dịch Mutation trực tiếp trên màn hình The Isle: tên Mutation vẫn
