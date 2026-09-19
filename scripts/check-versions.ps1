@@ -25,6 +25,7 @@ $found = [ordered]@{
     "src-tauri/Cargo.toml"    = Get-Version "src-tauri/Cargo.toml" '(?m)^version\s*=\s*"([^"]+)"'
     "src-tauri/Cargo.lock"    = Get-Version "src-tauri/Cargo.lock" '(?ms)^\[\[package\]\]\s*\r?\nname\s*=\s*"islemap-thienvyma"\s*\r?\nversion\s*=\s*"([^"]+)"'
     "src-tauri/tauri.conf.json" = Get-Version "src-tauri/tauri.conf.json" '"version"\s*:\s*"([^"]+)"'
+    "telemetry sidecar"       = Get-Version "sidecars/local-telemetry/islemap-thienvyma-telemetry.csproj" '<Version>([^<]+)</Version>'
 }
 
 foreach ($k in $found.Keys) { Write-Host ("{0,-28} {1}" -f $k, $found[$k]) }

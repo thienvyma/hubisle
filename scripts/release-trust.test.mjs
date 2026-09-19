@@ -25,6 +25,8 @@ test("project ownership and GPL metadata are consistent", () => {
   assert.match(sidecar, /<Product>islemap-thienvyma<\/Product>/);
   const escapedVersion = pkg.version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   assert.match(sidecar, new RegExp(`<Version>${escapedVersion}<\\/Version>`));
+  assert.match(sidecar, new RegExp(`<FileVersion>${escapedVersion}\\.0<\\/FileVersion>`));
+  assert.match(sidecar, new RegExp(`<AssemblyVersion>${escapedVersion}\\.0<\\/AssemblyVersion>`));
   assert.equal(tauri.bundle.publisher, "thienvyma");
   assert.equal(tauri.bundle.license, "GPL-3.0-only");
   assert.equal(tauri.bundle.licenseFile, "../INSTALLER_NOTICE.txt");
