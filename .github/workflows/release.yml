@@ -1,0 +1,293 @@
+name: Release islemap-thienvyma
+
+on:
+  repository_dispatch:
+    types: [source-release]
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Private source tag, branch, or commit
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: islemap-thienvyma-release
+  cancel-in-progress: false
+
+jobs:
+  release-windows:
+    if: github.repository == 'thienvyma/hubisle'
+    runs-on: windows-latest
+    steps:
+      - name: Resolve private source reference
+        id: source
+        shell: pwsh
+        env:
+          DISPATCH_REF: ${{ github.event.client_payload.source_ref }}
+          INPUT_REF: ${{ inputs.source_ref }}
+        run: |
+          $ref = if ($env:DISPATCH_REF) { $env:DISPATCH_REF } else { $env:INPUT_REF }
+          if (-not $ref -or $ref -notmatch '^[A-Za-z0-9._/-]{1,128}$' -or $ref.Contains('..')) {
+            throw "Invalid private source reference."
+          }
+          "ref=$ref" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Verify private source repository
+        shell: pwsh
+        env:
+          SOURCE_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }}
+        run: |
+          if (-not $env:SOURCE_TOKEN) { throw "Missing SOURCE_REPO_TOKEN." }
+          $headers = @{
+            Authorization = "Bearer $env:SOURCE_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $repo = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/thienvyma/hubisle-source"
+          if (-not $repo.private) { throw "The source repository must remain private." }
+
+      - uses: actions/checkout@v4
+        with:
+          repository: thienvyma/hubisle-source
+          ref: ${{ steps.source.outputs.ref }}
+          token: ${{ secrets.SOURCE_REPO_TOKEN }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Derive signed API key for this release
+        shell: pwsh
+        env:
+          TELEMETRY_MASTER: ${{ secrets.TELEMETRY_MASTER }}
+        run: |
+          if (-not $env:TELEMETRY_MASTER) {
+            throw "Set TELEMETRY_MASTER to the same secret as the Cloudflare Worker's ATTEST_MASTER."
+          }
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          $key = node worker/scripts/derive-key.mjs $version
+          if ($LASTEXITCODE -ne 0 -or $key -notmatch '^[0-9a-f]{64}$') {
+            throw "Could not derive the per-version API key."
+          }
+          "TELEMETRY_KEY=$key" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Check friend presence Worker
+        shell: pwsh
+        run: |
+          npm ci --prefix worker
+          npm run --prefix worker typecheck
+          npm run --prefix worker test
+
+      - name: Build bundled local telemetry
+        shell: pwsh
+        run: ./scripts/build-local-telemetry-sidecar.ps1
+
+      - name: Check matching versions
+        shell: pwsh
+        run: ./scripts/check-versions.ps1
+
+      - name: Select release channel
+        id: channel
+        shell: pwsh
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          $isBeta = $version -match '^\d+\.\d+\.\d+-beta\.\d+$'
+          "is_beta=$($isBeta.ToString().ToLowerInvariant())" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tauri_args=$($isBeta ? '--config src-tauri/tauri.beta.conf.json' : '')" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Check updater channel
+        env:
+          RELEASE_REPOSITORY: thienvyma/hubisle
+        run: npm run check:updater
+
+      - name: Test updater
+        run: npm run test:updater
+
+      - name: Test heading delivery and compass math
+        run: npm run test:heading
+
+      - name: Test saved skin library
+        run: npm run test:skin
+
+      - name: Test IslePilot garage workflow
+        run: npm run test:garage
+
+      - name: Test safe Windows installer upgrade
+        run: npm run test:installer
+
+      - name: Test release trust policy
+        run: npm run test:release-trust
+
+      - name: Test minimap friend labels
+        run: npm run test:minimap-friends
+
+      - name: Test provider defaults
+        run: npm run test:provider-defaults
+
+      - name: Test server Voice provider boundary
+        run: npm run test:voice
+
+      - name: Test offline Mutation library
+        run: npm run test:mutations
+
+      - name: Test Mutation game localization installer UI
+        run: npm run test:mutation-overlay-ui
+
+      - name: Check frontend
+        run: npm run check
+
+      - name: Check permitted APIs
+        shell: pwsh
+        run: ./scripts/check-forbidden-apis.ps1
+
+      - name: Test Rust workspace
+        working-directory: src-tauri
+        run: cargo test --workspace --locked
+
+      - name: Check signing configuration
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if (-not $env:UPDATE_SIGNING_KEY) {
+            throw "Set TAURI_SIGNING_PRIVATE_KEY in the public release repository before releasing."
+          }
+
+      - name: Prepare public release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          $lines = Get-Content CHANGELOG.md
+          $start = [Array]::IndexOf($lines, ($lines | Where-Object { $_ -match "^## \[$([regex]::Escape($version))\]" } | Select-Object -First 1))
+          if ($start -lt 0) { throw "CHANGELOG.md has no section for $version." }
+          $end = $lines.Count
+          for ($i = $start + 1; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^## \[') { $end = $i; break }
+          }
+          $isBeta = $version -match '^\d+\.\d+\.\d+-beta\.\d+$'
+          $body = @(
+            ($isBeta ? "Bản thử nghiệm có kiểm soát của islemap-thienvyma." : "Bản phát hành chính thức của islemap-thienvyma.")
+            ""
+            "Kênh cập nhật: https://github.com/thienvyma/hubisle/releases"
+            ""
+          ) + $lines[($start + 1)..($end - 1)]
+          "body<<RELEASE_NOTES_EOF" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          $body | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "RELEASE_NOTES_EOF" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build release and Tauri updater signature
+        id: release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          owner: thienvyma
+          repo: hubisle
+          releaseCommitish: main
+          tagName: v__VERSION__
+          releaseName: islemap-thienvyma v__VERSION__
+          releaseBody: ${{ steps.notes.outputs.body }}
+          generateReleaseNotes: false
+          releaseDraft: true
+          prerelease: ${{ steps.channel.outputs.is_beta }}
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --target x86_64-pc-windows-msvc ${{ steps.channel.outputs.tauri_args }}
+
+      - name: Validate updater manifest before publishing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNPATH_ENFORCE_AUTHENTICODE: ${{ vars.SIGNPATH_ENFORCE_AUTHENTICODE }}
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          $manifestDir = Join-Path $env:RUNNER_TEMP "islemap-thienvyma-updater"
+          gh release download "v$version" --repo thienvyma/hubisle --pattern latest.json --dir $manifestDir --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Missing latest.json in draft release." }
+          $release = gh release view "v$version" --repo thienvyma/hubisle --json assets,isDraft,tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect draft release." }
+          $releasePath = Join-Path $manifestDir "release.json"
+          $release | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $releasePath
+          node scripts/prepare-updater-manifest.mjs (Join-Path $manifestDir "latest.json") $releasePath
+          if ($LASTEXITCODE -ne 0) { throw "Cannot prepare public updater URLs." }
+          node scripts/check-updater.mjs (Join-Path $manifestDir "latest.json")
+          if ($LASTEXITCODE -ne 0) { throw "Invalid updater manifest." }
+          $manifest = Get-Content -Raw (Join-Path $manifestDir "latest.json") | ConvertFrom-Json
+          $assetName = [Uri]::UnescapeDataString(([Uri]$manifest.platforms.'windows-x86_64'.url).Segments[-1])
+          $release = gh release view "v$version" --repo thienvyma/hubisle --json assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect release assets." }
+          if ($assetName -notin $release.assets.name -or "$assetName.sig" -notin $release.assets.name) {
+            throw "Installer or signature asset is missing."
+          }
+          gh release download "v$version" --repo thienvyma/hubisle --pattern $assetName --pattern "$assetName.sig" --dir $manifestDir --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Cannot download signed installer for verification." }
+          $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/islemap-thienvyma.exe"
+          $sidecar = Join-Path $env:GITHUB_WORKSPACE "src-tauri/binaries/islemap-thienvyma-telemetry-x86_64-pc-windows-msvc.exe"
+          if ($env:SIGNPATH_ENFORCE_AUTHENTICODE -eq "true") {
+            ./scripts/check-authenticode.ps1 -Path (Join-Path $manifestDir $assetName), $exe, $sidecar
+          } else {
+            Write-Warning "SignPath approval is pending. Publishing a transition release with a valid Tauri updater signature but without trusted Windows Authenticode."
+          }
+          node scripts/verify-signed-installer.mjs (Join-Path $manifestDir $assetName) (Join-Path $manifestDir "$assetName.sig") src-tauri/tauri.conf.json (Join-Path $manifestDir "latest.json")
+          if ($LASTEXITCODE -ne 0) { throw "Installer signature verification failed." }
+          $exe = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/x86_64-pc-windows-msvc/release/islemap-thienvyma.exe"
+          ./scripts/check-windows-gui-subsystem.ps1 -Executable $exe
+          $notesPath = Join-Path $manifestDir "release-notes.md"
+          $manifest.notes | Set-Content -LiteralPath $notesPath -Encoding utf8
+          gh release edit "v$version" --repo thienvyma/hubisle --notes-file $notesPath
+          if ($LASTEXITCODE -ne 0) { throw "Could not update release notes." }
+          gh release upload "v$version" (Join-Path $manifestDir "latest.json") --repo thienvyma/hubisle --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload public updater manifest." }
+
+      - name: Publish protected Beta manifest
+        if: steps.channel.outputs.is_beta == 'true'
+        shell: pwsh
+        env:
+          WORKER_ADMIN_TOKEN: ${{ secrets.WORKER_ADMIN_TOKEN }}
+        run: |
+          if (-not $env:WORKER_ADMIN_TOKEN) {
+            throw "Set WORKER_ADMIN_TOKEN so the Beta channel can publish its signed manifest."
+          }
+          $manifestPath = Join-Path $env:RUNNER_TEMP "islemap-thienvyma-updater/latest.json"
+          $headers = @{ Authorization = "Bearer $env:WORKER_ADMIN_TOKEN" }
+          Invoke-RestMethod `
+            -Method Put `
+            -Uri "https://islemap-thienvyma-api.islemap-thienvyma-api.workers.dev/admin/beta-release" `
+            -Headers $headers `
+            -ContentType "application/json" `
+            -InFile $manifestPath | Out-Null
+
+      - name: Publish complete release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          if ('${{ steps.channel.outputs.is_beta }}' -eq 'true') {
+            gh release edit "v$version" --repo thienvyma/hubisle --draft=false --latest=false
+          } else {
+            gh release edit "v$version" --repo thienvyma/hubisle --draft=false --latest
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Could not publish release." }
