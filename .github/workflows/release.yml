@@ -227,6 +227,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SIGNPATH_ENFORCE_AUTHENTICODE: ${{ vars.SIGNPATH_ENFORCE_AUTHENTICODE }}
+          RELEASE_REPOSITORY: thienvyma/hubisle
         run: |
           $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
           $manifestDir = Join-Path $env:RUNNER_TEMP "islemap-thienvyma-updater"
