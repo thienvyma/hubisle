@@ -131,6 +131,9 @@ jobs:
       - name: Test IslePilot garage workflow
         run: npm run test:garage
 
+      - name: Test server store purchase safeguards
+        run: npm run test:store
+
       - name: Test safe Windows installer upgrade
         run: npm run test:installer
 
