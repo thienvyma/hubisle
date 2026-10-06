@@ -145,6 +145,8 @@ jobs:
 
       - name: Test provider defaults
         run: npm run test:provider-defaults
+      - name: Test quick chat settings
+        run: npm run test:hotkeys
 
       - name: Test server Voice provider boundary
         run: npm run test:voice
