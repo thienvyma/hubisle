@@ -140,6 +140,9 @@ jobs:
       - name: Test release trust policy
         run: npm run test:release-trust
 
+      - name: Test team controller and map rules
+        run: npm run test:team
+
       - name: Test minimap friend labels
         run: npm run test:minimap-friends
 
